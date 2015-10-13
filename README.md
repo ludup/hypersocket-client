@@ -1,0 +1,2 @@
+# hypersocket-client
+Hypersocket Client
