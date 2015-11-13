@@ -13,6 +13,17 @@ import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.hypersocket.client.gui.jfx.Configuration.BrowserType;
+import com.hypersocket.client.gui.jfx.fontawesome.AwesomeIcons;
+import com.hypersocket.client.rmi.BrowserLauncher;
+import com.hypersocket.client.rmi.BrowserLauncher.BrowserLauncherFactory;
+import com.hypersocket.client.rmi.ResourceLauncher;
+import com.sshtools.forker.client.ForkerBuilder;
+import com.sshtools.forker.common.IO;
+
 import javafx.application.Application;
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
@@ -35,17 +46,6 @@ import javafx.scene.paint.Color;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.hypersocket.client.gui.jfx.Configuration.BrowserType;
-import com.hypersocket.client.gui.jfx.fontawesome.AwesomeIcons;
-import com.hypersocket.client.rmi.BrowserLauncher;
-import com.hypersocket.client.rmi.BrowserLauncher.BrowserLauncherFactory;
-import com.hypersocket.client.rmi.ResourceLauncher;
-import com.sshtools.forker.client.ForkerBuilder;
-import com.sshtools.forker.client.ForkerBuilder.IO;
 
 public class Client extends Application {
 	public static int DROP_SHADOW_SIZE = 11;
