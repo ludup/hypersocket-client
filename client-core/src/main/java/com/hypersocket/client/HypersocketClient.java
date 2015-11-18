@@ -226,7 +226,7 @@ public abstract class HypersocketClient<T> {
 
 		transport.setHeader("Authorization", authorization);
 
-		String json = transport.post("logon", params);
+		String json = transport.post("logon/hypersocketClient", params);
 		processLogon(json, params, new ArrayList<Prompt>());
 
 		if (!isLoggedOn()) {
