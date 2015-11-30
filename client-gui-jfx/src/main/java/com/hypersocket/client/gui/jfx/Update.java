@@ -1,6 +1,7 @@
 package com.hypersocket.client.gui.jfx;
 
 import java.rmi.RemoteException;
+import java.text.MessageFormat;
 import java.util.logging.Logger;
 
 import javafx.animation.KeyFrame;
@@ -62,14 +63,16 @@ public class Update extends AbstractController {
 	public void startingUpdate(String app, long totalBytesExpected) {
 		LOG.info(String.format("Starting up of %s, expect %d bytes", app,
 				totalBytesExpected));
-		this.message.textProperty().set(resources.getString("updating"));
+		String appName = getAppName(app);
+		this.message.textProperty().set(MessageFormat.format(resources.getString("updating"), appName));
 		progress.progressProperty().setValue(0);
 	}
 
 	@Override
 	public void updateProgressed(String app, long sincelastProgress,
 			long totalSoFar, long totalBytesExpected) {
-		this.message.textProperty().set(resources.getString("updating"));
+		String appName = getAppName(app);
+		this.message.textProperty().set(MessageFormat.format(resources.getString("updating"), appName));
 		progress.progressProperty().setValue(
 				(double) totalSoFar / totalBytesExpected);
 	}
@@ -115,12 +118,17 @@ public class Update extends AbstractController {
 
 	@Override
 	public void updateComplete(String app, long totalBytesTransfered) {
+		String appName = getAppName(app);
 		progress.progressProperty().setValue(1);
-		this.message.textProperty().set(resources.getString("updated"));
+		this.message.textProperty().set(MessageFormat.format(resources.getString("updated"), appName));
 		appsUpdated++;
 		LOG.info(String.format(
 				"Update of %s complete, have now updated %d of %d apps", app,
 				appsUpdated, appsToUpdate));
+	}
+
+	private String getAppName(String app) {
+		return resources.getString(app);
 	}
 
 	@Override
