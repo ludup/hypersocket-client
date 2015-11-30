@@ -1,9 +1,8 @@
-package com.hypersocket.client.service.browser;
+package com.hypersocket.client.service.fs;
 
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.rmi.RemoteException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -17,14 +16,19 @@ import com.hypersocket.client.rmi.Resource.Type;
 import com.hypersocket.client.rmi.ResourceImpl;
 import com.hypersocket.client.service.AbstractServicePlugin;
 
-public class BrowserResourcesPlugin extends AbstractServicePlugin {
+public class FileResourcesPlugin extends AbstractServicePlugin {
 
-	static Logger log = LoggerFactory.getLogger(BrowserResourcesPlugin.class);
+	static Logger log = LoggerFactory.getLogger(FileResourcesPlugin.class);
 
-	List<JsonBrowserResource> browserResources = new ArrayList<JsonBrowserResource>();
+	public FileResourcesPlugin() {
+		super("mounts");
+	}
 
-	public BrowserResourcesPlugin() {
-		super("browser");
+	protected void reloadResources(List<Resource> realmResources) {
+		if (log.isInfoEnabled()) {
+			log.info("Loading File Resources");
+		}
+		startFiles(realmResources);
 	}
 
 	@Override
@@ -32,19 +36,18 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 		return true;
 	}
 
-	protected void reloadResources(List<Resource> realmResources) {
+	protected void startFiles(List<Resource> realmResources) {
 		try {
-			String json = serviceClient.getTransport().get(
-					"browser/myResources");
-			
+			String json = serviceClient.getTransport().get("mounts/myResources");
+
 			ObjectMapper mapper = new ObjectMapper();
 
-			JsonBrowserResourceList list = mapper.readValue(json,
-					JsonBrowserResourceList.class);
+			JsonFileResourceList list = mapper.readValue(json,
+					JsonFileResourceList.class);
 
 			Map<String, String> properties = list.getProperties();
 
-			int errors = processBrowserResources(list.getResources(),
+			int errors = processFileResources(list.getResources(),
 					properties.get("authCode"), realmResources);
 
 			if (errors > 0) {
@@ -55,40 +58,24 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 
 		} catch (IOException e) {
 			if (log.isErrorEnabled()) {
-				log.error("Could not start website resources", e);
+				log.error("Could not start files resources", e);
 			}
 		}
 	}
 
-	protected int processBrowserResources(JsonBrowserResource[] resources,
-			String authCode, List<Resource> realmResources)
-			throws IOException {
+	protected int processFileResources(JsonFileResource[] resources,
+			String authCode, List<Resource> realmResources) throws IOException {
 
 		int errors = 0;
 
-		for (JsonBrowserResource resource : resources) {
+		for (JsonFileResource resource : resources) {
+			ResourceImpl res = new ResourceImpl("file-"
+					+ String.valueOf(resource.getId()), resource.getName());
 
-//			ResourceImpl res = new ResourceImpl("browser-" + String.valueOf(resource.getId()), resource.getName() + " - "
-//					+ I18N.getResource("text.defaultBrowser"));
-
-			ResourceImpl res = new ResourceImpl("browser-" + String.valueOf(resource.getId()), resource.getName());
-			
 			res.setLaunchable(true);
 			res.setIcon(resource.getLogo());
 			res.setModified(resource.getModifiedDate());
-
-			if (resource.getType() != null
-					&& resource.getType().equals("FileResource")) {
-				res.setType(Type.FILE);
-			} else if (resource.getType() != null
-					&& resource.getType().equals("BrowserSSOPlugin")) {
-				res.setType(Type.SSO);
-			} else {
-				res.setType(Type.BROWSER);
-//				if (res.getIcon() == null || res.getIcon().equals("")) {
-//					res.setIcon("web-https");
-//				}
-			}
+			res.setType(Type.FILE);
 
 			String sessionId = serviceClient.getSessionId();
 			res.setResourceLauncher(new BrowserLauncher(serviceClient
@@ -111,7 +98,7 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 	public void onStop() {
 
 		if (log.isInfoEnabled()) {
-			log.info("Stopping Browser Resources plugin");
+			log.info("Stopping File Resources plugin");
 		}
 
 		try {
@@ -121,11 +108,12 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 					"Failed to remove resource realm "
 							+ serviceClient.getHost(), e);
 		}
+
 	}
 
 	@Override
 	public String getName() {
-		return "Browser Resources";
+		return "File Resources";
 	}
 
 	@Override
@@ -142,4 +130,5 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 	protected boolean onDeletedResource(Resource resource) {
 		return true;
 	}
+
 }
