@@ -16,6 +16,7 @@ import com.hypersocket.client.HypersocketClientTransport;
 import com.hypersocket.client.Prompt;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUICallback;
+import com.hypersocket.client.rmi.GUIRegistry;
 import com.hypersocket.client.rmi.ResourceService;
 
 public class ServiceClient extends HypersocketClient<Connection> {

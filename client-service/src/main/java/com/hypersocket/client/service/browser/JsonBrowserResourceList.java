@@ -4,15 +4,14 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-@JsonIgnoreProperties(ignoreUnknown=true)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class JsonBrowserResourceList {
 
 	boolean success;
 	String error;
-	
 	JsonBrowserResource[] resources;
-	Map<String,String> properties;
-	
+	Map<String, String> properties;
+
 	public boolean isSuccess() {
 		return success;
 	}
@@ -44,5 +43,5 @@ public class JsonBrowserResourceList {
 	public void setProperties(Map<String, String> properties) {
 		this.properties = properties;
 	}
-	
+
 }

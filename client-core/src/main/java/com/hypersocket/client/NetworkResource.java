@@ -17,6 +17,7 @@ public class NetworkResource implements Serializable,ServiceResource {
 
 	String hostname;
 	String desintationHostname;
+	String localHostname;
 	int port;
 	String alias;
 	int actualPort;
@@ -31,6 +32,14 @@ public class NetworkResource implements Serializable,ServiceResource {
 		this.desintationHostname = destinationHostname;
 		this.port = port;
 		this.uri = uri;
+	}
+
+	public String getLocalHostname() {
+		return localHostname;
+	}
+
+	public void setLocalHostname(String localHostname) {
+		this.localHostname = localHostname;
 	}
 
 	public Long getParentResourceId() {

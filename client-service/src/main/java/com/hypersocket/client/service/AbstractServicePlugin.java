@@ -23,9 +23,11 @@ import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
+import com.hypersocket.client.rmi.GUIRegistry;
 import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.ResourceRealm;
 import com.hypersocket.client.rmi.ResourceService;
+import com.hypersocket.client.service.vpn.VPNServiceImpl;
 
 public abstract class AbstractServicePlugin implements ServicePlugin {
 
@@ -41,8 +43,9 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 	protected GUIRegistry guiRegistry;
 	protected List<Resource> realmResources = new ArrayList<Resource>();
 	protected ResourceRealm resourceRealm;
-
-	private ScheduledFuture<?> checkTask;
+	protected ScheduledFuture<?> checkTask;
+	protected ClientContext context;
+	protected VPNServiceImpl vpnService;
 
 	protected AbstractServicePlugin(String url) {
 		this.url = url;
@@ -78,12 +81,15 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 	}
 
 	@Override
-	public final boolean start(HypersocketClient<?> serviceClient,
-			ResourceService resourceService, GUIRegistry guiRegistry) {
+	public final boolean start(ClientContext context) {
 
-		this.serviceClient = serviceClient;
-		this.resourceService = resourceService;
-		this.guiRegistry = guiRegistry;
+		this.context = context;
+		
+		// convenience
+		this.vpnService = context.getVPNService();
+		this.serviceClient = context.getClient();
+		this.resourceService = context.getResourceService();
+		this.guiRegistry = context.getGUI();
 
 		if (log.isInfoEnabled()) {
 			log.info("Starting Resources for " + getClass());

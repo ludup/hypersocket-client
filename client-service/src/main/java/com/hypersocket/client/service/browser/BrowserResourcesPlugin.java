@@ -1,6 +1,7 @@
 package com.hypersocket.client.service.browser;
 
 import java.io.IOException;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hypersocket.client.NetworkResource;
 import com.hypersocket.client.rmi.BrowserLauncher;
 import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.Resource.Type;
@@ -36,7 +38,7 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 		try {
 			String json = serviceClient.getTransport().get(
 					"browser/myResources");
-			
+
 			ObjectMapper mapper = new ObjectMapper();
 
 			JsonBrowserResourceList list = mapper.readValue(json,
@@ -61,18 +63,15 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 	}
 
 	protected int processBrowserResources(JsonBrowserResource[] resources,
-			String authCode, List<Resource> realmResources)
-			throws IOException {
+			String authCode, List<Resource> realmResources) throws IOException {
 
 		int errors = 0;
 
 		for (JsonBrowserResource resource : resources) {
 
-//			ResourceImpl res = new ResourceImpl("browser-" + String.valueOf(resource.getId()), resource.getName() + " - "
-//					+ I18N.getResource("text.defaultBrowser"));
+			ResourceImpl res = new ResourceImpl("browser-"
+					+ String.valueOf(resource.getId()), resource.getName());
 
-			ResourceImpl res = new ResourceImpl("browser-" + String.valueOf(resource.getId()), resource.getName());
-			
 			res.setLaunchable(true);
 			res.setIcon(resource.getLogo());
 			res.setModified(resource.getModifiedDate());
@@ -85,21 +84,26 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 				res.setType(Type.SSO);
 			} else {
 				res.setType(Type.BROWSER);
-//				if (res.getIcon() == null || res.getIcon().equals("")) {
-//					res.setIcon("web-https");
-//				}
 			}
 
 			String sessionId = serviceClient.getSessionId();
+
+			String launchUrl = resource.getLaunchUrl();
+			
+			
+			if (resource.isRequireVPNAccess()) {
+				NetworkResource tunnel = vpnService.createURLForwarding(
+						serviceClient, launchUrl, resource.getId());
+				URL u = new URL(launchUrl);
+				URL nu = new URL(u.getProtocol(), tunnel.getLocalHostname(), tunnel.getLocalPort(), u.getFile());
+				launchUrl = nu.toExternalForm();				 
+			}
+			
 			res.setResourceLauncher(new BrowserLauncher(serviceClient
 					.getTransport().resolveUrl(
-							"attach/"
-									+ authCode
-									+ "/"
-									+ sessionId
+							"attach/" + authCode + "/" + sessionId
 									+ "?location="
-									+ URLEncoder.encode(
-											resource.getLaunchUrl(), "UTF-8"))));
+									+ URLEncoder.encode(launchUrl, "UTF-8"))));
 			realmResources.add(res);
 
 		}

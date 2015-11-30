@@ -2,8 +2,12 @@ package com.hypersocket.client.rmi;
 
 import java.io.Serializable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @SuppressWarnings("serial")
 public class BrowserLauncher implements ResourceLauncher, Serializable {
+	static Logger log = LoggerFactory.getLogger(BrowserLauncher.class);
 
 	public interface BrowserLauncherFactory {
 		ResourceLauncher create(String uri);
@@ -23,6 +27,7 @@ public class BrowserLauncher implements ResourceLauncher, Serializable {
 
 	@Override
 	public int launch() {
+		log.info(String.format("Launching to '%s'", launchUri));
 		if (factory == null) {
 			return new AWTBrowserLauncher(launchUri).launch();
 		} else {
