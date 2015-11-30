@@ -6,7 +6,6 @@ public class ResourceProtocolImpl implements ResourceProtocol, Serializable {
 
 	private static final long serialVersionUID = -3020855022266423615L;
 
-	Long id;
 	String name;
 	Resource group;
 	boolean launchable;
@@ -15,14 +14,8 @@ public class ResourceProtocolImpl implements ResourceProtocol, Serializable {
 	public ResourceProtocolImpl() {
 	}
 
-	public ResourceProtocolImpl(Long id, String name) {
-		this.id = id;
+	public ResourceProtocolImpl(String name) {
 		this.name = name;
-	}
-	
-	@Override
-	public Long getId() {
-		return id;
 	}
 
 	@Override
@@ -57,4 +50,5 @@ public class ResourceProtocolImpl implements ResourceProtocol, Serializable {
 	public void setResourceLauncher(ResourceLauncher launcher) {
 		this.launcher = launcher;
 	}
+
 }

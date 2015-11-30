@@ -30,4 +30,35 @@ public class BrowserLauncher implements ResourceLauncher, Serializable {
 		}
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result
+				+ ((launchUri == null) ? 0 : launchUri.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		BrowserLauncher other = (BrowserLauncher) obj;
+		if (launchUri == null) {
+			if (other.launchUri != null)
+				return false;
+		} else if (!launchUri.equals(other.launchUri))
+			return false;
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		return "BrowserLauncher [launchUri=" + launchUri + "]";
+	}
+
 }

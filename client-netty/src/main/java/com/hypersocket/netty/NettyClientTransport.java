@@ -241,7 +241,7 @@ public class NettyClientTransport implements HypersocketClientTransport {
 
 		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1,
 				HttpMethod.GET, apiPath + uri);
-
+		
 		HttpHandlerResponse response = httpClient.sendRequest(request, timeout);
 
 		if (response.getStatusCode() == 200) {
@@ -350,7 +350,7 @@ public class NettyClientTransport implements HypersocketClientTransport {
 		NetworkResource resource = resourcesBySocketAddress.get(channel
 				.getLocalAddress());
 
-		return createWebsocket(resource.getUri() + "?resourceId=" + resource.getId()
+		return createWebsocket(resource.getUri() + "?resourceId=" + resource.getParentResourceId()
 				+ "&hostname=" + resource.getDestinationHostname()
 				+ "&port=" + resource.getPort(), callback);
 

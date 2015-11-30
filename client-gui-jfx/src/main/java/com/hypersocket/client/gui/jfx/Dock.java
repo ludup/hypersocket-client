@@ -1,11 +1,14 @@
 package com.hypersocket.client.gui.jfx;
 
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
@@ -44,6 +47,7 @@ import javafx.stage.Window;
 import javafx.util.Duration;
 
 import org.controlsfx.control.Notifications;
+import org.controlsfx.control.action.Action;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +58,7 @@ import com.hypersocket.client.gui.jfx.Popup.PositionType;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionStatus;
 import com.hypersocket.client.rmi.GUICallback;
+import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
 import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.Resource.Type;
 import com.hypersocket.client.rmi.ResourceRealm;
@@ -173,7 +178,7 @@ public class Dock extends AbstractController implements Listener {
 	 * Class methods
 	 */
 
-	public void notify(String msg, int type) {
+	public void notify(String msg, int type, Action... actions) {
 		Pos pos = Pos.CENTER;
 		if (cfg.topProperty().get()) {
 			pos = Pos.TOP_LEFT;
@@ -192,8 +197,9 @@ public class Dock extends AbstractController implements Listener {
 					public void handle(ActionEvent arg0) {
 					}
 				});
-		
+
 		notificationBuilder.hideCloseButton();
+		notificationBuilder.action(actions);
 
 		Configuration cfg = Configuration.getDefault();
 		Color backgroundColour = cfg.colorProperty().getValue();
@@ -243,8 +249,8 @@ public class Dock extends AbstractController implements Listener {
 					hideIfShowing(resourceGroupPopup);
 					setAvailable();
 					updateScene = (Update) context
-							.openScene(Update.class, Configuration
-									.getDefault().isVertical() ? "Vertical" : null);
+							.openScene(Update.class, Configuration.getDefault()
+									.isVertical() ? "Vertical" : null);
 					Scene scn = updateScene.getScene();
 					scn.setFill(new Color(0, 0, 0, 0));
 
@@ -256,12 +262,14 @@ public class Dock extends AbstractController implements Listener {
 
 					Parent sceneRoot = scn.rootProperty().get();
 					scn.setRoot(new Group());
-					
-					if(cfg.isVertical())
-						((VBox)sceneRoot).minWidthProperty().bind(shortcuts.heightProperty());
+
+					if (cfg.isVertical())
+						((VBox) sceneRoot).minWidthProperty().bind(
+								shortcuts.heightProperty());
 					else
-						((HBox)sceneRoot).minWidthProperty().bind(shortcuts.widthProperty());
-					
+						((HBox) sceneRoot).minWidthProperty().bind(
+								shortcuts.widthProperty());
+
 					flinger.getContent().getChildren().clear();
 					flinger.getContent().getChildren().add(sceneRoot);
 				} catch (IOException ioe) {
@@ -288,8 +296,9 @@ public class Dock extends AbstractController implements Listener {
 	}
 
 	public void onLaunched(Runnable runnable) {
-		if(launchWait != null) {
-			launchWait.setOnFinished(runnable == null ? null : eh -> runnable.run());
+		if (launchWait != null) {
+			launchWait.setOnFinished(runnable == null ? null : eh -> runnable
+					.run());
 		}
 	}
 
@@ -319,7 +328,7 @@ public class Dock extends AbstractController implements Listener {
 	public void bridgeEstablished() {
 		log.info(String.format("Bridge established, rebuilding all launchers"));
 		rebuildAllLaunchers();
-		if(context.getBridge().isServiceUpdating()) {
+		if (context.getBridge().isServiceUpdating()) {
 			setMode(Mode.UPDATE);
 		}
 	}
@@ -341,24 +350,102 @@ public class Dock extends AbstractController implements Listener {
 	}
 
 	public boolean isAwaitingLaunch() {
-		return launchWait != null && launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING;
+		return launchWait != null
+				&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING;
 	}
-
 
 	// Overrides
 
 	@Override
+	public void updateResource(ResourceUpdateType type, Resource resource) {
+		switch (type) {
+		case CREATE: {
+			rebuildResourceIcon(resource.getRealm(), resource,
+					resource.getIcon());
+			rebuildIcons();
+
+			Action[] actions = new Action[0];
+			
+			// Find the button so we can launch on clicking the notify
+			ResourceGroupKey key = new ResourceGroupKey(resource.getType(),
+					resource.getGroup());
+			ResourceGroupList list = icons.get(key);
+			if (list != null) {
+				ResourceItem rit = list.getItemForResource(resource);
+				if (rit != null) {
+					LauncherButton lb = getButtonForResourceItem(rit);
+					if (lb != null) {
+						actions = new Action[] { new Action(resources.getString("resources.launch"),
+								new Consumer<ActionEvent>() {
+									@Override
+									public void accept(ActionEvent t) {
+										lb.launch();
+									}
+								}) };
+					}
+				}
+			}
+
+			notify(MessageFormat.format(
+					resources.getString("resources.created"),
+					resource.getName()), GUICallback.NOTIFY_INFO, actions);
+			break;
+		}
+		case DELETE: {
+			ResourceGroupKey key = new ResourceGroupKey(resource.getType(),
+					resource.getIcon());
+			ResourceGroupList list = icons.get(key);
+			if (list != null) {
+				ResourceItem rit = list.getItemForResource(resource);
+				if (rit != null) {
+					list.getItems().remove(rit);
+					rebuildIcons();
+					notify(MessageFormat.format(
+							resources.getString("resources.deleted"),
+							resource.getName()), GUICallback.NOTIFY_INFO);
+					break;
+				}
+			}
+			break;
+		}
+		default: {
+			ResourceGroupKey key = new ResourceGroupKey(resource.getType(),
+					resource.getGroup());
+			ResourceGroupList list = icons.get(key);
+			if (list != null) {
+				ResourceItem rit = list.getItemForResource(resource);
+				if (rit != null) {
+					rit.setResource(resource);
+					rebuildIcons();
+					notify(MessageFormat.format(
+							resources.getString("resources.updated"),
+							resource.getName()), GUICallback.NOTIFY_INFO);
+					break;
+				}
+				else {
+					log.warn(String.format("Could not find icon in icon group for resource %s (%s)", resource.getUid(), resource.getName()));
+				}
+			}
+			else {
+				log.warn(String.format("Could not find icon group for resource %s (%s)", resource.getUid(), resource.getName()));
+			}
+			break;
+		}
+		}
+	}
+
+	@Override
 	protected void onCleanUp() {
-		if(updateScene != null) {
+		if (updateScene != null) {
 			updateScene.cleanUp();
 		}
-		if(signInScene != null) {
+		if (signInScene != null) {
 			signInScene.cleanUp();
 		}
-		if(optionsScene != null) {
+		if (optionsScene != null) {
 			optionsScene.cleanUp();
 		}
-		if(statusContent != null) {
+		if (statusContent != null) {
 			statusContent.cleanUp();
 		}
 		cfg.sizeProperty().removeListener(sizeChangeListener);
@@ -456,8 +543,8 @@ public class Dock extends AbstractController implements Listener {
 		cfg.rightProperty().addListener(borderChangeListener);
 
 		dockContent.prefWidthProperty().bind(dockStack.widthProperty());
-		
-		if(context.getBridge().isServiceUpdating()) {
+
+		if (context.getBridge().isServiceUpdating()) {
 			setMode(Mode.UPDATE);
 		}
 
@@ -636,13 +723,25 @@ public class Dock extends AbstractController implements Listener {
 
 	private void rebuildResourceIcon(ResourceRealm resourceRealm, Resource r,
 			String groupName) {
-		ResourceGroupKey igk = new ResourceGroupKey(r.getType(), groupName);
+		ResourceGroupKey igk = new ResourceGroupKey(r.getType(), r.getGroup());
 		ResourceGroupList ig = icons.get(igk);
 		if (ig == null) {
 			ig = new ResourceGroupList(igk);
 			icons.put(igk, ig);
 		}
 		ig.getItems().add(new ResourceItem(r, resourceRealm));
+	}
+
+	private LauncherButton getButtonForResourceItem(ResourceItem resourceItem) {
+		for (Node n : flinger.getContent().getChildren()) {
+			if (n instanceof LauncherButton) {
+				final LauncherButton launcherButton = (LauncherButton) n;
+				if (resourceItem.equals(launcherButton.getResourceItem())) {
+					return launcherButton;
+				}
+			}
+		}
+		return null;
 	}
 
 	private void rebuildIcons() {
@@ -698,7 +797,7 @@ public class Dock extends AbstractController implements Listener {
 							@Override
 							protected void onFinishLaunch() {
 								super.onFinishLaunch();
-								
+
 								if (launchWait != null
 										&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING)
 									launchWait.stop();
@@ -994,7 +1093,7 @@ public class Dock extends AbstractController implements Listener {
 			signIn.getStyleClass().add("statusError");
 		}
 	}
-	
+
 	@FXML
 	private void evtMouseEnter(MouseEvent evt) throws Exception {
 		if (cfg.autoHideProperty().get()) {
@@ -1086,5 +1185,5 @@ public class Dock extends AbstractController implements Listener {
 		}
 		optionsPopup.popup();
 	}
-	
+
 }

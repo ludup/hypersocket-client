@@ -25,6 +25,8 @@ import org.slf4j.LoggerFactory;
 import com.hypersocket.client.Prompt;
 import com.hypersocket.client.gui.jfx.Bridge.Listener;
 import com.hypersocket.client.rmi.Connection;
+import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
+import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.extensions.ExtensionDefinition;
 
 public class AbstractController implements FramedController, Listener {
@@ -147,6 +149,10 @@ public class AbstractController implements FramedController, Listener {
 
 	@Override
 	public void initDone(String errorMessage) {
+	}
+
+	@Override
+	public void updateResource(ResourceUpdateType type, Resource resource) {
 	}
 
 	public final void setPopup(Popup popup) {

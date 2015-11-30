@@ -1,5 +1,6 @@
 package com.hypersocket.client.rmi;
 
+import java.util.Calendar;
 import java.util.List;
 
 public interface Resource extends Launchable {
@@ -8,9 +9,13 @@ public interface Resource extends Launchable {
 		FILE, NETWORK, BROWSER, SSO
 	}
 	
+	String getUid();
+	
 	String getIcon();
 	
 	String getColour();
+	
+	String getGroup();
 	
 	Type getType();
 
@@ -23,5 +28,7 @@ public interface Resource extends Launchable {
 	ResourceRealm getRealm();
 
 	String getName();
+	
+	Calendar getModified();
 
 }
