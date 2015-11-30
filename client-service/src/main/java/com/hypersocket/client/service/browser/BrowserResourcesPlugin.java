@@ -69,8 +69,11 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 
 		for (JsonBrowserResource resource : resources) {
 
-			ResourceImpl res = new ResourceImpl("browser-" + String.valueOf(resource.getId()), resource.getName() + " - "
-					+ I18N.getResource("text.defaultBrowser"));
+//			ResourceImpl res = new ResourceImpl("browser-" + String.valueOf(resource.getId()), resource.getName() + " - "
+//					+ I18N.getResource("text.defaultBrowser"));
+
+			ResourceImpl res = new ResourceImpl("browser-" + String.valueOf(resource.getId()), resource.getName());
+			
 			res.setLaunchable(true);
 			res.setIcon(resource.getLogo());
 			res.setModified(resource.getModifiedDate());
@@ -83,9 +86,9 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 				res.setType(Type.SSO);
 			} else {
 				res.setType(Type.BROWSER);
-				if (res.getIcon() == null || res.getIcon().equals("")) {
-					res.setIcon("web-https");
-				}
+//				if (res.getIcon() == null || res.getIcon().equals("")) {
+//					res.setIcon("web-https");
+//				}
 			}
 
 			String sessionId = serviceClient.getSessionId();

@@ -128,9 +128,9 @@ public class Configuration {
 		showNetwork.addListener(new BooleanPreferenceUpdateChangeListener(node,
 				"showNetwork"));
 
-		showFiles.set(node.getBoolean("showNetwork", true));
+		showFiles.set(node.getBoolean("showFiles", true));
 		showFiles.addListener(new BooleanPreferenceUpdateChangeListener(node,
-				"showNetwork"));
+				"showFiles"));
 
 		autoHide.set(node.getBoolean("autoHide", true));
 		autoHide.addListener(new BooleanPreferenceUpdateChangeListener(node,

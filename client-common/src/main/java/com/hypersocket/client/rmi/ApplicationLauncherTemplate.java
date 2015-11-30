@@ -4,8 +4,6 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Map;
 
-import org.apache.commons.lang.StringUtils;
-
 public class ApplicationLauncherTemplate implements Serializable {
 
 	private static final long serialVersionUID = -1187629371260022723L;
@@ -28,20 +26,6 @@ public class ApplicationLauncherTemplate implements Serializable {
 		this.shutdownScript = shutdownScript;
 		this.variables = variables;
 		this.logo = logo;
-	}
-	
-	}
-	
-	public ApplicationLauncherTemplate(Long id, String name, String exe, String startupScript, String shutdownScript, Map<String,String> variables, String args) {
-		this.name = name;
-		this.exe = exe;
-		this.id = id;
-		this.startupScript = startupScript;
-		this.shutdownScript = shutdownScript;
-		this.variables = variables;
-		if(!StringUtils.isEmpty(args)) {
-			this.args = args.split("\\]\\|\\[");
-		}
 	}
 	
 	public String getLogo() {

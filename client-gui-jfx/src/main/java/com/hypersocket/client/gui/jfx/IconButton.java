@@ -3,7 +3,9 @@ package com.hypersocket.client.gui.jfx;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.rmi.RemoteException;
 import java.util.Map;
 import java.util.MissingResourceException;
@@ -19,6 +21,7 @@ import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,23 +45,29 @@ public class IconButton extends LauncherButton {
 		String typeName = resourceItem.getResource().getType().name();
 		try {
 			String iconName = resourceItem.getResource().getIcon();
+			
 			if (StringUtils.isBlank(iconName)) {
+				iconName = "logo://96_autotype_autotype_auto.png";
+			}
+			
+//			if (StringUtils.isBlank(iconName)) {
 				// Default icon
-				String imgPath = String.format("types/type-%s.png",
-						typeName.toLowerCase());
-				URL resource = getClass().getResource(imgPath);
-				if (resource == null) {
-					setText(resources.getString("resource.icon." + typeName));
-					log.warn(String.format(
-							"Falling back to text based icon for type %s because %s could not be found (%s)",
-							typeName, imgPath, resourceItem.getResource().getName()));
-				} else {
-					final ImageView imageView = new ImageView(
-							resource.toString());
-					configureButton(imageView);
-					setGraphic(imageView);
-				}
-			} else if(iconName.startsWith("res://")){
+//				String imgPath = String.format("types/type-%s.png",
+//						typeName.toLowerCase());
+//				URL resource = getClass().getResource(imgPath);
+//				if (resource == null) {
+//					setText(resources.getString("resource.icon." + typeName));
+//					log.warn(String.format(
+//							"Falling back to text based icon for type %s because %s could not be found (%s)",
+//							typeName, imgPath, resourceItem.getResource().getName()));
+//				} else {
+//					final ImageView imageView = new ImageView(
+//							resource.toString());
+//					configureButton(imageView);
+//					setGraphic(imageView);
+//				}
+//			} else 
+			if(iconName.startsWith("res://")){
 				// Client specified icon (when retrieving resources)
 				final String resourceName = iconName.substring(6);
 				URL resource = getClass().getResource(resourceName);
@@ -78,7 +87,16 @@ public class IconButton extends LauncherButton {
 				// Server specified icon
 				String iconPath = iconName;
 				if(iconPath.indexOf("/") == -1) {
-					iconPath = "fileUpload/file/" + iconName;
+						iconPath = "fileUpload/file/" + iconName;
+				}
+				else {
+					if(iconName.startsWith("logo://")) {
+						try {
+							iconPath = "logo/" + URLEncoder.encode(typeName, "UTF-8") + "/" + URLEncoder.encode(resourceItem.getResource().getName(), "UTF-8") + "/" + iconName.substring(7);
+						} catch (UnsupportedEncodingException e) {
+							throw new RuntimeException(e);
+						}
+					}
 				}
 				
 				final ImageView imageView = new ImageView(getClass()
@@ -87,7 +105,7 @@ public class IconButton extends LauncherButton {
 				setGraphic(imageView);
 
 				String cacheKey = resourceItem.getResourceRealm().getName()
-						+ "-" + iconName;
+						+ "-" + iconPath;
 				if (iconCache.containsKey(cacheKey)) {
 					imageView.setImage(iconCache.get(cacheKey));
 				} else {
