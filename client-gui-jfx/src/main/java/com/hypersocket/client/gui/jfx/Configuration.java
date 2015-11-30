@@ -41,6 +41,25 @@ public class Configuration {
 	private final static Configuration DEFAULT_INSTANCE = new Configuration(
 			Preferences.userNodeForPackage(Configuration.class));
 
+	class IntegerPreferenceUpdateChangeListener implements
+			ChangeListener<Number> {
+
+		private Preferences node;
+		private String key;
+
+		IntegerPreferenceUpdateChangeListener(Preferences node, String key) {
+			this.node = node;
+			this.key = key;
+		}
+
+		@Override
+		public void changed(ObservableValue<? extends Number> observable,
+				Number oldValue, Number newValue) {
+			node.putInt(key, newValue.intValue());
+		}
+
+	}
+
 	class BooleanPreferenceUpdateChangeListener implements
 			ChangeListener<Boolean> {
 
@@ -143,6 +162,9 @@ public class Configuration {
 		avoidReserved.set(node.getBoolean("avoidReserved", true));
 		avoidReserved.addListener(new BooleanPreferenceUpdateChangeListener(
 				node, "avoidReserved"));
+		
+		monitor.set(node.getInt("monitor", 0));
+		monitor.addListener(new IntegerPreferenceUpdateChangeListener(node, "monitor"));
 
 		size.set((int)node.getDouble("size", 48));
 		size.addListener(new ChangeListener<Number>() {
@@ -198,7 +220,7 @@ public class Configuration {
 	public static Configuration getDefault() {
 		return DEFAULT_INSTANCE;
 	}
-	
+
 	public StringProperty browserCommandProperty() {
 		return browserCommand;
 	}
