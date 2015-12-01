@@ -153,8 +153,15 @@ public class ConnectionImpl implements Connection, Serializable {
 		result = prime * result + ((path == null) ? 0 : path.hashCode());
 		result = prime * result + ((port == null) ? 0 : port.hashCode());
 		result = prime * result + ((realm == null) ? 0 : realm.hashCode());
-		result = prime * result
-				+ ((username == null) ? 0 : username.hashCode());
+
+		/* TODO other things prevent this from being useful. If this is renabled, make sure that
+		 * activeClients in ClientService updates properly (particularly when saving a connection
+		 * during logon - as the username will not be available in the active map)
+		 */
+		
+		
+//		result = prime * result
+//				+ ((username == null) ? 0 : username.hashCode());
 		return result;
 	}
 
@@ -187,11 +194,18 @@ public class ConnectionImpl implements Connection, Serializable {
 				return false;
 		} else if (!realm.equals(other.realm))
 			return false;
-		if (username == null) {
-			if (other.username != null)
-				return false;
-		} else if (!username.equals(other.username))
-			return false;
+		
+		/* TODO other things prevent this from being useful. If this is renabled, make sure that
+		 * activeClients in ClientService updates properly (particularly when saving a connection
+		 * during logon - as the username will not be available in the active map)
+		 */
+		
+		
+//		if (username == null) {
+//			if (other.username != null)
+//				return false;
+//		} else if (!username.equals(other.username))
+//			return false;
 		return true;
 	}
 
@@ -223,6 +237,16 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Override
 	public void setSerial(String serial) {
 		this.serial = serial;
+	}
+
+	@Override
+	public String toString() {
+		return "ConnectionImpl [id=" + id + ", hostname=" + hostname
+				+ ", port=" + port + ", path=" + path + ", realm=" + realm
+				+ ", username=" + username + ", stayConnected=" + stayConnected
+				+ ", connectAtStartup=" + connectAtStartup + ", serverVersion="
+				+ serverVersion + ", updateState=" + updateState + ", serial="
+				+ serial + "]";
 	}
 
 	

@@ -543,9 +543,10 @@ public class ClientServiceImpl implements ClientService {
 	public Connection save(Connection c) throws RemoteException {
 		// If a non-persistent connection is now being saved as a persistent
 		// one, then update our maps
+		Long oldId = c.getId();
 		Connection newConnection = connectionService.save(c);
 
-		if (c.getId() == null && newConnection.getId() != null) {
+		if (oldId == null && newConnection.getId() != null) {
 			log.info(String.format(
 					"Saving non-persistent connection, now has ID %d",
 					newConnection.getId()));
