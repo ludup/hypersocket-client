@@ -64,6 +64,7 @@ public class ConnectionJob extends TimerTask {
 					HypersocketClient<Connection> client,
 					boolean onError) {
 				clientService.disconnected(connection, client);
+				log.info("Client has disconnected, informing GUI");
 				guiRegistry
 				.disconnected(
 						connection,

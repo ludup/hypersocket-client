@@ -83,7 +83,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 	@Override
 	protected void onUpdateStart(long totalBytesExpected) {
-		gui.onUpdateStart(extensionPlace.getApp(), totalBytesExpected);
+		gui.onUpdateStart(extensionPlace.getApp(), totalBytesExpected, connection);
 	}
 
 	@Override

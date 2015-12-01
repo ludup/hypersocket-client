@@ -123,7 +123,7 @@ public class AbstractController implements FramedController, Listener {
 	}
 
 	@Override
-	public void startingUpdate(String app, long totalBytesExpected) {
+	public void startingUpdate(String app, long totalBytesExpected, Connection connection) {
 	}
 
 	@Override

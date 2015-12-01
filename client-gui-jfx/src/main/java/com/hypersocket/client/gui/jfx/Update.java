@@ -16,6 +16,7 @@ import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 
 import com.hypersocket.client.gui.jfx.Dock.Mode;
+import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUICallback;
 
 public class Update extends AbstractController {
@@ -32,6 +33,7 @@ public class Update extends AbstractController {
 	private Timeline awaitingBridgeEstablish;
 	private int appsToUpdate;
 	private int appsUpdated;
+	private Connection updatingConnection;
 
 	@Override
 	protected void onInitialize() {
@@ -60,9 +62,10 @@ public class Update extends AbstractController {
 	}
 
 	@Override
-	public void startingUpdate(String app, long totalBytesExpected) {
+	public void startingUpdate(String app, long totalBytesExpected, Connection connection) {
 		LOG.info(String.format("Starting up of %s, expect %d bytes", app,
 				totalBytesExpected));
+		updatingConnection = connection;
 		String appName = getAppName(app);
 		this.message.textProperty().set(MessageFormat.format(resources.getString("updating"), appName));
 		progress.progressProperty().setValue(0);
@@ -84,6 +87,13 @@ public class Update extends AbstractController {
 			@Override
 			public void run() {
 				if (awaitingBridgeEstablish != null) {
+					/* If the connection that originated the update was known, then try to reconnect to it when
+					 * the client GUI starts again 
+					 */
+					if(updatingConnection != null) {
+						Configuration.getDefault().temporaryOnStartConnectionProperty().set(String.valueOf(updatingConnection.getId()));
+					}
+					
 					// Bridge established as result of update, now restart the
 					// client itself
 					resetAwaingBridgeEstablish();
@@ -140,6 +150,7 @@ public class Update extends AbstractController {
 		} catch (RemoteException e) {
 			// Not actually remote
 		}
+		context.getBridge().disconnectAll();
 	}
 
 	@Override
@@ -162,6 +173,7 @@ public class Update extends AbstractController {
 		resetAwaingBridgeLoss();
 		appsToUpdate = 0;
 		appsUpdated = 0;
+		Dock.getInstance().setMode(Mode.IDLE);
 	}
 
 	private void giveUpWaitingForBridgeEstablish() {

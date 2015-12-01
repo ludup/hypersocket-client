@@ -35,7 +35,7 @@ public interface GUIRegistry {
 	public abstract void onUpdateProgress(String app, long sincelastProgress,
 			long totalSoFar, long totalBytesExpected);
 
-	public abstract void onUpdateStart(String app, long totalBytesExpected);
+	public abstract void onUpdateStart(String app, long totalBytesExpected, Connection connection);
 
 	public abstract void onUpdateInit(int apps) throws RemoteException;
 

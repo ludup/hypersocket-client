@@ -236,11 +236,11 @@ public class GUIRegistryImpl implements GUIRegistry {
 	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateStart(java.lang.String, long)
 	 */
 	@Override
-	public void onUpdateStart(String app, long totalBytesExpected) {
+	public void onUpdateStart(String app, long totalBytesExpected, Connection connection) {
 		synchronized (lock) {
 			try {
 				if (gui != null && guiAttached) {
-					gui.onUpdateStart(app, totalBytesExpected);
+					gui.onUpdateStart(app, totalBytesExpected, connection);
 				}
 			} catch (RemoteException ex) {
 				failed(app, ex);

@@ -593,7 +593,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void onUpdateStart(final String app, final long totalBytesExpected)
+	public void onUpdateStart(final String app, final long totalBytesExpected, Connection connection)
 			throws RemoteException {
 		if (isUpdateCancelled()) {
 			throw new CancelledException();

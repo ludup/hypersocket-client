@@ -116,7 +116,7 @@ public class ClientServiceImpl implements ClientService {
 				 */
 				guiRegistry.onUpdateInit(appsToUpdate);
 				guiRegistry.onUpdateStart(ExtensionPlace.getDefault().getApp(),
-						serviceUpdateJob.getTotalSize());
+						serviceUpdateJob.getTotalSize(), null);
 				guiRegistry.onUpdateProgress(ExtensionPlace.getDefault()
 						.getApp(), 0, serviceUpdateJob.getTransfered(),serviceUpdateJob.getTotalSize());
 				if (serviceUpdateJob.getTransfered() >= serviceUpdateJob
@@ -242,8 +242,10 @@ public class ClientServiceImpl implements ClientService {
 		}
 
 		if (activeClients.containsKey(c)) {
+			log.info("Was connected, disconnecting");
 			activeClients.remove(c).disconnect(false);
 		} else if (connectingClients.containsKey(c)) {
+			log.info("Was connecting, cancelling");
 			connectingClients.get(c).cancel();
 			connectingClients.remove(c);
 
@@ -367,6 +369,7 @@ public class ClientServiceImpl implements ClientService {
 
 				} catch (IOException e) {
 					log.error("Failed to execute update job.", e);
+					return false;
 				}
 
 				return true;
