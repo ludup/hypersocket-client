@@ -15,6 +15,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 import org.controlsfx.control.PopOver;
@@ -123,7 +124,8 @@ public class AbstractController implements FramedController, Listener {
 	}
 
 	@Override
-	public void startingUpdate(String app, long totalBytesExpected, Connection connection) {
+	public void startingUpdate(String app, long totalBytesExpected,
+			Connection connection) {
 	}
 
 	@Override
@@ -159,76 +161,137 @@ public class AbstractController implements FramedController, Listener {
 		this.popup = popup;
 		onSetPopup(popup);
 	}
-	
-	protected void onSetPopup(Popup popup) {
-		
-	}
-	
-	protected void showPopOver(String text, Node node) {
 
-		
-		if(!Objects.equals(popOverNode, node)) {
+	protected void onSetPopup(Popup popup) {
+
+	}
+
+	protected void showPopOver(Object message, Node node) {
+
+		if (!Objects.equals(popOverNode, node)) {
 			hidePopOver();
 			popOverNode = node;
-			
+
 		}
-		
-		if(popOver != null && popOver.isShowing()) {
+
+		if (popOver != null && popOver.isShowing()) {
 			return;
 		}
 
-		if(popOver == null) {
+//		if (popOver == null) {
 			popOver = new PopOver();
+			popOver.setDetachable(false);
 
 			popOver.setConsumeAutoHidingEvents(false);
-			popup.setPopOver(popOver);
+			if (popup != null)
+				popup.setPopOver(popOver);
 			popOver.getRoot().focusTraversableProperty().set(false);
-			popOver.getRoot().getStylesheets().add(
-					Client.class.getResource(Client.class.getSimpleName() + ".css")
+			popOver.getRoot()
+					.getStylesheets()
+					.add(Client.class.getResource(
+							Client.class.getSimpleName() + ".css")
 							.toExternalForm());
 			popOver.getRoot().maxWidthProperty().set(380);
-	    	Client.applyStyles(popOver.getRoot());
-			
-			Label l = new Label();
-			l.wrapTextProperty().set(true);
-			l.setText(text);
-			
-			popOver.setContentNode(l);
-		}
-		else {
-			((Label)popOver.getContentNode()).setText(text);
-		}
+			Client.applyStyles(popOver.getRoot());
+
+			if (message instanceof String) {
+				Label l = new Label();
+				l.wrapTextProperty().set(true);
+				l.setText((String) message);
+				popOver.setContentNode(l);
+			} else {
+				popOver.setContentNode((Node) message);
+			}
+
+//		} else {
+//			if (message instanceof String) {
+//				((Label) popOver.getContentNode()).setText((String) message);
+//			} else {
+//				popOver.setContentNode((Node) message);
+//			}
+//		}
 		Configuration cfg = Configuration.getDefault();
-		
+
 		Bounds bounds = node.localToScene(node.getBoundsInLocal());
 
-		
-		if(cfg.topProperty().get() || cfg.bottomProperty().get() || cfg.rightProperty().get()) {
-			popOver.arrowLocationProperty().set(ArrowLocation.RIGHT_TOP);
-			popOver.show(popup, popup.getX() - popOver.getRoot().layoutBoundsProperty().get().getMaxX() - 20, popup.getY() + bounds.getMinY() - (bounds.getHeight() ));
-			
-			/* NOTE: Ugh. Without this manual layout and re-show, the popover will initially be in the wrong place.
-			 * This is because only a max width is set and a layout must occur before we know the true width.
-			 */
-			popOver.getRoot().applyCss();
-			popOver.getRoot().layout();
-			popOver.show(popup, popup.getX() - popOver.getRoot().layoutBoundsProperty().get().getMaxX() - 20, popup.getY() + bounds.getMinY() - (bounds.getHeight() ));
-		}
-		else {
-			popOver.arrowLocationProperty().set(ArrowLocation.LEFT_TOP);
-			popOver.show(popup, popup.getX() + popup.getWidth() + 5, popup.getY() + bounds.getMinY() - (bounds.getHeight() ));
-			
-			/* NOTE: Ugh. Without this manual layout and re-show, the popover will initially be in the wrong place.
-			 * This is because only a max width is set and a layout must occur before we know the true width.
-			 */
-			popOver.getRoot().applyCss();
-			popOver.getRoot().layout();
-			popOver.show(popup, popup.getX() + popup.getWidth() + 5, popup.getY() + bounds.getMinY() - (bounds.getHeight() ));
+		System.out.println("Bounds of NODE: " + node + " = " + bounds);
+
+		if (popup == null) {
+			// Dock
+
+			if (cfg.topProperty().get()) {
+				Node messageNode = (Node)message;
+				double ow = Configuration.getDefault().sizeProperty().get();
+				messageNode.minWidth(ow);
+				double prefHeight = messageNode.prefHeight(ow);
+				System.out.println("OW: " + ow + " PH: " + prefHeight);
+				messageNode.minHeight(prefHeight);
+				popOver.arrowLocationProperty().set(ArrowLocation.TOP_CENTER);
+				
+//				popOver.minWidthProperty().set(150);
+				popOver.getRoot().minHeight(300);
+//				popOver.minWidth(ow);
+//				popOver.getRoot().minWidth(ow);
+				popOver.show(scene.getWindow(), bounds.getMinX()
+						+ ((node.getLayoutBounds().getWidth() - popOver
+								.getRoot().layoutBoundsProperty().get()
+								.getMaxX()) / 2), bounds.getMinY()
+						+ scene.getWindow().getHeight() + 5);
+				popOver.getRoot().applyCss();
+				popOver.getRoot().layout();
+				popOver.minHeight(300);
+				popOver.show(scene.getWindow(), bounds.getMinX()
+						+ ((node.getLayoutBounds().getWidth() - popOver
+								.getRoot().layoutBoundsProperty().get()
+								.getMaxX()) / 2), bounds.getMinY()
+						+ scene.getWindow().getHeight() + 5);
+			}
+
+		} else {
+			// Popups
+
+			if (cfg.topProperty().get() || cfg.bottomProperty().get()
+					|| cfg.rightProperty().get()) {
+				popOver.arrowLocationProperty().set(ArrowLocation.RIGHT_TOP);
+				popOver.show(popup, popup.getX()
+						- popOver.getRoot().layoutBoundsProperty().get()
+								.getMaxX() - 20,
+						popup.getY() + bounds.getMinY() - (bounds.getHeight()));
+
+				/*
+				 * NOTE: Ugh. Without this manual layout and re-show, the
+				 * popover will initially be in the wrong place. This is because
+				 * only a max width is set and a layout must occur before we
+				 * know the true width.
+				 */
+				popOver.getRoot().applyCss();
+				popOver.getRoot().layout();
+				popOver.show(popup, popup.getX()
+						- popOver.getRoot().layoutBoundsProperty().get()
+								.getMaxX() - 20,
+						popup.getY() + bounds.getMinY() - (bounds.getHeight()));
+
+			} else {
+				popOver.arrowLocationProperty().set(ArrowLocation.LEFT_TOP);
+				popOver.show(popup, popup.getX() + popup.getWidth() + 5,
+						popup.getY() + bounds.getMinY() - (bounds.getHeight()));
+
+				/*
+				 * NOTE: Ugh. Without this manual layout and re-show, the
+				 * popover will initially be in the wrong place. This is because
+				 * only a max width is set and a layout must occur before we
+				 * know the true width.
+				 */
+				popOver.getRoot().applyCss();
+				popOver.getRoot().layout();
+				popOver.show(popup, popup.getX() + popup.getWidth() + 5,
+						popup.getY() + bounds.getMinY() - (bounds.getHeight()));
+			}
 		}
 	}
-	
+
 	protected void hidePopOver() {
-		if(popOver != null) {
+		if (popOver != null) {
 			popOver.hide(Duration.millis(0));
 		}
 	}

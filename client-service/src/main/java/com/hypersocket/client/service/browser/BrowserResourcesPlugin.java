@@ -72,14 +72,13 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 			ResourceImpl res = new ResourceImpl("browser-"
 					+ String.valueOf(resource.getId()), resource.getName());
 
+			res.setGroup(res.getName());
+			res.setGroupIcon(resource.getLogo());
 			res.setLaunchable(true);
 			res.setIcon(resource.getLogo());
 			res.setModified(resource.getModifiedDate());
 
 			if (resource.getType() != null
-					&& resource.getType().equals("FileResource")) {
-				res.setType(Type.FILE);
-			} else if (resource.getType() != null
 					&& resource.getType().equals("BrowserSSOPlugin")) {
 				res.setType(Type.SSO);
 			} else {

@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
+import com.hypersocket.client.rmi.Resource.Type;
+
 public final class ResourceImpl implements Resource, Serializable {
 
 	private static final long serialVersionUID = 6947909274209893794L;
@@ -20,6 +22,7 @@ public final class ResourceImpl implements Resource, Serializable {
 	String uid;
 	Calendar modified;
 	String group;
+	String groupIcon;
 	
 	public ResourceImpl() {
 	}
@@ -46,6 +49,14 @@ public final class ResourceImpl implements Resource, Serializable {
 
 	public void setGroup(String group) {
 		this.group = group;
+	}
+
+	public void setGroupIcon(String groupIcon) {
+		this.groupIcon = groupIcon;
+	}
+
+	public String getGroupIcon() {
+		return groupIcon;
 	}
 
 	public Calendar getModified() {
@@ -165,10 +176,12 @@ public final class ResourceImpl implements Resource, Serializable {
 
 	@Override
 	public String toString() {
-		return "ResourceImpl [name=" + name + ", colour=" + colour + ", realm="
-				+ realm + ", launchable=" + launchable + ", icon=" + icon
-				+ ", type=" + type + ", uid=" + uid + ", modified=" + modified
-				+ ", group=" + group + "]";
+		return "ResourceImpl [name=" + name + ", colour=" + colour
+				+ ", protocols=" + protocols + ", realm=" + realm
+				+ ", launchable=" + launchable + ", launcher=" + launcher
+				+ ", icon=" + icon + ", type=" + type + ", uid=" + uid
+				+ ", modified=" + modified + ", group=" + group
+				+ ", groupIcon=" + groupIcon + "]";
 	}
 
 	
