@@ -10,6 +10,7 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.Window;
+import javafx.util.Duration;
 
 import org.controlsfx.control.PopOver;
 
@@ -20,7 +21,7 @@ public class Popup extends Stage {
 	private PositionType positionType;
 	private boolean dismiss;
 	private PopOver popOver;
-	
+
 	public enum PositionType {
 		POSITIONED, DOCKED
 	}
@@ -57,7 +58,7 @@ public class Popup extends Stage {
 
 		this.dismiss = dismissOnFocusLost;
 		this.positionType = positionType;
-		
+
 		initOwner(parent);
 		setScene(scene);
 		setMinHeight(24);
@@ -98,13 +99,14 @@ public class Popup extends Stage {
 								Platform.runLater(new Runnable() {
 									@Override
 									public void run() {
-											if (!parent.focusedProperty().get()
-													&& !Dock.getInstance().arePopupsOpen() && Configuration
-															.getDefault()
-															.autoHideProperty()
-															.get()) {
-												hideParent(parent);
-											}
+										if (!parent.focusedProperty().get()
+												&& !Dock.getInstance()
+														.arePopupsOpen()
+												&& Configuration.getDefault()
+														.autoHideProperty()
+														.get()) {
+											hideParent(parent);
+										}
 									}
 								});
 							}
@@ -162,8 +164,14 @@ public class Popup extends Stage {
 
 	@Override
 	public void hide() {
-		super.hide();
-		Client.setColors(getScene());
+		if (popOver != null) {
+			// Work around for JVM crash when an owning window is closed while a popover is open (because of fade effect used) 
+			popOver.hide(Duration.ZERO);
+			super.hide();
+		} else {
+			super.hide();
+			Client.setColors(getScene());
+		}
 	}
 
 	public void setPosition(double position) {
@@ -210,7 +218,8 @@ public class Popup extends Stage {
 		super.sizeToScene();
 		Configuration cfg = Configuration.getDefault();
 		if (cfg.topProperty().get()) {
-			setY(getOwner().getY() + getOwner().getHeight() - Client.DROP_SHADOW_SIZE);
+			setY(getOwner().getY() + getOwner().getHeight()
+					- Client.DROP_SHADOW_SIZE);
 			switch (positionType) {
 			case POSITIONED:
 				if (position + getWidth() > getOwner().getWidth() - getWidth())

@@ -16,6 +16,8 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
+import javafx.geometry.HPos;
+import javafx.geometry.VPos;
 import javafx.scene.Node;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -112,7 +114,7 @@ public class Flinger extends StackPane {
 	public Property<Direction> directionProperty() {
 		return directionProperty;
 	}
-	
+
 	public DoubleProperty gapProperty() {
 		return gapProperty;
 	}
@@ -142,7 +144,8 @@ public class Flinger extends StackPane {
 
 				double amt = p + n.getLayoutBounds().getHeight();
 				if (amt >= 0) {
-					scroll = Math.abs(n.getLayoutBounds().getHeight() - amt + gapProperty.get());
+					scroll = Math.abs(n.getLayoutBounds().getHeight() - amt
+							+ gapProperty.get());
 					if (container.getTranslateY() + scroll > 0) {
 						scroll = 0;
 						break;
@@ -200,8 +203,8 @@ public class Flinger extends StackPane {
 				Node n = c.get(i);
 				double p = n.getLayoutY() + container.getTranslateY();
 				if (p <= getHeight()) {
-					scroll = n.getLayoutBounds().getHeight() + gapProperty.get()
-							- (getHeight() - p);
+					scroll = n.getLayoutBounds().getHeight()
+							+ gapProperty.get() - (getHeight() - p);
 					break;
 				}
 			}
@@ -211,7 +214,8 @@ public class Flinger extends StackPane {
 				Node n = c.get(i);
 				double p = n.getLayoutX() + container.getTranslateX();
 				if (p < getWidth()) {
-					scroll = (getWidth() - (p + n.getLayoutBounds().getWidth() + 1 + gapProperty.get()))
+					scroll = (getWidth() - (p + n.getLayoutBounds().getWidth()
+							+ 1 + gapProperty.get()))
 							* -1;
 					break;
 				}
@@ -250,6 +254,14 @@ public class Flinger extends StackPane {
 		slideTransition.setOnFinished(eh -> setAvailable());
 		slideTransition.stop();
 		slideTransition.play();
+	}
+
+	@Override
+	protected void layoutChildren() {
+		for (Node node : getChildren()) {
+			layoutInArea(node, 0, 0, getWidth(), getHeight(), 0, HPos.LEFT,
+					VPos.TOP);
+		}
 	}
 
 	private double getLaunchBarOffset() {
@@ -291,12 +303,11 @@ public class Flinger extends StackPane {
 		container = directionProperty.getValue().equals(Direction.VERTICAL) ? new VBox()
 				: new HBox();
 		container.setPrefSize(USE_COMPUTED_SIZE, USE_COMPUTED_SIZE);
-		
-		if(directionProperty.getValue().equals(Direction.VERTICAL)) {
-			((VBox)container).spacingProperty().bind(gapProperty);
-		}
-		else {
-			((HBox)container).spacingProperty().bind(gapProperty);			
+
+		if (directionProperty.getValue().equals(Direction.VERTICAL)) {
+			((VBox) container).spacingProperty().bind(gapProperty);
+		} else {
+			((HBox) container).spacingProperty().bind(gapProperty);
 		}
 
 		widthProperty().addListener(new ChangeListener<Number>() {

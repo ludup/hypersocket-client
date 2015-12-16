@@ -73,6 +73,8 @@ public class FileResourcesPlugin extends AbstractServicePlugin {
 					+ String.valueOf(resource.getId()), resource.getName());
 
 			res.setLaunchable(true);
+			res.setGroup(res.getName());
+			res.setGroupIcon(resource.getLogo());
 			res.setIcon(resource.getLogo());
 			res.setModified(resource.getModifiedDate());
 			res.setType(Type.FILE);

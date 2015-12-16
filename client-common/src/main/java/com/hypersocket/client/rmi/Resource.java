@@ -17,6 +17,8 @@ public interface Resource extends Launchable {
 	
 	String getGroup();
 	
+	String getGroupIcon();
+	
 	Type getType();
 
 	String getHostname();

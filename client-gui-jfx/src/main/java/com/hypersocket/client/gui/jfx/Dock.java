@@ -109,7 +109,7 @@ public class Dock extends AbstractController implements Listener {
 
 	private Popup signInPopup;
 	private Popup optionsPopup;
-	private Popup resourceGroupPopup;
+	Popup resourceGroupPopup;
 
 	@FXML
 	private Button slideLeft;
@@ -166,6 +166,8 @@ public class Dock extends AbstractController implements Listener {
 	private int appsToUpdate;
 
 	private Update updateScene;
+
+	private ResourceGroup resourceGroup;
 
 	public Dock() {
 		instance = this;
@@ -286,6 +288,17 @@ public class Dock extends AbstractController implements Listener {
 			}
 		}
 	}
+	
+	public void updateResourceGroup(Button source, ResourceGroupList group) {
+		if(resourceGroupPopup != null && resourceGroupPopup.isShowing()) {
+			positionResourceGroupPopup(source);
+			resourceGroup.setResources(group);
+		}
+	}
+	
+	public void hideResourceGroup() {
+		hideIfShowing(resourceGroupPopup);
+	}
 
 	public boolean arePopupsOpen() {
 		return context.isWaitingForExitChoice()
@@ -331,19 +344,21 @@ public class Dock extends AbstractController implements Listener {
 		rebuildAllLaunchers();
 		if (context.getBridge().isServiceUpdating()) {
 			setMode(Mode.UPDATE);
-		}
-		else {
-			final StringProperty prop = Configuration.getDefault().temporaryOnStartConnectionProperty();
+		} else {
+			final StringProperty prop = Configuration.getDefault()
+					.temporaryOnStartConnectionProperty();
 			String tmp = prop.get();
-			if(!StringUtils.isBlank(tmp)) {
+			if (!StringUtils.isBlank(tmp)) {
 				try {
-					Connection c = context.getBridge().getConnectionService().getConnection(Long.parseLong(tmp));
-					if(c == null)
+					Connection c = context.getBridge().getConnectionService()
+							.getConnection(Long.parseLong(tmp));
+					if (c == null)
 						throw new Exception("No connection with id of " + tmp);
 					context.getBridge().connect(c);
-				}
-				catch(Exception e) {
-					log.error("Failed to start temporary 'on start' connection.", e);
+				} catch (Exception e) {
+					log.error(
+							"Failed to start temporary 'on start' connection.",
+							e);
 				}
 				prop.set("");
 			}
@@ -371,18 +386,49 @@ public class Dock extends AbstractController implements Listener {
 				&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING;
 	}
 
+	public void showResourceGroup(Button source, ResourceGroupList group) {
+		Window parent = this.scene.getWindow();
+		if (resourceGroupPopup == null) {
+			try {
+				resourceGroup = (ResourceGroup) context
+						.openScene(ResourceGroup.class);
+			} catch (IOException ioe) {
+				throw new RuntimeException(ioe);
+			}
+			resourceGroupPopup = new Popup(parent, resourceGroup.getScene(),
+					true, PositionType.POSITIONED) {
+
+				@Override
+				protected void hideParent(Window parent) {
+					hideDock(true);
+				}
+			};
+			((ResourceGroup) resourceGroup).setPopup(resourceGroupPopup);
+		}
+		positionResourceGroupPopup(source);
+		resourceGroup.setResources(group);
+		resourceGroupPopup.popup();
+	}
+
+	private void positionResourceGroupPopup(Button source) {
+		Point2D sceneCoord = source.localToScreen(0, 0);
+		if (cfg.topProperty().get() || cfg.bottomProperty().get())
+			resourceGroupPopup.setPosition(sceneCoord.getX());
+		else
+			resourceGroupPopup.setPosition(sceneCoord.getY());
+	}
+
 	// Overrides
 
 	@Override
 	public void updateResource(ResourceUpdateType type, Resource resource) {
 		switch (type) {
 		case CREATE: {
-			rebuildResourceIcon(resource.getRealm(), resource,
-					resource.getIcon());
+			rebuildResourceIcon(resource.getRealm(), resource);
 			rebuildIcons();
 
 			Action[] actions = new Action[0];
-			
+
 			// Find the button so we can launch on clicking the notify
 			ResourceGroupKey key = new ResourceGroupKey(resource.getType(),
 					resource.getGroup());
@@ -392,7 +438,8 @@ public class Dock extends AbstractController implements Listener {
 				if (rit != null) {
 					LauncherButton lb = getButtonForResourceItem(rit);
 					if (lb != null) {
-						actions = new Action[] { new Action(resources.getString("resources.launch"),
+						actions = new Action[] { new Action(
+								resources.getString("resources.launch"),
 								new Consumer<ActionEvent>() {
 									@Override
 									public void accept(ActionEvent t) {
@@ -438,13 +485,15 @@ public class Dock extends AbstractController implements Listener {
 							resources.getString("resources.updated"),
 							resource.getName()), GUICallback.NOTIFY_INFO);
 					break;
+				} else {
+					log.warn(String
+							.format("Could not find icon in icon group for resource %s (%s)",
+									resource.getUid(), resource.getName()));
 				}
-				else {
-					log.warn(String.format("Could not find icon in icon group for resource %s (%s)", resource.getUid(), resource.getName()));
-				}
-			}
-			else {
-				log.warn(String.format("Could not find icon group for resource %s (%s)", resource.getUid(), resource.getName()));
+			} else {
+				log.warn(String.format(
+						"Could not find icon group for resource %s (%s)",
+						resource.getUid(), resource.getName()));
 			}
 			break;
 		}
@@ -672,27 +721,6 @@ public class Dock extends AbstractController implements Listener {
 		statusPopup.popup();
 	}
 
-	/*
-	 * private void showResourceGroup(Button source, ResourceGroupList group)
-	 * throws IOException { Window parent = this.scene.getWindow(); if
-	 * (resourceGroupPopup == null) { resourceGroup = (ResourceGroup) context
-	 * .openScene(ResourceGroup.class); resourceGroupPopup = new Popup(parent,
-	 * resourceGroup.getScene(), true, PositionType.POSITIONED) {
-	 * 
-	 * @Override protected void hideParent(Window parent) { hideDock(true); } };
-	 * ((ResourceGroup) resourceGroup).setPopup(resourceGroupPopup); }
-	 * positionResourceGroupPopup(source); resourceGroup.setResources(group);
-	 * resourceGroupPopup.popup(); }
-	 */
-
-	/*
-	 * private void positionResourceGroupPopup(Button source) { Point2D
-	 * sceneCoord = source.localToScreen(0, 0); if (cfg.topProperty().get() ||
-	 * cfg.bottomProperty().get())
-	 * resourceGroupPopup.setPosition(sceneCoord.getX()); else
-	 * resourceGroupPopup.setPosition(sceneCoord.getY()); }
-	 */
-
 	private void openSignInWindow() throws IOException {
 		Window parent = this.scene.getWindow();
 		if (signInPopup == null) {
@@ -728,7 +756,7 @@ public class Dock extends AbstractController implements Listener {
 				for (ResourceRealm resourceRealm : resourceService
 						.getResourceRealms()) {
 					for (Resource r : resourceRealm.getResources()) {
-						rebuildResourceIcon(resourceRealm, r, r.getIcon());
+						rebuildResourceIcon(resourceRealm, r);
 					}
 				}
 			} catch (Exception e) {
@@ -738,12 +766,11 @@ public class Dock extends AbstractController implements Listener {
 		}
 	}
 
-	private void rebuildResourceIcon(ResourceRealm resourceRealm, Resource r,
-			String groupName) {
+	private void rebuildResourceIcon(ResourceRealm resourceRealm, Resource r) {
 		ResourceGroupKey igk = new ResourceGroupKey(r.getType(), r.getGroup());
 		ResourceGroupList ig = icons.get(igk);
 		if (ig == null) {
-			ig = new ResourceGroupList(igk);
+			ig = new ResourceGroupList(resourceRealm, igk, r.getGroupIcon());
 			icons.put(igk, ig);
 		}
 		ig.getItems().add(new ResourceItem(r, resourceRealm));
@@ -803,108 +830,69 @@ public class Dock extends AbstractController implements Listener {
 				break;
 			}
 
-			// SSO launchers are not grouped, all others are
-			// if (type == Resource.Type.SSO) {
+			List<ResourceGroupList> groupsAdded = new ArrayList<ResourceGroupList>();
+			List<ResourceItem> itemsAdded = new ArrayList<ResourceItem>();
 			for (ResourceItem item : ig.getValue().getItems()) {
-				flinger.getContent()
-						.getChildren()
-						.add(new IconButton(resources, item, context, ig
-								.getValue()) {
+				ResourceGroupKey gk = new ResourceGroupKey(item.getResource()
+						.getType(), item.getResource().getGroup());
+				ResourceGroupList groups = icons.get(gk);
+				if (groups == null || groups.getItems().size() < 2) {
+					flinger.getContent()
+							.getChildren()
+							.add(new IconButton(resources, item, context, ig
+									.getValue()) {
 
-							@Override
-							protected void onFinishLaunch() {
-								super.onFinishLaunch();
+								@Override
+								protected void onFinishLaunch() {
+									super.onFinishLaunch();
 
-								if (launchWait != null
-										&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING)
-									launchWait.stop();
+									if (launchWait != null
+											&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING)
+										launchWait.stop();
 
-								launchWait = new Timeline(new KeyFrame(Duration
-										.millis(Dock.LAUNCH_WAIT)));
-								launchWait.play();
-							}
+									launchWait = new Timeline(new KeyFrame(
+											Duration.millis(Dock.LAUNCH_WAIT)));
+									launchWait.play();
+								}
 
-						});
+							});
+				} else {
+					if (!groupsAdded.contains(groups)) {
+						flinger.getContent()
+								.getChildren()
+								.add(new GroupButton(resources, context, groups) {
+
+									@Override
+									protected void onFinishLaunch() {
+										super.onFinishLaunch();
+
+										if (launchWait != null
+												&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING)
+											launchWait.stop();
+
+										launchWait = new Timeline(
+												new KeyFrame(
+														Duration.millis(Dock.LAUNCH_WAIT)));
+										launchWait.play();
+									}
+
+								});
+						groupsAdded.add(groups);
+					}
+				}
 			}
-			// } else {
-			// shortcuts.getChildren().add(createGroupButton(ig.getValue()));
-			// }
 
 			// lastType = type;
 		}
 
 	}
 
-	/*
-	 * private Button createGroupButton(final ResourceGroupList group) {
-	 * 
-	 * final Button groupButton = new Button();
-	 * groupButton.setTextOverrun(OverrunStyle.CLIP);
-	 * groupButton.getStyleClass().add("iconButton");
-	 * groupButton.setOnMouseEntered((event) -> { if (resourceGroupPopup != null
-	 * && resourceGroupPopup.isShowing()) { resourceGroup.setResources(group);
-	 * positionResourceGroupPopup(groupButton);
-	 * resourceGroupPopup.sizeToScene(); } }); groupButton.setOnAction((event)
-	 * -> { try { showResourceGroup((Button) event.getSource(), group); } catch
-	 * (IOException e) { log.error("Failed to show resource group.", e); } });
-	 * 
-	 * String subType = getSubType(group);
-	 * 
-	 * String tipText = getTipText(group, subType);
-	 * 
-	 * String imgPath = String.format("types/%s.png", subType); URL resource =
-	 * getClass().getResource(imgPath); if (resource == null) { // Fallback
-	 * tipText += " (" + imgPath + " not found)"; imgPath =
-	 * String.format("types/unknown.png"); resource =
-	 * getClass().getResource(imgPath); }
-	 * 
-	 * // Create image and set on button final ImageView imageView = new
-	 * ImageView(resource.toString()); imageView.setFitHeight(32);
-	 * imageView.setFitWidth(32); imageView.setPreserveRatio(true);
-	 * imageView.getStyleClass().add("launcherIcon");
-	 * groupButton.setGraphic(imageView);
-	 * 
-	 * // Tooltip for the sub-type
-	 * groupButton.setTooltip(UIHelpers.createDockButtonToolTip(tipText));
-	 * UIHelpers.sizeToImage(groupButton); return groupButton; }
-	 */
-
-	/*
-	 * private String getTipText(final ResourceGroupList group, String subType)
-	 * { String tipTextKey = String.format("subType.%s", subType); String
-	 * tipText = resources.containsKey(tipTextKey) ? resources
-	 * .getString(tipTextKey) : MessageFormat.format(
-	 * resources.getString("subType.unknown"), group.getKey() .getType().name(),
-	 * tipTextKey); return tipText; }
-	 */
-
-	static String getSubType(final ResourceGroupList group) {
-		// Determine image path from 'logo'
-		String subType = group.getKey().getSubType();
-		if (subType == null) {
-			subType = group.getKey().getType().name();
-		}
-
-		// Hack for VNC subtypes that end in the display number
-		int idx = subType.lastIndexOf(':');
-		if (idx != -1) {
-			subType = subType.substring(0, idx);
-		}
-
-		// Hack for FTP subtypes that end in the display number
-		if (subType.startsWith("ftp")) {
-			subType = "ftp";
-		}
-
-		// Only use the first word
-		subType = subType.split("\\s+")[0];
-		return subType;
-	}
-
 	private void maybeHideDock() {
 		if (hiding) {
 			return;
 		}
+		if(popOver != null && popOver.isShowing())
+			return;
 		stopDockHiderTrigger();
 		dockHiderTrigger = new Timeline(new KeyFrame(
 				Duration.millis(AUTOHIDE_HIDE_TIME), ae -> hideDock(true)));
@@ -921,6 +909,8 @@ public class Dock extends AbstractController implements Listener {
 		stopDockHiderTrigger();
 
 		if (hide != hidden) {
+			hidePopOver();
+			
 			/*
 			 * If already hiding, we don't want the mouse event that MIGHT
 			 * happen when the resizing dock passes under the mouse (the user
