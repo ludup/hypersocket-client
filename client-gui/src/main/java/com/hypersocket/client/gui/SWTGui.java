@@ -730,7 +730,10 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void started(Connection connection) throws RemoteException {
-		// TODO Auto-generated method stub
-		
+	}
+
+	@Override
+	public void updateResource(ResourceUpdateType type, Resource resource)
+			throws RemoteException {
 	}
 }

@@ -507,7 +507,7 @@ public class ClientServiceImpl implements ClientService {
 		try {
 			return s.getTransport().getBlob(path, timeout);
 		} catch (IOException e) {
-			throw new RemoteException(e.getMessage());
+			throw new RemoteException(String.format("Failed to get %s from %s. %s", path, host, e.getMessage()));
 		}
 	}
 

@@ -40,4 +40,9 @@ public class AWTBrowserLauncher implements ResourceLauncher, Serializable {
 	    return -1;
 	}
 
+	@Override
+	public String toString() {
+		return "AWTBrowserLauncher [launchUrl=" + launchUrl + "]";
+	}
+
 }

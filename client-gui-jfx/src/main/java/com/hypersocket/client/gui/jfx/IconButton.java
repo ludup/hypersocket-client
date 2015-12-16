@@ -3,7 +3,9 @@ package com.hypersocket.client.gui.jfx;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.rmi.RemoteException;
 import java.util.Map;
 import java.util.MissingResourceException;
@@ -18,10 +20,13 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class IconButton extends LauncherButton {
+
 	static Logger log = LoggerFactory.getLogger(IconButton.class);
 
 	private final static Map<String, Image> iconCache = new WeakHashMap<>();
@@ -39,93 +44,72 @@ public class IconButton extends LauncherButton {
 		setTooltipText(resourceItem.getResource().getName());
 		String typeName = resourceItem.getResource().getType().name();
 		try {
-			System.out.println(resourceItem.getResource().getName() + " type: " + typeName + " icon: " + resourceItem.getResource().getIcon());
-			if (resourceItem.getResource().getIcon() == null) {
-				String imgPath = String.format("types/type-%s.png",
-						typeName.toLowerCase());
-				URL resource = getClass().getResource(imgPath);
+			String iconName = resourceItem.getResource().getIcon();
+			
+			if (StringUtils.isBlank(iconName)) {
+				iconName = "logo://96_autotype_autotype_auto.png";
+			}
+			
+//			if (StringUtils.isBlank(iconName)) {
+				// Default icon
+//				String imgPath = String.format("types/type-%s.png",
+//						typeName.toLowerCase());
+//				URL resource = getClass().getResource(imgPath);
+//				if (resource == null) {
+//					setText(resources.getString("resource.icon." + typeName));
+//					log.warn(String.format(
+//							"Falling back to text based icon for type %s because %s could not be found (%s)",
+//							typeName, imgPath, resourceItem.getResource().getName()));
+//				} else {
+//					final ImageView imageView = new ImageView(
+//							resource.toString());
+//					configureButton(imageView);
+//					setGraphic(imageView);
+//				}
+//			} else 
+			if(iconName.startsWith("res://")){
+				// Client specified icon (when retrieving resources)
+				final String resourceName = iconName.substring(6);
+				URL resource = getClass().getResource(resourceName);
 				if (resource == null) {
 					setText(resources.getString("resource.icon." + typeName));
 					log.warn(String.format(
-							"Falling back to text based icon for type %s",
-							typeName));
+							"Falling back to text based icon for type %s because %s could not be found (%s)",
+							typeName,  resourceName, resourceItem.getResource().getName()));
 				} else {
 					final ImageView imageView = new ImageView(
 							resource.toString());
 					configureButton(imageView);
 					setGraphic(imageView);
 				}
-			} else {
-
+			}
+			else {
+				// Server specified icon
+				String iconPath = iconName;
+				if(iconPath.indexOf("/") == -1) {
+						iconPath = "fileUpload/file/" + iconName;
+				}
+				else {
+					if(iconName.startsWith("logo://")) {
+						try {
+							iconPath = "logo/" + URLEncoder.encode(typeName, "UTF-8") + "/" + URLEncoder.encode(resourceItem.getResource().getName(), "UTF-8") + "/" + iconName.substring(7);
+						} catch (UnsupportedEncodingException e) {
+							throw new RuntimeException(e);
+						}
+					}
+				}
+				
 				final ImageView imageView = new ImageView(getClass()
 						.getResource("ajax-loader.gif").toString());
 				configureButton(imageView);
 				setGraphic(imageView);
 
 				String cacheKey = resourceItem.getResourceRealm().getName()
-						+ "-" + resourceItem.getResource().getIcon();
+						+ "-" + iconPath;
 				if (iconCache.containsKey(cacheKey)) {
 					imageView.setImage(iconCache.get(cacheKey));
 				} else {
-					context.getLoadQueue().execute(new Runnable() {
-						@Override
-						public void run() {
-							try {
-								byte[] arr = context
-										.getBridge()
-										.getClientService()
-										.getBlob(
-												resourceItem.getResourceRealm()
-														.getName(),
-												resourceItem.getResource()
-														.getIcon(), 10000);
-								Image img = new Image(new ByteArrayInputStream(
-										arr));
-								iconCache.put(cacheKey, img);
-								Platform.runLater(new Runnable() {
-									@Override
-									public void run() {
-										imageView.setImage(img);
-										sizeToImage();
-									}
-								});
-							} catch (RemoteException re) {
-
-								String subType = Dock.getSubType(group);
-								String imgPath = String.format("types/%s.png",
-										subType);
-								URL resource = getClass().getResource(imgPath);
-								if (resource == null) {
-									log.error("Failed to load icon.", re);
-								} else {
-									try {
-										setImageFromResource(imageView,
-												resource);
-									} catch (IOException ioe) {
-										log.error("Failed to load icon.", ioe);
-									}
-								}
-							}
-						}
-
-						private void setImageFromResource(
-								final ImageView imageView, URL resource)
-								throws IOException {
-							InputStream openStream = resource.openStream();
-							try {
-								Image img = new Image(openStream);
-								Platform.runLater(new Runnable() {
-									@Override
-									public void run() {
-										imageView.setImage(img);
-										sizeToImage();
-									}
-								});
-							} finally {
-								openStream.close();
-							}
-						}
-					});
+					context.getLoadQueue().execute(new IconLoader(resourceItem, cacheKey, imageView, iconPath, context, group));
 				}
 			}
 		} catch (MissingResourceException mre) {
@@ -186,5 +170,77 @@ public class IconButton extends LauncherButton {
 		imageView.setFitWidth(32);
 		imageView.setPreserveRatio(true);
 		imageView.getStyleClass().add("launcherIcon");
+	}
+	private final class IconLoader implements Runnable {
+		private final ImageView imageView;
+		private final String iconPath;
+		private final String cacheKey;
+		private final ResourceItem resourceItem;
+		private final Client context;
+		private final ResourceGroupList group;
+
+		private IconLoader(ResourceItem resourceItem, String cacheKey, ImageView imageView, String iconPath, Client context, ResourceGroupList group) {
+			this.imageView = imageView;
+			this.iconPath = iconPath;
+			this.cacheKey = cacheKey;
+			this.resourceItem = resourceItem;
+			this.context = context;
+			this.group = group;
+		}
+
+		@Override
+		public void run() {
+			try {
+				byte[] arr = context
+						.getBridge()
+						.getClientService()
+						.getBlob(resourceItem.getResourceRealm()
+										.getName(), iconPath, 10000);
+				Image img = new Image(new ByteArrayInputStream(
+						arr));
+				iconCache.put(cacheKey, img);
+				Platform.runLater(new Runnable() {
+					@Override
+					public void run() {
+						imageView.setImage(img);
+						sizeToImage();
+					}
+				});
+			} catch (RemoteException re) {
+
+				String subType = Dock.getSubType(group);
+				String imgPath = String.format("types/%s.png",
+						subType);
+				URL resource = getClass().getResource(imgPath);
+				if (resource == null) {
+					log.error("Failed to load icon.", re);
+				} else {
+					try {
+						setImageFromResource(imageView,
+								resource);
+					} catch (IOException ioe) {
+						log.error("Failed to load icon.", ioe);
+					}
+				}
+			}
+		}
+
+		private void setImageFromResource(
+				final ImageView imageView, URL resource)
+				throws IOException {
+			InputStream openStream = resource.openStream();
+			try {
+				Image img = new Image(openStream);
+				Platform.runLater(new Runnable() {
+					@Override
+					public void run() {
+						imageView.setImage(img);
+						sizeToImage();
+					}
+				});
+			} finally {
+				openStream.close();
+			}
+		}
 	}
 }

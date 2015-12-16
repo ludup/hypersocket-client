@@ -27,7 +27,7 @@ public class ScriptLauncher implements ResourceLauncher, Serializable {
 		this.script = script;
 		this.properties = properties;
 	}
-	
+
 	@Override
 	public int launch() {
 		
@@ -96,6 +96,12 @@ public class ScriptLauncher implements ResourceLauncher, Serializable {
 
 	private String getScriptSuffix() {
 		return System.getProperty("os.name").toLowerCase().startsWith("windows") ? ".bat" : ".sh";
+	}
+
+	@Override
+	public String toString() {
+		return "ScriptLauncher [script=" + script + ", properties="
+				+ properties + "]";
 	}
 
 }

@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import com.hypersocket.client.rmi.CancelledException;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUICallback;
+import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
+import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.extensions.ExtensionDefinition;
 
 /**
@@ -219,6 +221,14 @@ public class GUIRegistry {
 				}
 			} catch (RemoteException ex) {
 				failed(app, ex);
+			}
+		}
+	}
+	
+	public void updateResource(ResourceUpdateType type, Resource resource) throws RemoteException {
+		synchronized (lock) {
+			if (gui != null && guiAttached) {
+				gui.updateResource(type, resource);
 			}
 		}
 	}

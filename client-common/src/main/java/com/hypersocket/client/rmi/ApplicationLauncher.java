@@ -28,7 +28,7 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 		this.hostname = hostname;
 		this.launcher = launcher;
 	}
-	
+
 	@Override
 	public int launch() {
 		
@@ -103,6 +103,12 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 		}
 
 		
+	}
+
+	@Override
+	public String toString() {
+		return "ApplicationLauncher [hostname=" + hostname + ", launcher="
+				+ launcher + ", username=" + username + "]";
 	}
 
 }

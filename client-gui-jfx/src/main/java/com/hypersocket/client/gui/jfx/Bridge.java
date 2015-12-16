@@ -26,6 +26,7 @@ import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.ConnectionStatus;
 import com.hypersocket.client.rmi.GUICallback;
+import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionPlace;
@@ -80,6 +81,8 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		void updateFailure(String app, String message);
 
 		void extensionUpdateComplete(String app, ExtensionDefinition def);
+
+		void updateResource(ResourceUpdateType type, Resource resource);
 	}
 
 	public Bridge() throws RemoteException {
@@ -513,5 +516,18 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		catch(RemoteException re) {
 			return false;
 		}
+	}
+
+	@Override
+	public void updateResource(ResourceUpdateType type, Resource resource)
+			throws RemoteException {
+		Platform.runLater(new Runnable() {
+			@Override
+			public void run() {
+				for (Listener l : new ArrayList<Listener>(listeners)) {
+					l.updateResource(type, resource);
+				}
+			}
+		});
 	}
 }
