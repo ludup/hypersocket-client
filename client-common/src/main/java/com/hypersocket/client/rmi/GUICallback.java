@@ -51,7 +51,7 @@ public interface GUICallback extends Serializable, Remote {
 	
 	void onUpdateInit(int expectedApps) throws RemoteException;
 	
-	void onUpdateStart(String app, long totalBytesExpected) throws RemoteException;
+	void onUpdateStart(String app, long totalBytesExpected, Connection connection) throws RemoteException;
 	
 	void onUpdateProgress(String app, long sincelastProgress, long totalSoFar, long totalBytesExpected) throws RemoteException;
 	

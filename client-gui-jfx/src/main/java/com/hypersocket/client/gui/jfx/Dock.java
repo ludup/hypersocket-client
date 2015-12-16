@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -14,6 +13,7 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
@@ -46,6 +46,7 @@ import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
+import org.apache.commons.lang3.StringUtils;
 import org.controlsfx.control.Notifications;
 import org.controlsfx.control.action.Action;
 import org.slf4j.Logger;
@@ -330,6 +331,22 @@ public class Dock extends AbstractController implements Listener {
 		rebuildAllLaunchers();
 		if (context.getBridge().isServiceUpdating()) {
 			setMode(Mode.UPDATE);
+		}
+		else {
+			final StringProperty prop = Configuration.getDefault().temporaryOnStartConnectionProperty();
+			String tmp = prop.get();
+			if(!StringUtils.isBlank(tmp)) {
+				try {
+					Connection c = context.getBridge().getConnectionService().getConnection(Long.parseLong(tmp));
+					if(c == null)
+						throw new Exception("No connection with id of " + tmp);
+					context.getBridge().connect(c);
+				}
+				catch(Exception e) {
+					log.error("Failed to start temporary 'on start' connection.", e);
+				}
+				prop.set("");
+			}
 		}
 	}
 

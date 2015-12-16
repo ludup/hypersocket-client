@@ -32,8 +32,10 @@ import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.ConnectionStatus;
 import com.hypersocket.client.rmi.ConnectionStatusImpl;
 import com.hypersocket.client.rmi.GUICallback;
+import com.hypersocket.client.rmi.GUIRegistry;
 import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.client.service.updates.ClientUpdater;
+import com.hypersocket.client.service.vpn.VPNServiceImpl;
 import com.hypersocket.extensions.ExtensionPlace;
 
 public class ClientServiceImpl implements ClientService {
@@ -43,6 +45,7 @@ public class ClientServiceImpl implements ClientService {
 	ConnectionService connectionService;
 	ConfigurationService configurationService;
 	ResourceService resourceService;
+	VPNServiceImpl vpnService;
 
 	ExecutorService bossExecutor;
 	ExecutorService workerExecutor;
@@ -68,7 +71,7 @@ public class ClientServiceImpl implements ClientService {
 	public ClientServiceImpl(ConnectionService connectionService,
 			ConfigurationService configurationService,
 			ResourceService resourceService, Runnable restartCallback,
-			GUIRegistry guiRegistry) {
+			GUIRegistry guiRegistry, VPNServiceImpl vpnService) {
 
 		try {
 			startupLock.acquire();
@@ -81,6 +84,7 @@ public class ClientServiceImpl implements ClientService {
 		this.connectionService = connectionService;
 		this.configurationService = configurationService;
 		this.resourceService = resourceService;
+		this.vpnService = vpnService;
 
 		bossExecutor = Executors.newCachedThreadPool();
 		workerExecutor = Executors.newCachedThreadPool();
@@ -112,7 +116,7 @@ public class ClientServiceImpl implements ClientService {
 				 */
 				guiRegistry.onUpdateInit(appsToUpdate);
 				guiRegistry.onUpdateStart(ExtensionPlace.getDefault().getApp(),
-						serviceUpdateJob.getTotalSize());
+						serviceUpdateJob.getTotalSize(), null);
 				guiRegistry.onUpdateProgress(ExtensionPlace.getDefault()
 						.getApp(), 0, serviceUpdateJob.getTransfered(),serviceUpdateJob.getTotalSize());
 				if (serviceUpdateJob.getTransfered() >= serviceUpdateJob
@@ -238,8 +242,10 @@ public class ClientServiceImpl implements ClientService {
 		}
 
 		if (activeClients.containsKey(c)) {
+			log.info("Was connected, disconnecting");
 			activeClients.remove(c).disconnect(false);
 		} else if (connectingClients.containsKey(c)) {
+			log.info("Was connecting, cancelling");
 			connectingClients.get(c).cancel();
 			connectingClients.remove(c);
 
@@ -363,6 +369,7 @@ public class ClientServiceImpl implements ClientService {
 
 				} catch (IOException e) {
 					log.error("Failed to execute update job.", e);
+					return false;
 				}
 
 				return true;
@@ -400,7 +407,7 @@ public class ClientServiceImpl implements ClientService {
 		}
 	}
 
-	protected void startPlugins(HypersocketClient<Connection> client) {
+	protected void startPlugins(final HypersocketClient<Connection> client) {
 		Enumeration<URL> urls;
 
 		if (log.isInfoEnabled()) {
@@ -445,7 +452,28 @@ public class ClientServiceImpl implements ClientService {
 							.forName(clz);
 
 					ServicePlugin plugin = pluginClz.newInstance();
-					plugin.start(client, resourceService, guiRegistry);
+					plugin.start(new ClientContext() {
+						
+						@Override
+						public VPNServiceImpl getVPNService() {
+							return vpnService;
+						}
+						
+						@Override
+						public ResourceService getResourceService() {
+							return resourceService;
+						}
+						
+						@Override
+						public GUIRegistry getGUI() {
+							return guiRegistry;
+						}
+						
+						@Override
+						public HypersocketClient<?> getClient() {
+							return client;
+						}
+					});
 
 					connectionPlugins.get(client.getAttachment()).add(plugin);
 				} catch (Throwable e) {
@@ -515,9 +543,10 @@ public class ClientServiceImpl implements ClientService {
 	public Connection save(Connection c) throws RemoteException {
 		// If a non-persistent connection is now being saved as a persistent
 		// one, then update our maps
+		Long oldId = c.getId();
 		Connection newConnection = connectionService.save(c);
 
-		if (c.getId() == null && newConnection.getId() != null) {
+		if (oldId == null && newConnection.getId() != null) {
 			log.info(String.format(
 					"Saving non-persistent connection, now has ID %d",
 					newConnection.getId()));

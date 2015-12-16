@@ -36,6 +36,7 @@ public class Configuration {
 	private IntegerProperty monitor = new SimpleIntegerProperty();
 	private Property<Color> color = new SimpleObjectProperty<Color>();
 	private Property<BrowserType> browserType = new SimpleObjectProperty<BrowserType>();
+	private StringProperty temporaryOnStartConnection = new SimpleStringProperty();
 
 	//
 	private final static Configuration DEFAULT_INSTANCE = new Configuration(
@@ -154,6 +155,9 @@ public class Configuration {
 		autoHide.set(node.getBoolean("autoHide", true));
 		autoHide.addListener(new BooleanPreferenceUpdateChangeListener(node,
 				"autoHide"));
+		
+		temporaryOnStartConnection.set(node.get("temporaryOnStartConnection", ""));
+		temporaryOnStartConnection.addListener(new StringPreferenceUpdateChangeListener(node, "temporaryOnStartConnection"));
 
 		alwaysOnTop.set(node.getBoolean("alwaysOnTop", true));
 		alwaysOnTop.addListener(new BooleanPreferenceUpdateChangeListener(node,
@@ -219,6 +223,10 @@ public class Configuration {
 
 	public static Configuration getDefault() {
 		return DEFAULT_INSTANCE;
+	}
+
+	public StringProperty temporaryOnStartConnectionProperty() {
+		return temporaryOnStartConnection;
 	}
 
 	public StringProperty browserCommandProperty() {

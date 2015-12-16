@@ -18,6 +18,7 @@ import com.hypersocket.client.HypersocketClientAdapter;
 import com.hypersocket.client.HypersocketClientListener;
 import com.hypersocket.client.UserCancelledException;
 import com.hypersocket.client.rmi.Connection;
+import com.hypersocket.client.rmi.GUIRegistry;
 import com.hypersocket.client.rmi.Connection.UpdateState;
 import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.json.JsonResponse;
@@ -63,6 +64,7 @@ public class ConnectionJob extends TimerTask {
 					HypersocketClient<Connection> client,
 					boolean onError) {
 				clientService.disconnected(connection, client);
+				log.info("Client has disconnected, informing GUI");
 				guiRegistry
 				.disconnected(
 						connection,

@@ -1,17 +1,18 @@
-package com.hypersocket.client.service.browser;
+package com.hypersocket.client.service.fs;
 
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class JsonBrowserResourceList {
+@JsonIgnoreProperties(ignoreUnknown=true)
+public class JsonFileResourceList {
 
 	boolean success;
 	String error;
-	JsonBrowserResource[] resources;
-	Map<String, String> properties;
-
+	
+	JsonFileResource[] resources;
+	Map<String,String> properties;
+	
 	public boolean isSuccess() {
 		return success;
 	}
@@ -28,11 +29,11 @@ public class JsonBrowserResourceList {
 		this.error = error;
 	}
 
-	public JsonBrowserResource[] getResources() {
+	public JsonFileResource[] getResources() {
 		return resources;
 	}
 
-	public void setResources(JsonBrowserResource[] resources) {
+	public void setResources(JsonFileResource[] resources) {
 		this.resources = resources;
 	}
 
@@ -43,5 +44,5 @@ public class JsonBrowserResourceList {
 	public void setProperties(Map<String, String> properties) {
 		this.properties = properties;
 	}
-
+	
 }

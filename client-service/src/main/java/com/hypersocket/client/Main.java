@@ -29,11 +29,13 @@ import com.hypersocket.client.rmi.ConfigurationService;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.ResourceService;
+import com.hypersocket.client.rmi.VPNService;
 import com.hypersocket.client.service.ClientServiceImpl;
 import com.hypersocket.client.service.ConfigurationServiceImpl;
 import com.hypersocket.client.service.ConnectionServiceImpl;
-import com.hypersocket.client.service.GUIRegistry;
+import com.hypersocket.client.service.GUIRegistryImpl;
 import com.hypersocket.client.service.ResourceServiceImpl;
+import com.hypersocket.client.service.vpn.VPNServiceImpl;
 
 public class Main {
 
@@ -42,6 +44,7 @@ public class Main {
 	ConnectionServiceImpl connectionService;
 	ConfigurationServiceImpl configurationService;
 	ResourceService resourceService;
+	VPNServiceImpl vpnService;
 	ClientServiceImpl clientService;
 	Properties properties = new Properties();
 	Registry registry;
@@ -170,12 +173,19 @@ public class Main {
 		}
 
 		configurationService = new ConfigurationServiceImpl();
-
+		
+		
 		if (log.isInfoEnabled()) {
 			log.info("Creating ResourceService");
 		}
 
 		resourceService = new ResourceServiceImpl();
+		
+		if (log.isInfoEnabled()) {
+			log.info("Creating VPNService");
+		}
+		vpnService = new VPNServiceImpl(resourceService);
+
 		
 		if (log.isInfoEnabled()) {
 			log.info("Creating ClientService");
@@ -184,7 +194,7 @@ public class Main {
 		buildDefaultConnections();
 		
 		clientService = new ClientServiceImpl(connectionService,
-				configurationService, resourceService, restartCallback, new GUIRegistry());
+				configurationService, resourceService, restartCallback, new GUIRegistryImpl(), vpnService);
 
 		return true;
 	
@@ -289,6 +299,7 @@ public class Main {
 			publishService(ConfigurationService.class, configurationService);
 			publishService(ResourceService.class, resourceService);
 			publishService(ClientService.class, clientService);
+			publishService(VPNService.class, vpnService);
 			return true;
 		} catch (Exception e) {
 			log.error("Failed to publish service", e);

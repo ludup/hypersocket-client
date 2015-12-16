@@ -900,6 +900,7 @@ public class SignIn extends AbstractController implements Listener {
 			public void run() {
 				if (context.getBridge().isConnected()) {
 					Connection sel = getSelectedConnection();
+					System.out.println(">>>>>>>>> SELECTED: " + sel);
 					boolean busy = (!waitingForUpdatesOrResources.isEmpty()
 							|| !connecting.isEmpty() || !disconnecting
 								.isEmpty()) && !promptsAvailable;
@@ -912,6 +913,7 @@ public class SignIn extends AbstractController implements Listener {
 						log.warn("Failed to test if connected. Assuming not.",
 								e);
 					}
+					System.out.println("++++ " + selectionConnected);
 					optionsUI.setVisible(disconnecting.isEmpty()
 							&& (promptsAvailable || selectionConnected));
 					promptUI.setVisible(disconnecting.isEmpty()
