@@ -7,17 +7,6 @@ import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.function.Consumer;
 
-import javafx.geometry.Bounds;
-import javafx.scene.Node;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.control.Tab;
-import javafx.scene.control.TabPane;
-import javafx.stage.Stage;
-import javafx.stage.Window;
-import javafx.util.Duration;
-
 import org.controlsfx.control.PopOver;
 import org.controlsfx.control.PopOver.ArrowLocation;
 import org.slf4j.Logger;
@@ -29,6 +18,16 @@ import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
 import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.extensions.ExtensionDefinition;
+
+import javafx.geometry.Bounds;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.Label;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public class AbstractController implements FramedController, Listener {
 	static Logger log = LoggerFactory.getLogger(AbstractController.class);

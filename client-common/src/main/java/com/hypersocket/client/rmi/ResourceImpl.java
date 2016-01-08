@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
-import com.hypersocket.client.rmi.Resource.Type;
-
 public final class ResourceImpl implements Resource, Serializable {
 
 	private static final long serialVersionUID = 6947909274209893794L;

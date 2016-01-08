@@ -28,7 +28,6 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	private GUIRegistry gui;
 	private HypersocketClient<Connection> hypersocketClient;
 	private ExtensionPlace extensionPlace;
-	@SuppressWarnings("unused")
 	private Connection connection; // Will probably be used again
 
 	public ClientUpdater(GUIRegistry gui, Connection connection,
