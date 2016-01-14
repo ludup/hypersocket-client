@@ -33,11 +33,10 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 
 	static Logger log = LoggerFactory.getLogger(AbstractServicePlugin.class);
 
-	static ScheduledExecutorService fingerprintChecker = Executors
-			.newScheduledThreadPool(1);
+	static ScheduledExecutorService fingerprintChecker = Executors.newScheduledThreadPool(1);
 
-	protected String url;
-	protected String fingerprint;
+	protected String[] urls;
+	protected Map<String, String> fingerprints = new HashMap<>();
 	protected HypersocketClient<?> serviceClient;
 	protected ResourceService resourceService;
 	protected GUIRegistry guiRegistry;
@@ -47,26 +46,27 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 	protected ClientContext context;
 	protected VPNServiceImpl vpnService;
 
-	protected AbstractServicePlugin(String url) {
-		this.url = url;
+	protected AbstractServicePlugin(String... urls) {
+		this.urls = urls;
 	}
 
 	public boolean isUpdateNeeded() throws IOException {
-		String json = serviceClient.getTransport().get(
-				String.format("%s/fingerprint", url));
-
-		JSONParser parser = new JSONParser();
-		try {
-			JSONObject result = (JSONObject) parser.parse(json);
-			if (Boolean.TRUE.equals(result.get("success"))) {
-				String latestFingerprint = (String) result.get("message");
-				if (!Objects.equals(latestFingerprint, fingerprint)) {
-					fingerprint = latestFingerprint;
-					return true;
+		for (String url : urls) {
+			String json = serviceClient.getTransport().get(String.format("%s/fingerprint", url));
+			String fingerprint = fingerprints.get(url);
+			JSONParser parser = new JSONParser();
+			try {
+				JSONObject result = (JSONObject) parser.parse(json);
+				if (Boolean.TRUE.equals(result.get("success"))) {
+					String latestFingerprint = (String) result.get("message");
+					if (!Objects.equals(latestFingerprint, fingerprint)) {
+						fingerprints.put(url, latestFingerprint);
+						return true;
+					}
 				}
+			} catch (ParseException e) {
+				throw new IOException("Failed to parse response.", e);
 			}
-		} catch (ParseException e) {
-			throw new IOException("Failed to parse response.", e);
 		}
 
 		return false;
@@ -84,7 +84,7 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 	public final boolean start(ClientContext context) {
 
 		this.context = context;
-		
+
 		// convenience
 		this.vpnService = context.getVPNService();
 		this.serviceClient = context.getClient();
@@ -122,8 +122,7 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 
 	protected final void startResources() {
 		try {
-			resourceRealm = resourceService.getResourceRealm(serviceClient
-					.getHost());
+			resourceRealm = resourceService.getResourceRealm(serviceClient.getHost());
 			realmResources.clear();
 			reloadResources(realmResources);
 			for (Resource ri : realmResources) {
@@ -138,8 +137,7 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 		}
 	}
 
-	protected int processResourceList(String json, ResourceMapper mapper,
-			String resourceName) throws IOException {
+	protected int processResourceList(String json, ResourceMapper mapper, String resourceName) throws IOException {
 		try {
 			JSONParser parser = new JSONParser();
 
@@ -185,13 +183,11 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 	private void processResourceUpdates() {
 		try {
 			if (log.isDebugEnabled()) {
-				log.debug("Checking if updated needed (" + fingerprint + "/"
-						+ AbstractServicePlugin.this.getClass());
+				log.debug("Checking if updated needed " + AbstractServicePlugin.this.getClass());
 			}
 
 			if (isUpdateNeeded()) {
-				log.info("Resource update needed for for "
-						+ AbstractServicePlugin.this.getClass());
+				log.info("Resource update needed for for " + AbstractServicePlugin.this.getClass());
 
 				// Load the new resources
 				List<Resource> newResources = new ArrayList<Resource>();
@@ -213,14 +209,11 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 				for (Resource r : new ArrayList<Resource>(realmResources)) {
 					resourceIds.put(r.getUid(), r);
 					if (!newResourceUIDList.contains(r.getUid())) {
-						log.info(String.format(
-								"Found a deleted resource (%s) '%s'",
-								r.getUid(), r.getName()));
+						log.info(String.format("Found a deleted resource (%s) '%s'", r.getUid(), r.getName()));
 						if (onDeletedResource(r)) {
 							realmResources.remove(r);
 							resourceRealm.removeResource(r);
-							guiRegistry.updateResource(
-									ResourceUpdateType.DELETE, r);
+							guiRegistry.updateResource(ResourceUpdateType.DELETE, r);
 						}
 					}
 				}
@@ -228,14 +221,11 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 				// Look for new resources
 				for (Resource r : newResources) {
 					if (!existingResourceUIDList.contains(r.getUid())) {
-						log.info(String.format(
-								"Found a new resource (%s) '%s'", r.getUid(),
-								r.getName()));
+						log.info(String.format("Found a new resource (%s) '%s'", r.getUid(), r.getName()));
 						if (onCreatedResource(r)) {
 							realmResources.add(r);
 							resourceRealm.addResource(r);
-							guiRegistry.updateResource(
-									ResourceUpdateType.CREATE, r);
+							guiRegistry.updateResource(ResourceUpdateType.CREATE, r);
 						}
 					}
 				}
@@ -244,35 +234,29 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 				for (Resource r : newResources) {
 					Resource current = resourceIds.get(r.getUid());
 					if (current != null) {
-						if (!Objects.equals(current.getModified(),
-								r.getModified())) {
-							log.info(String.format(
-									"Found an update resource (%s) '%s'",
-									r.getUid(), r.getName()));
+						if (!Objects.equals(current.getModified(), r.getModified())) {
+							log.info(String.format("Found an update resource (%s) '%s'", r.getUid(), r.getName()));
 							if (onUpdatedResource(r)) {
-								realmResources.set(
-										realmResources.indexOf(current), r);
-								guiRegistry.updateResource(
-										ResourceUpdateType.UPDATE, r);
+								realmResources.set(realmResources.indexOf(current), r);
+								guiRegistry.updateResource(ResourceUpdateType.UPDATE, r);
 							}
+							else
+								log.info(String.format("Although resource (%s) '%s' was updated, there weren't actually any changes", r.getUid(), r.getName()));
 						}
 					}
 				}
 
 			}
 		} catch (IOException ioe) {
-			log.error("Failed to check if resource update neede for "
-					+ AbstractServicePlugin.this.getClass(), ioe);
+			log.error("Failed to check if resource update neede for " + AbstractServicePlugin.this.getClass(), ioe);
 		}
 	}
 
-	private void getResourceUIDList(Set<String> existingResources,
-			List<Resource> resourceList) {
+	private void getResourceUIDList(Set<String> existingResources, List<Resource> resourceList) {
 		for (Resource r : resourceList) {
 			if (existingResources.contains(r.getUid())) {
-				log.warn(String
-						.format("More than one resource with a UID of %s was found. This should not happen",
-								r.getUid()));
+				log.warn(String.format("More than one resource with a UID of %s was found. This should not happen",
+						r.getUid()));
 			} else {
 				existingResources.add(r.getUid());
 			}

@@ -756,7 +756,9 @@ public class Dock extends AbstractController implements Listener {
 				for (ResourceRealm resourceRealm : resourceService
 						.getResourceRealms()) {
 					for (Resource r : resourceRealm.getResources()) {
-						rebuildResourceIcon(resourceRealm, r);
+						if(r.getType() != Type.ENDPOINT) {
+							rebuildResourceIcon(resourceRealm, r);
+						}
 					}
 				}
 			} catch (Exception e) {

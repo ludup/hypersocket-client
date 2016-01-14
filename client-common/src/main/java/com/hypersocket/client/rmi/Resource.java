@@ -6,7 +6,7 @@ import java.util.List;
 public interface Resource extends Launchable {
 	
 	public enum Type {
-		FILE, NETWORK, BROWSER, SSO
+		FILE, NETWORK, BROWSER, SSO, ENDPOINT
 	}
 	
 	String getUid();

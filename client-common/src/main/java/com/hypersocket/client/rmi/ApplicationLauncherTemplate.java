@@ -2,6 +2,7 @@ package com.hypersocket.client.rmi;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Map;
 
 public class ApplicationLauncherTemplate implements Serializable {
@@ -16,8 +17,9 @@ public class ApplicationLauncherTemplate implements Serializable {
 	Map<String,String> variables;
 	Long id;
 	String logo;
+	Calendar modifiedDate;
 	
-	public ApplicationLauncherTemplate(Long id, String name, String exe, String startupScript, String shutdownScript, String logo, Map<String,String> variables, String... args) {
+	public ApplicationLauncherTemplate(Long id, String name, String exe, String startupScript, String shutdownScript, String logo, Map<String,String> variables, Calendar modifiedDate, String... args) {
 		this.name = name;
 		this.id = id;
 		this.exe = exe;
@@ -26,8 +28,13 @@ public class ApplicationLauncherTemplate implements Serializable {
 		this.shutdownScript = shutdownScript;
 		this.variables = variables;
 		this.logo = logo;
+		this.modifiedDate = modifiedDate;
 	}
 	
+	public Calendar getModifiedDate() {
+		return modifiedDate;
+	}
+
 	public String getLogo() {
 		return logo;
 	}

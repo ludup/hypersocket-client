@@ -89,7 +89,7 @@ public class NetworkResource implements Serializable,ServiceResource {
 
 	@Override
 	public String getServiceDescription() {
-		return getDestinationHostname() + ":" + getPort();
+		return getDestinationHostname() + ":" + getPort() + " (-> " + actualPort + ")";
 	}
 
 }
