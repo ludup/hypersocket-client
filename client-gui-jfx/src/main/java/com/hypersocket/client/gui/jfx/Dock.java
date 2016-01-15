@@ -834,7 +834,6 @@ public class Dock extends AbstractController implements Listener {
 			}
 
 			List<ResourceGroupList> groupsAdded = new ArrayList<ResourceGroupList>();
-			List<ResourceItem> itemsAdded = new ArrayList<ResourceItem>();
 			for (ResourceItem item : ig.getValue().getItems()) {
 				ResourceGroupKey gk = new ResourceGroupKey(item.getResource()
 						.getType(), item.getResource().getGroup());
