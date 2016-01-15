@@ -147,6 +147,7 @@ public class Dock extends AbstractController implements Listener {
 	private boolean hidden;
 	private Timeline dockHiderTrigger;
 	private Timeline launchWait;
+	private Timeline dockRevealer;
 	private long yEnd;
 	private boolean hiding;
 	private ContextMenu contextMenu;
@@ -909,28 +910,52 @@ public class Dock extends AbstractController implements Listener {
 
 	void hideDock(boolean hide) {
 		stopDockHiderTrigger();
-
+		
 		if (hide != hidden) {
-			hidePopOver();
 			
 			/*
-			 * If already hiding, we don't want the mouse event that MIGHT
-			 * happen when the resizing dock passes under the mouse (the user
-			 * wont have moved mouse yet)
+			 * If revealing, then don't actually reveal until a delay has passed. The 
+			 * delayed action will be cancelled if in the mean time the mouse leaves
+			 * the dock revealer
 			 */
-			if (hiding) {
-				// TODO check this ...
-				return;
+			if(!hide) {
+				stopDockRevealerTimer();
+				dockRevealer = new Timeline(new KeyFrame(Duration.millis(500),
+						ae -> changeHidden(hide)));
+				dockRevealer.play();
 			}
-
-			hidden = hide;
-			hiding = true;
-
-			dockHider = new Timeline(new KeyFrame(Duration.millis(5),
-					ae -> shiftDock()));
-			yEnd = System.currentTimeMillis() + AUTOHIDE_DURATION;
-			dockHider.play();
+			else {			
+				changeHidden(hide);
+			}
 		}
+	}
+
+	private void stopDockRevealerTimer() {
+		if (dockRevealer != null
+				&& dockRevealer.getStatus() == Animation.Status.RUNNING)
+			dockRevealer.stop();
+	}
+	
+	private void changeHidden(boolean hide) {
+		hidePopOver();
+		
+		/*
+		 * If already hiding, we don't want the mouse event that MIGHT
+		 * happen when the resizing dock passes under the mouse (the user
+		 * wont have moved mouse yet)
+		 */
+		if (hiding) {
+			// TODO check this ...
+			return;
+		}
+
+		hidden = hide;
+		hiding = true;
+
+		dockHider = new Timeline(new KeyFrame(Duration.millis(5),
+				ae -> shiftDock()));
+		yEnd = System.currentTimeMillis() + AUTOHIDE_DURATION;
+		dockHider.play();
 	}
 
 	private void shiftDock() {
@@ -1113,6 +1138,7 @@ public class Dock extends AbstractController implements Listener {
 
 	@FXML
 	private void evtMouseExit(MouseEvent evt) throws Exception {
+		stopDockRevealerTimer();
 		if (cfg.autoHideProperty().get() && !arePopupsOpen()
 				&& (contextMenu == null || !contextMenu.isShowing())) {
 			maybeHideDock();
