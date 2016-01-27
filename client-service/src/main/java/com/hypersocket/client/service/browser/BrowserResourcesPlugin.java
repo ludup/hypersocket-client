@@ -90,13 +90,10 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 			String launchUrl = resource.getLaunchUrl();
 			
 			
-			if (resource.isRequireVPNAccess()) {
-				NetworkResource tunnel = vpnService.createURLForwarding(
-						serviceClient, launchUrl, resource.getId());
-				URL u = new URL(launchUrl);
-				URL nu = new URL(u.getProtocol(), tunnel.getLocalHostname(), tunnel.getLocalPort(), u.getFile());
-				launchUrl = nu.toExternalForm();				 
-			}
+			 if (resource.isRequireVPNAccess()) {
+	              vpnService.createURLForwarding(
+	                        serviceClient, launchUrl, resource.getId());
+	         }
 			
 			res.setResourceLauncher(new BrowserLauncher(serviceClient
 					.getTransport().resolveUrl(
