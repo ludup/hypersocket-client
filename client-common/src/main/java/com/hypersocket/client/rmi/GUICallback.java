@@ -61,7 +61,7 @@ public interface GUICallback extends Serializable, Remote {
 	
 	void onExtensionUpdateComplete(String app, ExtensionDefinition def) throws RemoteException;
 	
-	void onUpdateDone(String failureMessage)  throws RemoteException;
+	void onUpdateDone(boolean restart, String failureMessage)  throws RemoteException;
 	
 	ExtensionPlace getExtensionPlace() throws RemoteException;
 

@@ -149,7 +149,7 @@ public class AbstractController implements FramedController, Listener {
 	}
 
 	@Override
-	public void initDone(String errorMessage) {
+	public void initDone(boolean restart, String errorMessage) {
 	}
 
 	@Override

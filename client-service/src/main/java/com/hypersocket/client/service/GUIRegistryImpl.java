@@ -310,10 +310,10 @@ public class GUIRegistryImpl implements GUIRegistry {
 	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateDone(java.lang.String)
 	 */
 	@Override
-	public void onUpdateDone(String failureMessage) throws RemoteException {
+	public void onUpdateDone(boolean restart, String failureMessage) throws RemoteException {
 		synchronized (lock) {
 			if (gui != null && guiAttached) {
-				gui.onUpdateDone(failureMessage);
+				gui.onUpdateDone(restart, failureMessage);
 			}
 		}
 	}

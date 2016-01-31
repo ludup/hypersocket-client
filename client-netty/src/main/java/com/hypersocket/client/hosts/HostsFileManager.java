@@ -16,8 +16,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InterfaceAddress;
+import java.net.MalformedURLException;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -34,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.util.BashSilentSudoCommand;
 import com.hypersocket.utils.CommandExecutor;
+import com.hypersocket.utils.IPAddressValidator;
 
 public class HostsFileManager {
 
@@ -68,6 +71,13 @@ public class HostsFileManager {
 				}
 			}
 		});
+	}
+
+	public static URL sanitizeURL(String url) throws MalformedURLException {
+		
+		URL u = new URL(url);
+		String hostname = IPAddressValidator.getInstance().getGuaranteedHostname(u.getHost());
+		return new URL(u.getProtocol(), hostname, u.getPort(), u.getFile());
 	}
 
 	private void selectNextRange() throws IOException {

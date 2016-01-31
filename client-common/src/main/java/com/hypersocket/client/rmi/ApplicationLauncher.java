@@ -1,14 +1,24 @@
 package com.hypersocket.client.rmi;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.replace.ReplacementUtils;
 import com.hypersocket.utils.CommandExecutor;
 
@@ -19,7 +29,6 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 	private static final long serialVersionUID = 4922604914995232181L;
 
 	String[] ALLOWED_SYSTEM_PROPERTIES = { "user.name", "user.home", "user.dir" };
-	
 	String hostname;
 	ApplicationLauncherTemplate launcher;
 	String username;
@@ -34,10 +43,12 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 		
 		Map<String,String> properties = new HashMap<String,String>();
 		
+		
 		properties.put("hostname", hostname);
 		properties.put("username", username);
 		properties.put("timestamp", String.valueOf(System.currentTimeMillis()));
-		
+		properties.put("java.home", System.getProperty("java.home"));
+		properties.put("client.appdir", launcher.getApplicationDirectory().getAbsolutePath());
 		for(String prop : ALLOWED_SYSTEM_PROPERTIES) {
 			properties.put(prop.replace("user.", "client.user"), System.getProperty(prop));
 		}
@@ -52,7 +63,7 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 				log.info("--------");
 			}
 			
-			ScriptLauncher script = new ScriptLauncher(launcher.getStartupScript(), properties);
+			ScriptLauncher script = new ScriptLauncher(launcher.getStartupScript(), launcher.getApplicationDirectory(), properties);
 			int exitCode = script.launch();
 			if(exitCode!=0) {
 				log.warn("Startup script returned non zero exit code " + exitCode);
@@ -94,7 +105,7 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 				log.info("--------");
 				}
 				
-				ScriptLauncher script = new ScriptLauncher(launcher.getShutdownScript(), properties);
+				ScriptLauncher script = new ScriptLauncher(launcher.getShutdownScript(), launcher.getApplicationDirectory(), properties);
 				int exitCode = script.launch();
 				if(exitCode!=0) {
 					log.warn("Shutdown script returned non zero exit code " + exitCode);
@@ -104,7 +115,7 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 
 		
 	}
-
+	
 	@Override
 	public String toString() {
 		return "ApplicationLauncher [hostname=" + hostname + ", launcher="

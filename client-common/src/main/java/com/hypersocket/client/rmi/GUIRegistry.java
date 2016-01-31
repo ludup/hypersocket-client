@@ -46,7 +46,7 @@ public interface GUIRegistry {
 	public abstract void updateResource(ResourceUpdateType type,
 			Resource resource) throws RemoteException;
 
-	public abstract void onUpdateDone(String failureMessage)
+	public abstract void onUpdateDone(boolean restart, String failureMessage)
 			throws RemoteException;
 
 }

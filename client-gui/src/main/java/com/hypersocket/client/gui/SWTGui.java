@@ -543,10 +543,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	public int executeAsUser(ApplicationLauncherTemplate launcherTemplate,
 			String clientUsername, String connectedHostname)
 			throws RemoteException {
-
-		ApplicationLauncher launcher = new ApplicationLauncher(clientUsername,
-				connectedHostname, launcherTemplate);
-		return launcher.launch();
+		return 0;
 	}
 
 	private void closeConnectionsWindow() {
@@ -693,7 +690,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void onUpdateDone(final String errorMessage) throws RemoteException {
+	public void onUpdateDone(final boolean restart, final String errorMessage) throws RemoteException {
 		if (isUpdateCancelled()) {
 			throw new CancelledException();
 		}

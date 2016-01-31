@@ -1,5 +1,6 @@
 package com.hypersocket.client.rmi;
 
+import java.io.File;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -18,14 +19,16 @@ public class ApplicationLauncherTemplate implements Serializable {
 	Long id;
 	String logo;
 	Calendar modifiedDate;
+	File applicationDirectory;
 	
-	public ApplicationLauncherTemplate(Long id, String name, String exe, String startupScript, String shutdownScript, String logo, Map<String,String> variables, Calendar modifiedDate, String... args) {
+	public ApplicationLauncherTemplate(Long id, String name, String exe, String startupScript, String shutdownScript, File applicationDirectory, String logo, Map<String,String> variables, Calendar modifiedDate, String... args) {
 		this.name = name;
 		this.id = id;
 		this.exe = exe;
 		this.args = args;
 		this.startupScript = startupScript;
 		this.shutdownScript = shutdownScript;
+		this.applicationDirectory = applicationDirectory;
 		this.variables = variables;
 		this.logo = logo;
 		this.modifiedDate = modifiedDate;
@@ -69,6 +72,14 @@ public class ApplicationLauncherTemplate implements Serializable {
 	
 	public String getShutdownScript() {
 		return shutdownScript;
+	}
+	
+	public void setApplicationDirectory(File applicationDirectory) {
+		this.applicationDirectory = applicationDirectory;
+	}
+	
+	public File getApplicationDirectory() {
+		return applicationDirectory;
 	}
 
 	@Override
@@ -131,5 +142,4 @@ public class ApplicationLauncherTemplate implements Serializable {
 			return false;
 		return true;
 	}
-	
 }

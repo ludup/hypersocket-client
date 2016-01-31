@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hypersocket.client.NetworkResource;
+import com.hypersocket.client.hosts.HostsFileManager;
 import com.hypersocket.client.rmi.BrowserLauncher;
 import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.Resource.Type;
@@ -87,12 +87,13 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 
 			String sessionId = serviceClient.getSessionId();
 
-			String launchUrl = resource.getLaunchUrl();
-			
+			String launchUrl = HostsFileManager.sanitizeURL(resource.getLaunchUrl()).toExternalForm();;
 			
 			 if (resource.isRequireVPNAccess()) {
 	              vpnService.createURLForwarding(
-	                        serviceClient, launchUrl, resource.getId());
+	                        serviceClient, 
+	                        launchUrl, 
+	                        resource.getId());
 	         }
 			
 			res.setResourceLauncher(new BrowserLauncher(serviceClient

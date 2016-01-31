@@ -69,7 +69,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 		void initUpdate(int apps);
 
-		void initDone(String errorMessage);
+		void initDone(boolean restart, String errorMessage);
 
 		void startingUpdate(String app, long totalBytesExpected, Connection connection);
 
@@ -260,30 +260,6 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		Platform.runLater(new Runnable() {
 			public void run() {
 				Dock.getInstance().notify(msg, type);
-				// Window parent = Dock.getInstance().getStage();
-				//
-				// switch (type) {
-				// case NOTIFY_CONNECT:
-				// Notifier.INSTANCE.notifySuccess(parent,
-				// I18N.getResource("notify.connect"), msg);
-				// break;
-				// case NOTIFY_DISCONNECT:
-				// Notifier.INSTANCE.notifySuccess(parent,
-				// I18N.getResource("notify.disconnect"), msg);
-				// break;
-				// case NOTIFY_INFO:
-				// Notifier.INSTANCE.notifyInfo(parent,
-				// I18N.getResource("notify.information"), msg);
-				// break;
-				// case NOTIFY_WARNING:
-				// Notifier.INSTANCE.notifyWarning(parent,
-				// I18N.getResource("notify.warning"), msg);
-				// break;
-				// case NOTIFY_ERROR:
-				// Notifier.INSTANCE.notifyError(parent,
-				// I18N.getResource("notify.error"), msg);
-				// break;
-				// }
 			}
 		});
 	}
@@ -496,13 +472,13 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void onUpdateDone(final String failureMessage)
+	public void onUpdateDone(final boolean restart, final String failureMessage)
 			throws RemoteException {
 		Platform.runLater(new Runnable() {
 			@Override
 			public void run() {
 				for (Listener l : new ArrayList<Listener>(listeners)) {
-					l.initDone(failureMessage);
+					l.initDone(restart, failureMessage);
 				}
 			}
 		});

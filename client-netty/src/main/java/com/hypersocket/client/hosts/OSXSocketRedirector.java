@@ -36,7 +36,7 @@ public class OSXSocketRedirector extends AbstractSocketRedirector {
 		
 		if(Boolean.getBoolean("hypersocket.development")) {
 
-			redirectNke = new File("../x-client-network/bin/macosx/" + kextName);
+			redirectNke = new File("/Users/lee/smartgit/hypersocket-vpn/client-network/bin/macosx/" + kextName);
 			File tmpNke = File.createTempFile("nke", "tmp2");
 			
 			tmpNke = new File(tmpNke.getParentFile(), "RedirectNKE.kext");
@@ -64,7 +64,7 @@ public class OSXSocketRedirector extends AbstractSocketRedirector {
 			}
 			
 			redirectNke = tmpNke;
-			redirectCmd = new File("../x-client-network/bin/macosx/" + redirectName);		
+			redirectCmd = new File("/Users/lee/smartgit/hypersocket-vpn/client-network/bin/macosx/" + redirectName);		
 		} else {
 			
 			redirectNke = new File(cwd, "bin/macosx/" + kextName);

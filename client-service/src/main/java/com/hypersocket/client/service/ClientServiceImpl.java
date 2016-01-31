@@ -355,16 +355,16 @@ public class ClientServiceImpl implements ClientService {
 							guiRegistry.onUpdateInit(appsToUpdate);
 							guiJob.update();
 
-							guiRegistry.onUpdateDone(null);
+							guiRegistry.onUpdateDone(true, null);
 							log.info("Update complete, restarting.");
 							restartCallback.run();
 						} else {
-							guiRegistry.onUpdateDone(null);
+							guiRegistry.onUpdateDone(true, null);
 							log.info("Update complete, restarting.");
 							restartCallback.run();
 						}
 					} else {
-						guiRegistry.onUpdateDone("Nothing to update.");
+						guiRegistry.onUpdateDone(false, "Nothing to update.");
 					}
 
 				} catch (IOException e) {

@@ -70,7 +70,7 @@ public class GroupButton extends ImageButton {
 				// Server specified icon
 				String iconPath = iconName;
 				if (iconPath.indexOf("/") == -1) {
-					iconPath = "fileUpload/file/" + iconName;
+					iconPath = "files/download/" + iconName;
 				} else {
 					if (iconName.startsWith("logo://")) {
 						try {

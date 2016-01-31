@@ -138,7 +138,11 @@ public class Update extends AbstractController {
 	}
 
 	private String getAppName(String app) {
-		return resources.getString(app);
+		if(resources.containsKey(app)) {
+			return resources.getString(app);
+		} else {
+			return app;
+		}
 	}
 
 	@Override
@@ -154,7 +158,7 @@ public class Update extends AbstractController {
 	}
 
 	@Override
-	public void initDone(String errorMessage) {
+	public void initDone(boolean restart, String errorMessage) {
 		if (errorMessage == null) {
 			LOG.info(String
 					.format("All apps updated, starting restart process"));
