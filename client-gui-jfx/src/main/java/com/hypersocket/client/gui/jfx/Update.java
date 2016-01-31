@@ -160,11 +160,15 @@ public class Update extends AbstractController {
 	@Override
 	public void initDone(boolean restart, String errorMessage) {
 		if (errorMessage == null) {
-			LOG.info(String
-					.format("All apps updated, starting restart process"));
-			awaitingBridgeLoss = new Timeline(new KeyFrame(
-					Duration.seconds(30), ae -> giveUpWaitingForBridgeStop()));
-			awaitingBridgeLoss.play();
+			if(restart) {
+				LOG.info(String
+						.format("All apps updated, starting restart process"));
+				awaitingBridgeLoss = new Timeline(new KeyFrame(
+						Duration.seconds(30), ae -> giveUpWaitingForBridgeStop()));
+				awaitingBridgeLoss.play();
+			} else {
+				resetState();
+			}
 		} else {
 			this.message.textProperty().set(errorMessage);
 			progress.progressProperty().setValue(1);

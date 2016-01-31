@@ -697,19 +697,21 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 		shell.getDisplay().syncExec(new Runnable() {
 			public void run() {
 				if (errorMessage == null) {
-					log.info(String
-							.format("All apps updated, starting restart process"));
-					updateWindow.done();
-					awaitingServiceStop = true;
-					display.timerExec(30000, new Runnable() {
-						@Override
-						public void run() {
-							if (awaitingServiceStop)
-								updateWindow.failure(
-										null,
-										I18N.getResource("client.update.serviceDidNotStopInTime"));
-						}
-					});
+					if(restart) {
+						log.info(String
+								.format("All apps updated, starting restart process"));
+						updateWindow.done();
+						awaitingServiceStop = true;
+						display.timerExec(30000, new Runnable() {
+							@Override
+							public void run() {
+								if (awaitingServiceStop)
+									updateWindow.failure(
+											null,
+											I18N.getResource("client.update.serviceDidNotStopInTime"));
+							}
+						});
+					}
 				} else {
 					updateWindow.failure(null, errorMessage);
 				}
