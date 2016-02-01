@@ -40,7 +40,6 @@ import com.google.code.jgntp.GntpNotificationInfo;
 import com.google.common.io.Closeables;
 import com.hypersocket.client.Prompt;
 import com.hypersocket.client.i18n.I18N;
-import com.hypersocket.client.rmi.ApplicationLauncher;
 import com.hypersocket.client.rmi.ApplicationLauncherTemplate;
 import com.hypersocket.client.rmi.CancelledException;
 import com.hypersocket.client.rmi.ClientService;

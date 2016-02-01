@@ -1,7 +1,6 @@
 package com.hypersocket.client.service.browser;
 
 import java.io.IOException;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
