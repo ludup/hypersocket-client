@@ -371,8 +371,6 @@ public class ClientServiceImpl implements ClientService {
 					log.error("Failed to execute update job.", e);
 					return false;
 				}
-
-				return true;
 			} catch (RemoteException re) {
 				log.error(
 						"Failed to get GUI extension information. Update aborted.",
