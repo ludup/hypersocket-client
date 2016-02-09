@@ -35,6 +35,8 @@ public class Update extends AbstractController {
 	private Connection updatingConnection;
 	private Mode currentMode = Mode.IDLE;
 
+	private boolean awaitingRestart;
+
 	@Override
 	protected void onInitialize() {
 	}
@@ -54,6 +56,9 @@ public class Update extends AbstractController {
 
 	@Override
 	public void initUpdate(int apps, Mode currentMode) {
+		if(awaitingRestart)
+			throw new IllegalStateException("Cannot initiate updates while waiting to restart the GUI..");
+		
 		super.initUpdate(apps, currentMode);
 		this.currentMode = currentMode;
 		LOG.info(String.format("Initialising update (currently in mode %s). Expecting %d apps", currentMode, apps));
@@ -84,6 +89,14 @@ public class Update extends AbstractController {
 	@Override
 	public void bridgeEstablished() {
 		super.bridgeEstablished();
+		
+		/* If we were waiting for this, it's part of the update process. We don't want
+		 * the connection continuing 
+		 */
+		if (awaitingBridgeEstablish != null) {
+			awaitingRestart = true;
+		}
+		
 		Platform.runLater(new Runnable() {
 			@Override
 			public void run() {
@@ -92,8 +105,11 @@ public class Update extends AbstractController {
 					 * the client GUI starts again 
 					 */
 					if(updatingConnection != null) {
+						LOG.info(String.format("Will use connection %d (%s) when next starting", updatingConnection.getId(), updatingConnection.getHostname())); 
 						Configuration.getDefault().temporaryOnStartConnectionProperty().set(String.valueOf(updatingConnection.getId()));
 					}
+					else
+						LOG.info(String.format("Updating connection is not known, might not start connected to anything (unless some profiles are 'stay connected')", updatingConnection.getId(), updatingConnection.getHostname()));
 					
 					// Bridge established as result of update, now restart the
 					// client itself
@@ -105,6 +121,7 @@ public class Update extends AbstractController {
 				}
 			}
 		});
+		
 	}
 
 	@Override
@@ -240,5 +257,13 @@ public class Update extends AbstractController {
 
 	public boolean isAwaitingBridgeLoss() {
 		return awaitingBridgeLoss != null;
+	}
+
+	public boolean isAwaitingGUIRestart() {
+		return awaitingRestart;
+	}
+
+	public boolean isAwaitingBridgeEstablish() {
+		return awaitingBridgeEstablish != null;
 	}
 }
