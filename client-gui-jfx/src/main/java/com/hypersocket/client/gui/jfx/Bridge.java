@@ -67,7 +67,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 		Map<String, String> showPrompts(List<Prompt> prompts, int attempts, boolean success);
 
-		void initUpdate(int apps);
+		void initUpdate(int apps, Dock.Mode mode);
 
 		void initDone(boolean restart, String errorMessage);
 
@@ -460,7 +460,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 			@Override
 			public void run() {
 				for (Listener l : new ArrayList<Listener>(listeners)) {
-					l.initUpdate(expectedApps);
+					l.initUpdate(expectedApps, Dock.getInstance().getMode());
 				}
 			}
 		});

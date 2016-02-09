@@ -34,6 +34,7 @@ public class Update extends AbstractController {
 	private int appsToUpdate;
 	private int appsUpdated;
 	private Connection updatingConnection;
+	private Mode currentMode = Mode.IDLE;
 
 	@Override
 	protected void onInitialize() {
@@ -53,8 +54,9 @@ public class Update extends AbstractController {
 	}
 
 	@Override
-	public void initUpdate(int apps) {
-		super.initUpdate(apps);
+	public void initUpdate(int apps, Mode currentMode) {
+		super.initUpdate(apps, currentMode);
+		this.currentMode = currentMode;
 		LOG.info(String.format("Initialising update. Expecting %d apps", apps));
 		this.message.textProperty().set(resources.getString("init"));
 		appsToUpdate = apps;
@@ -181,7 +183,7 @@ public class Update extends AbstractController {
 		resetAwaingBridgeLoss();
 		appsToUpdate = 0;
 		appsUpdated = 0;
-		Dock.getInstance().setMode(Mode.IDLE);
+		Dock.getInstance().setMode(currentMode);
 	}
 
 	private void giveUpWaitingForBridgeEstablish() {

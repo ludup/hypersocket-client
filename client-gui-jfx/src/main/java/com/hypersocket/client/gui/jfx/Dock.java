@@ -235,8 +235,13 @@ public class Dock extends AbstractController implements Listener {
 
 	}
 
+	public Mode getMode() {
+		return mode;
+	}
+
 	public void setMode(Mode mode) {
 		if (mode != this.mode) {
+			Mode previousMode = this.mode;
 			this.mode = mode;
 			log.info(String.format("Dock mode is now %s", mode));
 			switch (mode) {
@@ -262,7 +267,7 @@ public class Dock extends AbstractController implements Listener {
 					 * The update popup will get future update events, but it
 					 * needs this one to initialize
 					 */
-					updateScene.initUpdate(appsToUpdate);
+					updateScene.initUpdate(appsToUpdate, previousMode);
 
 					Parent sceneRoot = scn.rootProperty().get();
 					scn.setRoot(new Group());
@@ -323,7 +328,7 @@ public class Dock extends AbstractController implements Listener {
 	 */
 
 	@Override
-	public void initUpdate(int apps) {
+	public void initUpdate(int apps, Mode mode) {
 		this.appsToUpdate = apps;
 		Platform.runLater(() -> setMode(Mode.UPDATE));
 	}

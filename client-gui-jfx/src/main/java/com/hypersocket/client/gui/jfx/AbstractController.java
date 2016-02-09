@@ -145,7 +145,7 @@ public class AbstractController implements FramedController, Listener {
 	}
 
 	@Override
-	public void initUpdate(int apps) {
+	public void initUpdate(int apps, Dock.Mode currentMode) {
 	}
 
 	@Override
