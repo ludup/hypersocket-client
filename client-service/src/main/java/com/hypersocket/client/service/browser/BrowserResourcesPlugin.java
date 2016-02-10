@@ -68,39 +68,43 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 
 		for (JsonBrowserResource resource : resources) {
 
-			ResourceImpl res = new ResourceImpl("browser-"
-					+ String.valueOf(resource.getId()), resource.getName());
-
-			res.setGroup(res.getName());
-			res.setGroupIcon(resource.getLogo());
-			res.setLaunchable(true);
-			res.setIcon(resource.getLogo());
-			res.setModified(resource.getModifiedDate());
-
-			if (resource.getType() != null
-					&& resource.getType().equals("BrowserSSOPlugin")) {
-				res.setType(Type.SSO);
-			} else {
-				res.setType(Type.BROWSER);
+			try {
+				ResourceImpl res = new ResourceImpl("browser-"
+						+ String.valueOf(resource.getId()), resource.getName());
+	
+				res.setGroup(res.getName());
+				res.setGroupIcon(resource.getLogo());
+				res.setLaunchable(true);
+				res.setIcon(resource.getLogo());
+				res.setModified(resource.getModifiedDate());
+	
+				if (resource.getType() != null
+						&& resource.getType().equals("BrowserSSOPlugin")) {
+					res.setType(Type.SSO);
+				} else {
+					res.setType(Type.BROWSER);
+				}
+	
+				String sessionId = serviceClient.getSessionId();
+				String url = resource.getLaunchUrl().replace("${basePath}", serviceClient.getBasePath());
+				String launchUrl = HostsFileManager.sanitizeURL(url).toExternalForm();;
+				
+				 if (resource.isRequireVPNAccess()) {
+		              vpnService.createURLForwarding(
+		                        serviceClient, 
+		                        launchUrl, 
+		                        resource.getId());
+		         }
+				
+				res.setResourceLauncher(new BrowserLauncher(serviceClient
+						.getTransport().resolveUrl(
+								"attach/" + authCode + "/" + sessionId
+										+ "?location="
+										+ URLEncoder.encode(launchUrl, "UTF-8"))));
+				realmResources.add(res);
+			} catch(Throwable t) {
+				errors++;
 			}
-
-			String sessionId = serviceClient.getSessionId();
-
-			String launchUrl = HostsFileManager.sanitizeURL(resource.getLaunchUrl()).toExternalForm();;
-			
-			 if (resource.isRequireVPNAccess()) {
-	              vpnService.createURLForwarding(
-	                        serviceClient, 
-	                        launchUrl, 
-	                        resource.getId());
-	         }
-			
-			res.setResourceLauncher(new BrowserLauncher(serviceClient
-					.getTransport().resolveUrl(
-							"attach/" + authCode + "/" + sessionId
-									+ "?location="
-									+ URLEncoder.encode(launchUrl, "UTF-8"))));
-			realmResources.add(res);
 
 		}
 
