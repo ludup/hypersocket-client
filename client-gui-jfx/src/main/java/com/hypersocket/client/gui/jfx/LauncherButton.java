@@ -10,19 +10,27 @@ import org.slf4j.LoggerFactory;
 
 public abstract class LauncherButton extends ImageButton {
 	static Logger log = LoggerFactory.getLogger(LauncherButton.class);
+	
+	private final ResourceItem resourceItem;
 
 	public LauncherButton(ResourceBundle resources, ResourceItem resourceItem,
 			Client context) {
+		this.resourceItem = resourceItem;
+		
 		setTextOverrun(OverrunStyle.CLIP);
 		setOnAction((event) -> {
 			onInitiateLaunch();
 			new Thread() {
 				public void run() {
-					launch(resourceItem);
+					launch();
 				}
 			}.start();
 		});
 
+	}
+	
+	public ResourceItem getResourceItem() {
+		return resourceItem;
 	}
 	
 	protected void onInitiateLaunch() {
@@ -41,7 +49,7 @@ public abstract class LauncherButton extends ImageButton {
 		// Called when launch is complete on the JFX thread
 	}
 
-	protected void launch(ResourceItem resourceItem) {
+	public void launch() {
 		onBeforeLaunch();
 		Thread t = new Thread("Launch") {
 			public void run() {

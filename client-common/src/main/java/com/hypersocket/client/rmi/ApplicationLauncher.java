@@ -19,7 +19,6 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 	private static final long serialVersionUID = 4922604914995232181L;
 
 	String[] ALLOWED_SYSTEM_PROPERTIES = { "user.name", "user.home", "user.dir" };
-	
 	String hostname;
 	ApplicationLauncherTemplate launcher;
 	String username;
@@ -28,16 +27,18 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 		this.hostname = hostname;
 		this.launcher = launcher;
 	}
-	
+
 	@Override
 	public int launch() {
 		
 		Map<String,String> properties = new HashMap<String,String>();
 		
+		
 		properties.put("hostname", hostname);
 		properties.put("username", username);
 		properties.put("timestamp", String.valueOf(System.currentTimeMillis()));
-		
+		properties.put("java.home", System.getProperty("java.home"));
+		properties.put("client.appdir", launcher.getApplicationDirectory().getAbsolutePath());
 		for(String prop : ALLOWED_SYSTEM_PROPERTIES) {
 			properties.put(prop.replace("user.", "client.user"), System.getProperty(prop));
 		}
@@ -52,7 +53,7 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 				log.info("--------");
 			}
 			
-			ScriptLauncher script = new ScriptLauncher(launcher.getStartupScript(), properties);
+			ScriptLauncher script = new ScriptLauncher(launcher.getStartupScript(), launcher.getApplicationDirectory(), properties);
 			int exitCode = script.launch();
 			if(exitCode!=0) {
 				log.warn("Startup script returned non zero exit code " + exitCode);
@@ -94,7 +95,7 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 				log.info("--------");
 				}
 				
-				ScriptLauncher script = new ScriptLauncher(launcher.getShutdownScript(), properties);
+				ScriptLauncher script = new ScriptLauncher(launcher.getShutdownScript(), launcher.getApplicationDirectory(), properties);
 				int exitCode = script.launch();
 				if(exitCode!=0) {
 					log.warn("Shutdown script returned non zero exit code " + exitCode);
@@ -103,6 +104,12 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 		}
 
 		
+	}
+	
+	@Override
+	public String toString() {
+		return "ApplicationLauncher [hostname=" + hostname + ", launcher="
+				+ launcher + ", username=" + username + "]";
 	}
 
 }

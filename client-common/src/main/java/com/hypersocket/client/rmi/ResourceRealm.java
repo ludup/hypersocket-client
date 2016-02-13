@@ -8,5 +8,7 @@ public interface ResourceRealm {
 	
 	List<Resource> getResources();
 
-	void addResource(ResourceImpl res);
+	void addResource(Resource res);
+
+	void removeResource(Resource r);
 }

@@ -36,10 +36,30 @@ public class Configuration {
 	private IntegerProperty monitor = new SimpleIntegerProperty();
 	private Property<Color> color = new SimpleObjectProperty<Color>();
 	private Property<BrowserType> browserType = new SimpleObjectProperty<BrowserType>();
+	private StringProperty temporaryOnStartConnection = new SimpleStringProperty();
 
 	//
 	private final static Configuration DEFAULT_INSTANCE = new Configuration(
 			Preferences.userNodeForPackage(Configuration.class));
+
+	class IntegerPreferenceUpdateChangeListener implements
+			ChangeListener<Number> {
+
+		private Preferences node;
+		private String key;
+
+		IntegerPreferenceUpdateChangeListener(Preferences node, String key) {
+			this.node = node;
+			this.key = key;
+		}
+
+		@Override
+		public void changed(ObservableValue<? extends Number> observable,
+				Number oldValue, Number newValue) {
+			node.putInt(key, newValue.intValue());
+		}
+
+	}
 
 	class BooleanPreferenceUpdateChangeListener implements
 			ChangeListener<Boolean> {
@@ -128,13 +148,16 @@ public class Configuration {
 		showNetwork.addListener(new BooleanPreferenceUpdateChangeListener(node,
 				"showNetwork"));
 
-		showFiles.set(node.getBoolean("showNetwork", true));
+		showFiles.set(node.getBoolean("showFiles", true));
 		showFiles.addListener(new BooleanPreferenceUpdateChangeListener(node,
-				"showNetwork"));
+				"showFiles"));
 
 		autoHide.set(node.getBoolean("autoHide", true));
 		autoHide.addListener(new BooleanPreferenceUpdateChangeListener(node,
 				"autoHide"));
+		
+		temporaryOnStartConnection.set(node.get("temporaryOnStartConnection", ""));
+		temporaryOnStartConnection.addListener(new StringPreferenceUpdateChangeListener(node, "temporaryOnStartConnection"));
 
 		alwaysOnTop.set(node.getBoolean("alwaysOnTop", true));
 		alwaysOnTop.addListener(new BooleanPreferenceUpdateChangeListener(node,
@@ -143,6 +166,9 @@ public class Configuration {
 		avoidReserved.set(node.getBoolean("avoidReserved", true));
 		avoidReserved.addListener(new BooleanPreferenceUpdateChangeListener(
 				node, "avoidReserved"));
+		
+		monitor.set(node.getInt("monitor", 0));
+		monitor.addListener(new IntegerPreferenceUpdateChangeListener(node, "monitor"));
 
 		size.set((int)node.getDouble("size", 48));
 		size.addListener(new ChangeListener<Number>() {
@@ -198,7 +224,11 @@ public class Configuration {
 	public static Configuration getDefault() {
 		return DEFAULT_INSTANCE;
 	}
-	
+
+	public StringProperty temporaryOnStartConnectionProperty() {
+		return temporaryOnStartConnection;
+	}
+
 	public StringProperty browserCommandProperty() {
 		return browserCommand;
 	}

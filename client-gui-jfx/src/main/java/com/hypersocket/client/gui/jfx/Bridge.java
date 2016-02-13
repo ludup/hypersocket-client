@@ -26,6 +26,7 @@ import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.ConnectionStatus;
 import com.hypersocket.client.rmi.GUICallback;
+import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionPlace;
@@ -66,11 +67,11 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 		Map<String, String> showPrompts(List<Prompt> prompts, int attempts, boolean success);
 
-		void initUpdate(int apps);
+		void initUpdate(int apps, Dock.Mode mode);
 
-		void initDone(String errorMessage);
+		void initDone(boolean restart, String errorMessage);
 
-		void startingUpdate(String app, long totalBytesExpected);
+		void startingUpdate(String app, long totalBytesExpected, Connection connection);
 
 		void updateProgressed(String app, long sincelastProgress,
 				long totalSoFar, long totalBytesExpected);
@@ -80,6 +81,8 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		void updateFailure(String app, String message);
 
 		void extensionUpdateComplete(String app, ExtensionDefinition def);
+
+		void updateResource(ResourceUpdateType type, Resource resource);
 	}
 
 	public Bridge() throws RemoteException {
@@ -257,30 +260,6 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		Platform.runLater(new Runnable() {
 			public void run() {
 				Dock.getInstance().notify(msg, type);
-				// Window parent = Dock.getInstance().getStage();
-				//
-				// switch (type) {
-				// case NOTIFY_CONNECT:
-				// Notifier.INSTANCE.notifySuccess(parent,
-				// I18N.getResource("notify.connect"), msg);
-				// break;
-				// case NOTIFY_DISCONNECT:
-				// Notifier.INSTANCE.notifySuccess(parent,
-				// I18N.getResource("notify.disconnect"), msg);
-				// break;
-				// case NOTIFY_INFO:
-				// Notifier.INSTANCE.notifyInfo(parent,
-				// I18N.getResource("notify.information"), msg);
-				// break;
-				// case NOTIFY_WARNING:
-				// Notifier.INSTANCE.notifyWarning(parent,
-				// I18N.getResource("notify.warning"), msg);
-				// break;
-				// case NOTIFY_ERROR:
-				// Notifier.INSTANCE.notifyError(parent,
-				// I18N.getResource("notify.error"), msg);
-				// break;
-				// }
 			}
 		});
 	}
@@ -411,13 +390,13 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void onUpdateStart(String app, long totalBytesExpected)
+	public void onUpdateStart(String app, long totalBytesExpected, Connection connection)
 			throws RemoteException {
 		Platform.runLater(new Runnable() {
 			@Override
 			public void run() {
 				for (Listener l : new ArrayList<Listener>(listeners)) {
-					l.startingUpdate(app, totalBytesExpected);
+					l.startingUpdate(app, totalBytesExpected, connection);
 				}
 			}
 		});
@@ -481,7 +460,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 			@Override
 			public void run() {
 				for (Listener l : new ArrayList<Listener>(listeners)) {
-					l.initUpdate(expectedApps);
+					l.initUpdate(expectedApps, Dock.getInstance().getMode());
 				}
 			}
 		});
@@ -493,13 +472,13 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void onUpdateDone(final String failureMessage)
+	public void onUpdateDone(final boolean restart, final String failureMessage)
 			throws RemoteException {
 		Platform.runLater(new Runnable() {
 			@Override
 			public void run() {
 				for (Listener l : new ArrayList<Listener>(listeners)) {
-					l.initDone(failureMessage);
+					l.initDone(restart, failureMessage);
 				}
 			}
 		});
@@ -513,5 +492,18 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		catch(RemoteException re) {
 			return false;
 		}
+	}
+
+	@Override
+	public void updateResource(ResourceUpdateType type, Resource resource)
+			throws RemoteException {
+		Platform.runLater(new Runnable() {
+			@Override
+			public void run() {
+				for (Listener l : new ArrayList<Listener>(listeners)) {
+					l.updateResource(type, resource);
+				}
+			}
+		});
 	}
 }

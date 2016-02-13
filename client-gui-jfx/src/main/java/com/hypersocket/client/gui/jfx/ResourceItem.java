@@ -20,4 +20,8 @@ public class ResourceItem {
 		return resourceRealm;
 	}
 
+	public void setResource(Resource resource) {
+		this.resource = resource;		
+	}
+
 }

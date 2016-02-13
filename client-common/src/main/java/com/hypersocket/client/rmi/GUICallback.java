@@ -11,6 +11,10 @@ import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionPlace;
 
 public interface GUICallback extends Serializable, Remote {
+	
+	public enum ResourceUpdateType {
+		CREATE, UPDATE, DELETE
+	}
 
 	public static final int NOTIFY_ERROR = 0;
 	public static final int NOTIFY_WARNING = 1;
@@ -47,7 +51,7 @@ public interface GUICallback extends Serializable, Remote {
 	
 	void onUpdateInit(int expectedApps) throws RemoteException;
 	
-	void onUpdateStart(String app, long totalBytesExpected) throws RemoteException;
+	void onUpdateStart(String app, long totalBytesExpected, Connection connection) throws RemoteException;
 	
 	void onUpdateProgress(String app, long sincelastProgress, long totalSoFar, long totalBytesExpected) throws RemoteException;
 	
@@ -57,8 +61,10 @@ public interface GUICallback extends Serializable, Remote {
 	
 	void onExtensionUpdateComplete(String app, ExtensionDefinition def) throws RemoteException;
 	
-	void onUpdateDone(String failureMessage)  throws RemoteException;
+	void onUpdateDone(boolean restart, String failureMessage)  throws RemoteException;
 	
 	ExtensionPlace getExtensionPlace() throws RemoteException;
+
+	void updateResource(ResourceUpdateType type, Resource resource) throws RemoteException;
 
 }

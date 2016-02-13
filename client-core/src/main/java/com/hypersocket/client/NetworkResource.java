@@ -15,26 +15,35 @@ public class NetworkResource implements Serializable,ServiceResource {
 
 	private static final long serialVersionUID = -3525449561878862225L;
 
-	Long id;
 	String hostname;
 	String desintationHostname;
+	String localHostname;
 	int port;
 	String alias;
 	int actualPort;
 	String uri;
 	Status serviceStatus = Status.UNKNOWN;
+	Long parentResourceId;
 
-	public NetworkResource(Long id, String hostname, String destinationHostname, int port, String uri) {
-		this.id = id;
+	public NetworkResource(Long parentResourceId, String hostname, String destinationHostname, int port, String uri) {
 		this.hostname = IPAddressValidator.getInstance().getGuaranteedHostname(
 				hostname);
+		this.parentResourceId = parentResourceId;
 		this.desintationHostname = destinationHostname;
 		this.port = port;
 		this.uri = uri;
 	}
 
-	public Long getId() {
-		return id;
+	public String getLocalHostname() {
+		return localHostname;
+	}
+
+	public void setLocalHostname(String localHostname) {
+		this.localHostname = localHostname;
+	}
+
+	public Long getParentResourceId() {
+		return parentResourceId;
 	}
 
 	public String getHostname() {
@@ -80,7 +89,7 @@ public class NetworkResource implements Serializable,ServiceResource {
 
 	@Override
 	public String getServiceDescription() {
-		return getDestinationHostname() + ":" + getPort();
+		return getDestinationHostname() + ":" + getPort() + " (-> " + actualPort + ")";
 	}
 
 }

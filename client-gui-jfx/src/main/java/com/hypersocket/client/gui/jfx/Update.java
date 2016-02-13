@@ -1,6 +1,7 @@
 package com.hypersocket.client.gui.jfx;
 
 import java.rmi.RemoteException;
+import java.text.MessageFormat;
 import java.util.logging.Logger;
 
 import javafx.animation.KeyFrame;
@@ -15,6 +16,7 @@ import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 
 import com.hypersocket.client.gui.jfx.Dock.Mode;
+import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUICallback;
 
 public class Update extends AbstractController {
@@ -31,6 +33,8 @@ public class Update extends AbstractController {
 	private Timeline awaitingBridgeEstablish;
 	private int appsToUpdate;
 	private int appsUpdated;
+	private Connection updatingConnection;
+	private Mode currentMode = Mode.IDLE;
 
 	@Override
 	protected void onInitialize() {
@@ -50,8 +54,9 @@ public class Update extends AbstractController {
 	}
 
 	@Override
-	public void initUpdate(int apps) {
-		super.initUpdate(apps);
+	public void initUpdate(int apps, Mode currentMode) {
+		super.initUpdate(apps, currentMode);
+		this.currentMode = currentMode;
 		LOG.info(String.format("Initialising update. Expecting %d apps", apps));
 		this.message.textProperty().set(resources.getString("init"));
 		appsToUpdate = apps;
@@ -59,17 +64,20 @@ public class Update extends AbstractController {
 	}
 
 	@Override
-	public void startingUpdate(String app, long totalBytesExpected) {
+	public void startingUpdate(String app, long totalBytesExpected, Connection connection) {
 		LOG.info(String.format("Starting up of %s, expect %d bytes", app,
 				totalBytesExpected));
-		this.message.textProperty().set(resources.getString("updating"));
+		updatingConnection = connection;
+		String appName = getAppName(app);
+		this.message.textProperty().set(MessageFormat.format(resources.getString("updating"), appName));
 		progress.progressProperty().setValue(0);
 	}
 
 	@Override
 	public void updateProgressed(String app, long sincelastProgress,
 			long totalSoFar, long totalBytesExpected) {
-		this.message.textProperty().set(resources.getString("updating"));
+		String appName = getAppName(app);
+		this.message.textProperty().set(MessageFormat.format(resources.getString("updating"), appName));
 		progress.progressProperty().setValue(
 				(double) totalSoFar / totalBytesExpected);
 	}
@@ -81,6 +89,13 @@ public class Update extends AbstractController {
 			@Override
 			public void run() {
 				if (awaitingBridgeEstablish != null) {
+					/* If the connection that originated the update was known, then try to reconnect to it when
+					 * the client GUI starts again 
+					 */
+					if(updatingConnection != null) {
+						Configuration.getDefault().temporaryOnStartConnectionProperty().set(String.valueOf(updatingConnection.getId()));
+					}
+					
 					// Bridge established as result of update, now restart the
 					// client itself
 					resetAwaingBridgeEstablish();
@@ -115,12 +130,21 @@ public class Update extends AbstractController {
 
 	@Override
 	public void updateComplete(String app, long totalBytesTransfered) {
+		String appName = getAppName(app);
 		progress.progressProperty().setValue(1);
-		this.message.textProperty().set(resources.getString("updated"));
+		this.message.textProperty().set(MessageFormat.format(resources.getString("updated"), appName));
 		appsUpdated++;
 		LOG.info(String.format(
 				"Update of %s complete, have now updated %d of %d apps", app,
 				appsUpdated, appsToUpdate));
+	}
+
+	private String getAppName(String app) {
+		if(resources.containsKey(app)) {
+			return resources.getString(app);
+		} else {
+			return app;
+		}
 	}
 
 	@Override
@@ -132,16 +156,21 @@ public class Update extends AbstractController {
 		} catch (RemoteException e) {
 			// Not actually remote
 		}
+		context.getBridge().disconnectAll();
 	}
 
 	@Override
-	public void initDone(String errorMessage) {
+	public void initDone(boolean restart, String errorMessage) {
 		if (errorMessage == null) {
-			LOG.info(String
-					.format("All apps updated, starting restart process"));
-			awaitingBridgeLoss = new Timeline(new KeyFrame(
-					Duration.seconds(30), ae -> giveUpWaitingForBridgeStop()));
-			awaitingBridgeLoss.play();
+			if(restart) {
+				LOG.info(String
+						.format("All apps updated, starting restart process"));
+				awaitingBridgeLoss = new Timeline(new KeyFrame(
+						Duration.seconds(30), ae -> giveUpWaitingForBridgeStop()));
+				awaitingBridgeLoss.play();
+			} else {
+				resetState();
+			}
 		} else {
 			this.message.textProperty().set(errorMessage);
 			progress.progressProperty().setValue(1);
@@ -154,6 +183,7 @@ public class Update extends AbstractController {
 		resetAwaingBridgeLoss();
 		appsToUpdate = 0;
 		appsUpdated = 0;
+		Dock.getInstance().setMode(currentMode);
 	}
 
 	private void giveUpWaitingForBridgeEstablish() {

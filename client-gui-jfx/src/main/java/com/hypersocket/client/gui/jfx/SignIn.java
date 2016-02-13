@@ -438,9 +438,9 @@ public class SignIn extends AbstractController implements Listener {
 		/**
 		 * Crashing Still!!!!
 		 */
-//		if (!serverUrls.isDisabled()
-//				&& serverUrls.getEditor().getText().trim().equals(""))
-//			showPopOver(resources.getString("serverURL.tooltip"), serverUrls);
+		if (!serverUrls.isDisabled()
+				&& serverUrls.getEditor().getText().trim().equals(""))
+			showPopOver(resources.getString("serverURL.tooltip"), serverUrls);
 	}
 
 	private void focusNextPrompt(Control c) {

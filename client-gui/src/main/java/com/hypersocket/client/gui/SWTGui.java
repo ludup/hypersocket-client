@@ -40,7 +40,6 @@ import com.google.code.jgntp.GntpNotificationInfo;
 import com.google.common.io.Closeables;
 import com.hypersocket.client.Prompt;
 import com.hypersocket.client.i18n.I18N;
-import com.hypersocket.client.rmi.ApplicationLauncher;
 import com.hypersocket.client.rmi.ApplicationLauncherTemplate;
 import com.hypersocket.client.rmi.CancelledException;
 import com.hypersocket.client.rmi.ClientService;
@@ -543,10 +542,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	public int executeAsUser(ApplicationLauncherTemplate launcherTemplate,
 			String clientUsername, String connectedHostname)
 			throws RemoteException {
-
-		ApplicationLauncher launcher = new ApplicationLauncher(clientUsername,
-				connectedHostname, launcherTemplate);
-		return launcher.launch();
+		return 0;
 	}
 
 	private void closeConnectionsWindow() {
@@ -593,7 +589,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void onUpdateStart(final String app, final long totalBytesExpected)
+	public void onUpdateStart(final String app, final long totalBytesExpected, Connection connection)
 			throws RemoteException {
 		if (isUpdateCancelled()) {
 			throw new CancelledException();
@@ -693,26 +689,28 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void onUpdateDone(final String errorMessage) throws RemoteException {
+	public void onUpdateDone(final boolean restart, final String errorMessage) throws RemoteException {
 		if (isUpdateCancelled()) {
 			throw new CancelledException();
 		}
 		shell.getDisplay().syncExec(new Runnable() {
 			public void run() {
 				if (errorMessage == null) {
-					log.info(String
-							.format("All apps updated, starting restart process"));
-					updateWindow.done();
-					awaitingServiceStop = true;
-					display.timerExec(30000, new Runnable() {
-						@Override
-						public void run() {
-							if (awaitingServiceStop)
-								updateWindow.failure(
-										null,
-										I18N.getResource("client.update.serviceDidNotStopInTime"));
-						}
-					});
+					if(restart) {
+						log.info(String
+								.format("All apps updated, starting restart process"));
+						updateWindow.done();
+						awaitingServiceStop = true;
+						display.timerExec(30000, new Runnable() {
+							@Override
+							public void run() {
+								if (awaitingServiceStop)
+									updateWindow.failure(
+											null,
+											I18N.getResource("client.update.serviceDidNotStopInTime"));
+							}
+						});
+					}
 				} else {
 					updateWindow.failure(null, errorMessage);
 				}
@@ -730,7 +728,10 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void started(Connection connection) throws RemoteException {
-		// TODO Auto-generated method stub
-		
+	}
+
+	@Override
+	public void updateResource(ResourceUpdateType type, Resource resource)
+			throws RemoteException {
 	}
 }

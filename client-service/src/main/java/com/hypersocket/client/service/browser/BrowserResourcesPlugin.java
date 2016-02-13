@@ -1,7 +1,6 @@
 package com.hypersocket.client.service.browser;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
@@ -12,44 +11,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hypersocket.client.HypersocketClient;
-import com.hypersocket.client.i18n.I18N;
+import com.hypersocket.client.hosts.HostsFileManager;
 import com.hypersocket.client.rmi.BrowserLauncher;
+import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.Resource.Type;
 import com.hypersocket.client.rmi.ResourceImpl;
-import com.hypersocket.client.rmi.ResourceRealm;
-import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.client.service.AbstractServicePlugin;
-import com.hypersocket.client.service.GUIRegistry;
 
 public class BrowserResourcesPlugin extends AbstractServicePlugin {
 
 	static Logger log = LoggerFactory.getLogger(BrowserResourcesPlugin.class);
 
 	List<JsonBrowserResource> browserResources = new ArrayList<JsonBrowserResource>();
-	HypersocketClient<?> serviceClient;
-	ResourceService resourceService;
 
 	public BrowserResourcesPlugin() {
+		super("browser");
 	}
 
 	@Override
-	public boolean start(HypersocketClient<?> serviceClient,
-			ResourceService resourceService, GUIRegistry guiRegistry) {
-
-		this.serviceClient = serviceClient;
-		this.resourceService = resourceService;
-
-		if (log.isInfoEnabled()) {
-			log.info("Starting Browser Resources");
-		}
-
-		startBrowserResources();
-
+	public boolean onStart() {
 		return true;
 	}
 
-	protected void startBrowserResources() {
+	protected void reloadResources(List<Resource> realmResources) {
 		try {
 			String json = serviceClient.getTransport().get(
 					"browser/myResources");
@@ -62,7 +46,7 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 			Map<String, String> properties = list.getProperties();
 
 			int errors = processBrowserResources(list.getResources(),
-					properties.get("authCode"));
+					properties.get("authCode"), realmResources);
 
 			if (errors > 0) {
 				// Warn
@@ -78,53 +62,47 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 	}
 
 	protected int processBrowserResources(JsonBrowserResource[] resources,
-			String authCode) throws IOException {
+			String authCode, List<Resource> realmResources) throws IOException {
 
 		int errors = 0;
 
 		for (JsonBrowserResource resource : resources) {
 
 			try {
-
-				ResourceRealm resourceRealm = resourceService
-						.getResourceRealm(serviceClient.getHost());
-
-				ResourceImpl res = new ResourceImpl(resource.getName() + " - "
-						+ I18N.getResource("text.defaultBrowser"));
+				ResourceImpl res = new ResourceImpl("browser-"
+						+ String.valueOf(resource.getId()), resource.getName());
+	
+				res.setGroup(res.getName());
+				res.setGroupIcon(resource.getLogo());
 				res.setLaunchable(true);
 				res.setIcon(resource.getLogo());
-
-				if (resource.getType()!=null && resource.getType().equals("FileResource")) {
-					res.setType(Type.FILE);
-				} else if (resource.getType()!=null && resource.getType().equals("BrowserSSOPlugin")) {
+				res.setModified(resource.getModifiedDate());
+	
+				if (resource.getType() != null
+						&& resource.getType().equals("BrowserSSOPlugin")) {
 					res.setType(Type.SSO);
 				} else {
 					res.setType(Type.BROWSER);
-					if(res.getIcon() == null || res.getIcon().equals("")) {
-						res.setIcon("web-https");
-					}
 				}
-
+	
 				String sessionId = serviceClient.getSessionId();
+				String url = resource.getLaunchUrl().replace("${basePath}", serviceClient.getBasePath());
+				String launchUrl = HostsFileManager.sanitizeURL(url).toExternalForm();;
+				
+				 if (resource.isRequireVPNAccess()) {
+		              vpnService.createURLForwarding(
+		                        serviceClient, 
+		                        launchUrl, 
+		                        resource.getId());
+		         }
+				
 				res.setResourceLauncher(new BrowserLauncher(serviceClient
 						.getTransport().resolveUrl(
-								"attach/"
-										+ authCode
-										+ "/"
-										+ sessionId
+								"attach/" + authCode + "/" + sessionId
 										+ "?location="
-										+ URLEncoder.encode(
-												resource.getLaunchUrl(),
-												"UTF-8"))));
-				resourceRealm.addResource(res);
-
-			} catch (RemoteException ex) {
-				log.error(
-						"Received remote exception whilst processing resources",
-						ex);
-				errors++;
-			} catch (UnsupportedEncodingException e) {
-				log.error("Looks liek the system does not support UTF-8!", e);
+										+ URLEncoder.encode(launchUrl, "UTF-8"))));
+				realmResources.add(res);
+			} catch(Throwable t) {
 				errors++;
 			}
 
@@ -134,7 +112,7 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 	}
 
 	@Override
-	public void stop() {
+	public void onStop() {
 
 		if (log.isInfoEnabled()) {
 			log.info("Stopping Browser Resources plugin");
@@ -152,5 +130,20 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 	@Override
 	public String getName() {
 		return "Browser Resources";
+	}
+
+	@Override
+	protected boolean onCreatedResource(Resource resource) {
+		return true;
+	}
+
+	@Override
+	protected boolean onUpdatedResource(Resource resource) {
+		return true;
+	}
+
+	@Override
+	protected boolean onDeletedResource(Resource resource) {
+		return true;
 	}
 }

@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.service.GUIRegistry;
+import com.hypersocket.client.rmi.GUIRegistry;
 import com.hypersocket.extensions.AbstractExtensionUpdater;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionHelper;
@@ -28,7 +28,6 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	private GUIRegistry gui;
 	private HypersocketClient<Connection> hypersocketClient;
 	private ExtensionPlace extensionPlace;
-	@SuppressWarnings("unused")
 	private Connection connection; // Will probably be used again
 
 	public ClientUpdater(GUIRegistry gui, Connection connection,
@@ -83,7 +82,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 	@Override
 	protected void onUpdateStart(long totalBytesExpected) {
-		gui.onUpdateStart(extensionPlace.getApp(), totalBytesExpected);
+		gui.onUpdateStart(extensionPlace.getApp(), totalBytesExpected, connection);
 	}
 
 	@Override

@@ -54,6 +54,7 @@ public abstract class HypersocketClient<T> {
 	
 	String cachedUsername;
 	String cachedPassword;
+	String basePath;
 	
 	protected HypersocketClient(HypersocketClientTransport transport, Locale currentLocale)
 			throws IOException {
@@ -125,6 +126,7 @@ public abstract class HypersocketClient<T> {
 			
 			transport.connect(hostname, port, path);
 	
+			basePath = "https://" + hostname + (port!=443 ? ":" + port : "") + path;
 			loadResources();
 		
 		} catch(IOException ex) {
@@ -141,6 +143,10 @@ public abstract class HypersocketClient<T> {
 		}
 	}
 
+	public String getBasePath() {
+		return basePath;
+	}
+	
 	protected void loadResources() throws IOException {
 
 		String resources = transport.get("i18n/" + currentLocale.getLanguage());

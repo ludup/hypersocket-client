@@ -5,6 +5,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
@@ -22,10 +24,17 @@ public class ScriptLauncher implements ResourceLauncher, Serializable {
 
 	String script;
 	Map<String,String> properties;
+	File workingDirectory;
+	List<String> args = new ArrayList<String>();
 	
-	public ScriptLauncher(String script, Map<String,String> properties) {
+	public ScriptLauncher(String script, File workingDirectory, Map<String,String> properties) {
 		this.script = script;
+		this.workingDirectory = workingDirectory;
 		this.properties = properties;
+	}
+
+	public void addArg(String arg) {
+		args.add(arg);
 	}
 	
 	@Override
@@ -52,11 +61,13 @@ public class ScriptLauncher implements ResourceLauncher, Serializable {
 		
 		final CommandExecutor cmd;
 		if(System.getProperty("os.name").toLowerCase().startsWith("windows")) {
-			cmd = executeWindowsScript(scriptFile);
+			cmd = createWindowsScript(scriptFile);
 		} else {
-			cmd = executeBashScript(scriptFile);
+			cmd = createBashScript(scriptFile);
 		}
 		
+		cmd.setWorkingDirectory(workingDirectory);
+		cmd.addArgs(args.toArray(new String[0]));
 		
 		try {
 			int exitCode = cmd.execute();
@@ -86,16 +97,22 @@ public class ScriptLauncher implements ResourceLauncher, Serializable {
 				
 	}
 
-	private CommandExecutor executeBashScript(File scriptFile) {
+	private CommandExecutor createBashScript(File scriptFile) {
 		return new CommandExecutor("/bin/sh", scriptFile.getAbsolutePath());
 	}
 
-	private CommandExecutor executeWindowsScript(File scriptFile) {
+	private CommandExecutor createWindowsScript(File scriptFile) {
 		return new CommandExecutor("cmd.exe", "/C", scriptFile.getAbsolutePath());
 	}
 
 	private String getScriptSuffix() {
 		return System.getProperty("os.name").toLowerCase().startsWith("windows") ? ".bat" : ".sh";
+	}
+
+	@Override
+	public String toString() {
+		return "ScriptLauncher [script=" + script + ", properties="
+				+ properties + "]";
 	}
 
 }

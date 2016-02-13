@@ -16,8 +16,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InterfaceAddress;
+import java.net.MalformedURLException;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -34,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.util.BashSilentSudoCommand;
 import com.hypersocket.utils.CommandExecutor;
+import com.hypersocket.utils.IPAddressValidator;
 
 public class HostsFileManager {
 
@@ -43,6 +46,7 @@ public class HostsFileManager {
 	List<String> content = new ArrayList<String>();
 	LinkedList<String> aliasPool = new LinkedList<String>();
 	Map<String, String> hostsToLoopbackAlias = new HashMap<String, String>();
+	Map<String,String> staticAlias = new HashMap<String,String>();
 	
 	int _8bits = 192;
 	int _16bits = 168;
@@ -68,6 +72,13 @@ public class HostsFileManager {
 				}
 			}
 		});
+	}
+
+	public static URL sanitizeURL(String url) throws MalformedURLException {
+		
+		URL u = new URL(url);
+		String hostname = IPAddressValidator.getInstance().getGuaranteedHostname(u.getHost());
+		return new URL(u.getProtocol(), hostname, u.getPort(), u.getFile());
 	}
 
 	private void selectNextRange() throws IOException {
@@ -259,12 +270,16 @@ public class HostsFileManager {
 			}
 
 			if (outputAliases) {
-				writer.write(System.getProperty("line.separator"));
 				writer.write(BEGIN);
 				writer.write(System.getProperty("line.separator"));
-				writer.write("# WARNING: Any hosts added beyond this line will be removed when the Hypersocket client disconnects.");
+				writer.write("# WARNING: These are dynamic hosts added by a Hypersocket product");
 				writer.write(System.getProperty("line.separator"));
 
+				for (Map.Entry<String, String> host : staticAlias.entrySet()) {
+					writer.write(host.getValue() + " " + host.getKey());
+					writer.write(System.getProperty("line.separator"));
+				}
+				
 				for (Map.Entry<String, String> host : hostsToLoopbackAlias
 						.entrySet()) {
 					writer.write(host.getValue() + " " + host.getKey());
@@ -306,5 +321,27 @@ public class HostsFileManager {
 		
 		flushFile(true);
 		
+	}
+
+	public void setAlias(String hostname, String ip) throws IOException {
+		staticAlias.put(hostname, ip);
+		flushFile(true);
+	}
+
+	public String getAliasForIPAddress(String ip) {
+		for(String key : staticAlias.keySet()) {
+			if(staticAlias.get(key).equals(ip)) {
+				return key;
+			}
+		}
+		for(String key : hostsToLoopbackAlias.keySet()) {
+			if(hostsToLoopbackAlias.get(key).equals(ip)) {
+				return key;
+			}
+		}
+		throw new IllegalArgumentException(ip + " does not have a valid alias");
+	}
+	public boolean hasAliasFor(String ip) {
+		return staticAlias.containsValue(ip) || hostsToLoopbackAlias.containsValue(ip);
 	}
 }
