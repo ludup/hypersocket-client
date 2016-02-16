@@ -146,6 +146,7 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 			if (log.isDebugEnabled()) {
 				log.debug(result.toJSONString());
 			}
+			log.info("REMOVEME: " + result.toJSONString());
 
 			JSONArray fields = (JSONArray) result.get("resources");
 
