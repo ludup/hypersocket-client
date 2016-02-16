@@ -252,23 +252,17 @@ public class AbstractController implements FramedController, Listener {
 			if (cfg.topProperty().get() || cfg.bottomProperty().get()
 					|| cfg.rightProperty().get()) {
 				popOver.arrowLocationProperty().set(ArrowLocation.RIGHT_TOP);
-				popOver.show(popup, popup.getX()
-						- popOver.getRoot().layoutBoundsProperty().get()
-								.getMaxX() - 20,
-						popup.getY() + bounds.getMinY() - (bounds.getHeight()));
+				
+				try {
+					tryShowPopover(bounds);
 
-				/*
-				 * NOTE: Ugh. Without this manual layout and re-show, the
-				 * popover will initially be in the wrong place. This is because
-				 * only a max width is set and a layout must occur before we
-				 * know the true width.
-				 */
-				popOver.getRoot().applyCss();
-				popOver.getRoot().layout();
-				popOver.show(popup, popup.getX()
-						- popOver.getRoot().layoutBoundsProperty().get()
-								.getMaxX() - 20,
-						popup.getY() + bounds.getMinY() - (bounds.getHeight()));
+				}
+				catch(Exception e) {
+					// 
+//					try {
+//						tryShowPopover(bounds);
+//					}
+				}
 
 			} else {
 				popOver.arrowLocationProperty().set(ArrowLocation.LEFT_TOP);
@@ -287,6 +281,26 @@ public class AbstractController implements FramedController, Listener {
 						popup.getY() + bounds.getMinY() - (bounds.getHeight()));
 			}
 		}
+	}
+
+	private void tryShowPopover(Bounds bounds) {
+		popOver.show(popup, popup.getX()
+				- popOver.getRoot().layoutBoundsProperty().get()
+						.getMaxX() - 20,
+				popup.getY() + bounds.getMinY() - (bounds.getHeight()));
+
+		/*
+		 * NOTE: Ugh. Without this manual layout and re-show, the
+		 * popover will initially be in the wrong place. This is because
+		 * only a max width is set and a layout must occur before we
+		 * know the true width.
+		 */
+		popOver.getRoot().applyCss();
+		popOver.getRoot().layout();
+		popOver.show(popup, popup.getX()
+				- popOver.getRoot().layoutBoundsProperty().get()
+						.getMaxX() - 20,
+				popup.getY() + bounds.getMinY() - (bounds.getHeight()));
 	}
 
 	protected void hidePopOver() {

@@ -2,7 +2,13 @@ package com.hypersocket.client.gui.jfx;
 
 import java.rmi.RemoteException;
 import java.text.MessageFormat;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.hypersocket.client.gui.jfx.Dock.Mode;
+import com.hypersocket.client.rmi.Connection;
+import com.hypersocket.client.rmi.GUICallback;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -15,12 +21,8 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 
-import com.hypersocket.client.gui.jfx.Dock.Mode;
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.rmi.GUICallback;
-
 public class Update extends AbstractController {
-	final static Logger LOG = Logger.getLogger(Update.class.getName());
+	static Logger LOG = LoggerFactory.getLogger(Update.class);
 
 	@FXML
 	private ProgressBar progress;
@@ -57,7 +59,7 @@ public class Update extends AbstractController {
 	public void initUpdate(int apps, Mode currentMode) {
 		super.initUpdate(apps, currentMode);
 		this.currentMode = currentMode;
-		LOG.info(String.format("Initialising update. Expecting %d apps", apps));
+		LOG.info(String.format("Initialising update (currently in mode %s). Expecting %d apps", currentMode, apps));
 		this.message.textProperty().set(resources.getString("init"));
 		appsToUpdate = apps;
 		appsUpdated = 0;
@@ -183,6 +185,7 @@ public class Update extends AbstractController {
 		resetAwaingBridgeLoss();
 		appsToUpdate = 0;
 		appsUpdated = 0;
+		LOG.info(String.format("Reseting update state, returning to mode %s", currentMode));
 		Dock.getInstance().setMode(currentMode);
 	}
 

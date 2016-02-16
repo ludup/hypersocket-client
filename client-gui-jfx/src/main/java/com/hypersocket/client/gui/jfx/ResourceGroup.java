@@ -1,13 +1,15 @@
 package com.hypersocket.client.gui.jfx;
 
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.layout.VBox;
 
 public class ResourceGroup extends AbstractController {
-	final static Logger LOG = Logger.getLogger(ResourceGroup.class.getName());
+	static Logger LOG = LoggerFactory.getLogger(ResourceGroup.class);
 
 	@FXML
 	private VBox resourceItems;

@@ -1,17 +1,19 @@
 package com.hypersocket.client.gui.jfx;
 
 import java.util.List;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.hypersocket.client.ServiceResource;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
-import com.hypersocket.client.ServiceResource;
-
 public class Status extends AbstractController {
-	final static Logger LOG = Logger.getLogger(Status.class.getName());
+	static Logger LOG = LoggerFactory.getLogger(Status.class);
 
 	@FXML
 	private VBox statusItems;

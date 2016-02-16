@@ -194,9 +194,8 @@ public class Dock extends AbstractController implements Listener {
 			pos = Pos.TOP_LEFT;
 		}
 
-		Notifications notificationBuilder = Notifications.create().text(msg)
-				.hideAfter(Duration.seconds(10)).position(pos)
-				.onAction(new EventHandler<ActionEvent>() {
+		Notifications notificationBuilder = Notifications.create().text(msg).hideAfter(Duration.seconds(10))
+				.position(pos).onAction(new EventHandler<ActionEvent>() {
 					@Override
 					public void handle(ActionEvent arg0) {
 					}
@@ -257,9 +256,8 @@ public class Dock extends AbstractController implements Listener {
 					hideIfShowing(optionsPopup);
 					hideIfShowing(resourceGroupPopup);
 					setAvailable();
-					updateScene = (Update) context
-							.openScene(Update.class, Configuration.getDefault()
-									.isVertical() ? "Vertical" : null);
+					updateScene = (Update) context.openScene(Update.class,
+							Configuration.getDefault().isVertical() ? "Vertical" : null);
 					Scene scn = updateScene.getScene();
 					scn.setFill(new Color(0, 0, 0, 0));
 
@@ -273,11 +271,9 @@ public class Dock extends AbstractController implements Listener {
 					scn.setRoot(new Group());
 
 					if (cfg.isVertical())
-						((VBox) sceneRoot).minWidthProperty().bind(
-								shortcuts.heightProperty());
+						((VBox) sceneRoot).minWidthProperty().bind(shortcuts.heightProperty());
 					else
-						((HBox) sceneRoot).minWidthProperty().bind(
-								shortcuts.widthProperty());
+						((HBox) sceneRoot).minWidthProperty().bind(shortcuts.widthProperty());
 
 					flinger.getContent().getChildren().clear();
 					flinger.getContent().getChildren().add(sceneRoot);
@@ -294,31 +290,28 @@ public class Dock extends AbstractController implements Listener {
 			}
 		}
 	}
-	
+
 	public void updateResourceGroup(Button source, ResourceGroupList group) {
-		if(resourceGroupPopup != null && resourceGroupPopup.isShowing()) {
+		if (resourceGroupPopup != null && resourceGroupPopup.isShowing()) {
 			positionResourceGroupPopup(source);
 			resourceGroup.setResources(group);
 		}
 	}
-	
+
 	public void hideResourceGroup() {
 		hideIfShowing(resourceGroupPopup);
 	}
 
 	public boolean arePopupsOpen() {
-		return context.isWaitingForExitChoice()
-				|| (signInPopup != null && signInPopup.isShowing())
+		return context.isWaitingForExitChoice() || (signInPopup != null && signInPopup.isShowing())
 				|| (optionsPopup != null && optionsPopup.isShowing())
 				|| (statusPopup != null && statusPopup.isShowing())
-				|| (resourceGroupPopup != null && resourceGroupPopup
-						.isShowing());
+				|| (resourceGroupPopup != null && resourceGroupPopup.isShowing());
 	}
 
 	public void onLaunched(Runnable runnable) {
 		if (launchWait != null) {
-			launchWait.setOnFinished(runnable == null ? null : eh -> runnable
-					.run());
+			launchWait.setOnFinished(runnable == null ? null : eh -> runnable.run());
 		}
 	}
 
@@ -340,8 +333,7 @@ public class Dock extends AbstractController implements Listener {
 
 	@Override
 	public void finishedConnecting(Connection connection, Exception e) {
-		log.info(String.format("New connection finished connected (%s)",
-				connection.toString()));
+		log.info(String.format("New connection finished connected (%s)", connection.toString()));
 	}
 
 	@Override
@@ -351,20 +343,16 @@ public class Dock extends AbstractController implements Listener {
 		if (context.getBridge().isServiceUpdating()) {
 			setMode(Mode.UPDATE);
 		} else {
-			final StringProperty prop = Configuration.getDefault()
-					.temporaryOnStartConnectionProperty();
+			final StringProperty prop = Configuration.getDefault().temporaryOnStartConnectionProperty();
 			String tmp = prop.get();
 			if (!StringUtils.isBlank(tmp)) {
 				try {
-					Connection c = context.getBridge().getConnectionService()
-							.getConnection(Long.parseLong(tmp));
+					Connection c = context.getBridge().getConnectionService().getConnection(Long.parseLong(tmp));
 					if (c == null)
 						throw new Exception("No connection with id of " + tmp);
 					context.getBridge().connect(c);
 				} catch (Exception e) {
-					log.error(
-							"Failed to start temporary 'on start' connection.",
-							e);
+					log.error("Failed to start temporary 'on start' connection.", e);
 				}
 				prop.set("");
 			}
@@ -374,7 +362,10 @@ public class Dock extends AbstractController implements Listener {
 	@Override
 	public void bridgeLost() {
 		log.info(String.format("Bridge lost, rebuilding all launchers"));
-		rebuildAllLaunchers();
+		Platform.runLater(() -> {
+			setMode(Mode.IDLE);
+			rebuildAllLaunchers();
+		});
 
 		// TODO
 		// Stop connecting process if bridge lost during an upgrade
@@ -382,27 +373,23 @@ public class Dock extends AbstractController implements Listener {
 
 	@Override
 	public void disconnected(Connection connection, Exception e) {
-		log.info(String.format("Connection disconnected (%s)",
-				connection.toString()));
+		log.info(String.format("Connection disconnected (%s)", connection.toString()));
 		rebuildAllLaunchers();
 	}
 
 	public boolean isAwaitingLaunch() {
-		return launchWait != null
-				&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING;
+		return launchWait != null && launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING;
 	}
 
 	public void showResourceGroup(Button source, ResourceGroupList group) {
 		Window parent = this.scene.getWindow();
 		if (resourceGroupPopup == null) {
 			try {
-				resourceGroup = (ResourceGroup) context
-						.openScene(ResourceGroup.class);
+				resourceGroup = (ResourceGroup) context.openScene(ResourceGroup.class);
 			} catch (IOException ioe) {
 				throw new RuntimeException(ioe);
 			}
-			resourceGroupPopup = new Popup(parent, resourceGroup.getScene(),
-					true, PositionType.POSITIONED) {
+			resourceGroupPopup = new Popup(parent, resourceGroup.getScene(), true, PositionType.POSITIONED) {
 
 				@Override
 				protected void hideParent(Window parent) {
@@ -436,17 +423,15 @@ public class Dock extends AbstractController implements Listener {
 			Action[] actions = new Action[0];
 
 			// Find the button so we can launch on clicking the notify
-			ResourceGroupKey key = new ResourceGroupKey(resource.getType(),
-					resource.getGroup());
+			ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
 			ResourceGroupList list = icons.get(key);
 			if (list != null) {
 				ResourceItem rit = list.getItemForResource(resource);
 				if (rit != null) {
 					LauncherButton lb = getButtonForResourceItem(rit);
 					if (lb != null) {
-						actions = new Action[] { new Action(
-								resources.getString("resources.launch"),
-								new Consumer<ActionEvent>() {
+						actions = new Action[] {
+								new Action(resources.getString("resources.launch"), new Consumer<ActionEvent>() {
 									@Override
 									public void accept(ActionEvent t) {
 										lb.launch();
@@ -456,50 +441,43 @@ public class Dock extends AbstractController implements Listener {
 				}
 			}
 
-			notify(MessageFormat.format(
-					resources.getString("resources.created"),
-					resource.getName()), GUICallback.NOTIFY_INFO, actions);
+			notify(MessageFormat.format(resources.getString("resources.created"), resource.getName()),
+					GUICallback.NOTIFY_INFO, actions);
 			break;
 		}
 		case DELETE: {
-			ResourceGroupKey key = new ResourceGroupKey(resource.getType(),
-					resource.getIcon());
+			ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getIcon());
 			ResourceGroupList list = icons.get(key);
 			if (list != null) {
 				ResourceItem rit = list.getItemForResource(resource);
 				if (rit != null) {
 					list.getItems().remove(rit);
 					rebuildIcons();
-					notify(MessageFormat.format(
-							resources.getString("resources.deleted"),
-							resource.getName()), GUICallback.NOTIFY_INFO);
+					notify(MessageFormat.format(resources.getString("resources.deleted"), resource.getName()),
+							GUICallback.NOTIFY_INFO);
 					break;
 				}
 			}
 			break;
 		}
 		default: {
-			ResourceGroupKey key = new ResourceGroupKey(resource.getType(),
-					resource.getGroup());
+			ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
 			ResourceGroupList list = icons.get(key);
 			if (list != null) {
 				ResourceItem rit = list.getItemForResource(resource);
 				if (rit != null) {
 					rit.setResource(resource);
 					rebuildIcons();
-					notify(MessageFormat.format(
-							resources.getString("resources.updated"),
-							resource.getName()), GUICallback.NOTIFY_INFO);
+					notify(MessageFormat.format(resources.getString("resources.updated"), resource.getName()),
+							GUICallback.NOTIFY_INFO);
 					break;
 				} else {
-					log.warn(String
-							.format("Could not find icon in icon group for resource %s (%s)",
-									resource.getUid(), resource.getName()));
+					log.warn(String.format("Could not find icon in icon group for resource %s (%s)", resource.getUid(),
+							resource.getName()));
 				}
 			} else {
-				log.warn(String.format(
-						"Could not find icon group for resource %s (%s)",
-						resource.getUid(), resource.getName()));
+				log.warn(String.format("Could not find icon group for resource %s (%s)", resource.getUid(),
+						resource.getName()));
 			}
 			break;
 		}
@@ -534,8 +512,7 @@ public class Dock extends AbstractController implements Listener {
 
 		flinger = new Flinger();
 		flinger.gapProperty().set(4);
-		flinger.directionProperty().setValue(
-				cfg.isVertical() ? Direction.VERTICAL : Direction.HORIZONTAL);
+		flinger.directionProperty().setValue(cfg.isVertical() ? Direction.VERTICAL : Direction.HORIZONTAL);
 		slideLeft.disableProperty().bind(flinger.leftOrUpDisableProperty());
 		slideRight.disableProperty().bind(flinger.rightOrDownDisableProperty());
 		shortcuts.getChildren().add(flinger);
@@ -545,40 +522,27 @@ public class Dock extends AbstractController implements Listener {
 		AnchorPane.setLeftAnchor(flinger, 0d);
 		AnchorPane.setRightAnchor(flinger, 0d);
 
-		networkResources.setTooltip(UIHelpers.createDockButtonToolTip(resources
-				.getString("network.toolTip")));
-		networkResources.selectedProperty().bindBidirectional(
-				cfg.showNetworkProperty());
+		networkResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("network.toolTip")));
+		networkResources.selectedProperty().bindBidirectional(cfg.showNetworkProperty());
 
-		ssoResources.setTooltip(UIHelpers.createDockButtonToolTip(resources
-				.getString("sso.toolTip")));
-		ssoResources.selectedProperty()
-				.bindBidirectional(cfg.showSSOProperty());
+		ssoResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("sso.toolTip")));
+		ssoResources.selectedProperty().bindBidirectional(cfg.showSSOProperty());
 
-		browserResources.setTooltip(UIHelpers.createDockButtonToolTip(resources
-				.getString("web.toolTip")));
-		browserResources.selectedProperty().bindBidirectional(
-				cfg.showWebProperty());
+		browserResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("web.toolTip")));
+		browserResources.selectedProperty().bindBidirectional(cfg.showWebProperty());
 
-		status.setTooltip(UIHelpers.createDockButtonToolTip(status.getTooltip()
-				.getText()));
-		exit.setTooltip(UIHelpers.createDockButtonToolTip(exit.getTooltip()
-				.getText()));
-		signIn.setTooltip(UIHelpers.createDockButtonToolTip(signIn.getTooltip()
-				.getText()));
-		options.setTooltip(UIHelpers.createDockButtonToolTip(options
-				.getTooltip().getText()));
+		status.setTooltip(UIHelpers.createDockButtonToolTip(status.getTooltip().getText()));
+		exit.setTooltip(UIHelpers.createDockButtonToolTip(exit.getTooltip().getText()));
+		signIn.setTooltip(UIHelpers.createDockButtonToolTip(signIn.getTooltip().getText()));
+		options.setTooltip(UIHelpers.createDockButtonToolTip(options.getTooltip().getText()));
 
-		fileResources.setTooltip(UIHelpers.createDockButtonToolTip(resources
-				.getString("files.toolTip")));
-		fileResources.selectedProperty().bindBidirectional(
-				cfg.showFilesProperty());
+		fileResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("files.toolTip")));
+		fileResources.selectedProperty().bindBidirectional(cfg.showFilesProperty());
 
 		// Button size changes
 		sizeChangeListener = new ChangeListener<Number>() {
 			@Override
-			public void changed(ObservableValue<? extends Number> observable,
-					Number oldValue, Number newValue) {
+			public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
 				flinger.recentre();
 				sizeButtons();
 			}
@@ -588,8 +552,7 @@ public class Dock extends AbstractController implements Listener {
 		// Colour changes
 		colorChangeListener = new ChangeListener<Color>() {
 			@Override
-			public void changed(ObservableValue<? extends Color> observable,
-					Color oldValue, Color newValue) {
+			public void changed(ObservableValue<? extends Color> observable, Color oldValue, Color newValue) {
 				// styleToolTips();
 			}
 		};
@@ -599,12 +562,9 @@ public class Dock extends AbstractController implements Listener {
 		borderChangeListener = new ChangeListener<Boolean>() {
 
 			@Override
-			public void changed(ObservableValue<? extends Boolean> observable,
-					Boolean oldValue, Boolean newValue) {
+			public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
 				if (newValue) {
-					flinger.directionProperty().setValue(
-							cfg.isVertical() ? Direction.VERTICAL
-									: Direction.HORIZONTAL);
+					flinger.directionProperty().setValue(cfg.isVertical() ? Direction.VERTICAL : Direction.HORIZONTAL);
 					configurePull();
 				}
 			}
@@ -650,13 +610,11 @@ public class Dock extends AbstractController implements Listener {
 	}
 
 	private static String textFill(Color color) {
-		return String.format("-fx-text-fill: %s ;",
-				UIHelpers.toHex(color, false));
+		return String.format("-fx-text-fill: %s ;", UIHelpers.toHex(color, false));
 	}
 
 	private static String background(Color color, boolean opacity) {
-		return String.format("-fx-background-color: %s ;",
-				UIHelpers.toHex(color, opacity));
+		return String.format("-fx-background-color: %s ;", UIHelpers.toHex(color, opacity));
 	}
 
 	private void showContextMenu(double x, double y) {
@@ -714,8 +672,7 @@ public class Dock extends AbstractController implements Listener {
 		Window parent = this.scene.getWindow();
 		if (statusPopup == null) {
 			statusContent = (Status) context.openScene(Status.class);
-			statusPopup = new Popup(parent, statusContent.getScene(), true,
-					PositionType.DOCKED) {
+			statusPopup = new Popup(parent, statusContent.getScene(), true, PositionType.DOCKED) {
 				@Override
 				protected void hideParent(Window parent) {
 					hideDock(true);
@@ -747,10 +704,8 @@ public class Dock extends AbstractController implements Listener {
 		serviceResources.clear();
 		icons.clear();
 		log.info("Rebuilding resources");
-		if (context.getBridge().isConnected()
-				&& !context.getBridge().isServiceUpdating()) {
-			ResourceService resourceService = context.getBridge()
-					.getResourceService();
+		if (context.getBridge().isConnected() && !context.getBridge().isServiceUpdating()) {
+			ResourceService resourceService = context.getBridge().getResourceService();
 
 			try {
 				serviceResources.addAll(resourceService.getServiceResources());
@@ -759,10 +714,9 @@ public class Dock extends AbstractController implements Listener {
 			}
 
 			try {
-				for (ResourceRealm resourceRealm : resourceService
-						.getResourceRealms()) {
+				for (ResourceRealm resourceRealm : resourceService.getResourceRealms()) {
 					for (Resource r : resourceRealm.getResources()) {
-						if(r.getType() != Type.ENDPOINT) {
+						if (r.getType() != Type.ENDPOINT) {
 							rebuildResourceIcon(resourceRealm, r);
 						}
 					}
@@ -806,8 +760,7 @@ public class Dock extends AbstractController implements Listener {
 		flinger.getContent().getChildren().clear();
 
 		// Type lastType = null;
-		for (Map.Entry<ResourceGroupKey, ResourceGroupList> ig : icons
-				.entrySet()) {
+		for (Map.Entry<ResourceGroupKey, ResourceGroupList> ig : icons.entrySet()) {
 			Type type = ig.getKey().getType();
 			// if (lastType != null && type != lastType) {
 			// shortcuts
@@ -840,50 +793,41 @@ public class Dock extends AbstractController implements Listener {
 
 			List<ResourceGroupList> groupsAdded = new ArrayList<ResourceGroupList>();
 			for (ResourceItem item : ig.getValue().getItems()) {
-				ResourceGroupKey gk = new ResourceGroupKey(item.getResource()
-						.getType(), item.getResource().getGroup());
+				ResourceGroupKey gk = new ResourceGroupKey(item.getResource().getType(), item.getResource().getGroup());
 				ResourceGroupList groups = icons.get(gk);
 				if (groups == null || groups.getItems().size() < 2) {
-					flinger.getContent()
-							.getChildren()
-							.add(new IconButton(resources, item, context, ig
-									.getValue()) {
+					flinger.getContent().getChildren().add(new IconButton(resources, item, context, ig.getValue()) {
 
-								@Override
-								protected void onFinishLaunch() {
-									super.onFinishLaunch();
+						@Override
+						protected void onFinishLaunch() {
+							super.onFinishLaunch();
 
-									if (launchWait != null
-											&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING)
-										launchWait.stop();
+							if (launchWait != null
+									&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING)
+								launchWait.stop();
 
-									launchWait = new Timeline(new KeyFrame(
-											Duration.millis(Dock.LAUNCH_WAIT)));
-									launchWait.play();
-								}
+							launchWait = new Timeline(new KeyFrame(Duration.millis(Dock.LAUNCH_WAIT)));
+							launchWait.play();
+						}
 
-							});
+					});
 				} else {
 					if (!groupsAdded.contains(groups)) {
-						flinger.getContent()
-								.getChildren()
-								.add(new GroupButton(resources, context, groups) {
+						flinger.getContent().getChildren().add(new GroupButton(resources, context, groups) {
 
-									@Override
-									protected void onFinishLaunch() {
-										super.onFinishLaunch();
+							@Override
+							protected void onFinishLaunch() {
+								super.onFinishLaunch();
 
-										if (launchWait != null
-												&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING)
-											launchWait.stop();
+								if (launchWait != null
+										&& launchWait.getStatus() == javafx.animation.Animation.Status.RUNNING)
+									launchWait.stop();
 
-										launchWait = new Timeline(
-												new KeyFrame(
-														Duration.millis(Dock.LAUNCH_WAIT)));
-										launchWait.play();
-									}
+								launchWait = new Timeline(new KeyFrame(Duration.millis(Dock.LAUNCH_WAIT)));
+								launchWait.play();
+							}
 
-								});
+						});
 						groupsAdded.add(groups);
 					}
 				}
@@ -898,55 +842,50 @@ public class Dock extends AbstractController implements Listener {
 		if (hiding) {
 			return;
 		}
-		if(popOver != null && popOver.isShowing())
+		if (popOver != null && popOver.isShowing())
 			return;
 		stopDockHiderTrigger();
-		dockHiderTrigger = new Timeline(new KeyFrame(
-				Duration.millis(AUTOHIDE_HIDE_TIME), ae -> hideDock(true)));
+		dockHiderTrigger = new Timeline(new KeyFrame(Duration.millis(AUTOHIDE_HIDE_TIME), ae -> hideDock(true)));
 		dockHiderTrigger.play();
 	}
 
 	private void stopDockHiderTrigger() {
-		if (dockHiderTrigger != null
-				&& dockHiderTrigger.getStatus() == Animation.Status.RUNNING)
+		if (dockHiderTrigger != null && dockHiderTrigger.getStatus() == Animation.Status.RUNNING)
 			dockHiderTrigger.stop();
 	}
 
 	void hideDock(boolean hide) {
 		stopDockHiderTrigger();
-		
+
 		if (hide != hidden) {
-			
+
 			/*
-			 * If revealing, then don't actually reveal until a delay has passed. The 
-			 * delayed action will be cancelled if in the mean time the mouse leaves
-			 * the dock revealer
+			 * If revealing, then don't actually reveal until a delay has
+			 * passed. The delayed action will be cancelled if in the mean time
+			 * the mouse leaves the dock revealer
 			 */
-			if(!hide) {
+			if (!hide) {
 				stopDockRevealerTimer();
-				dockRevealer = new Timeline(new KeyFrame(Duration.millis(500),
-						ae -> changeHidden(hide)));
+				dockRevealer = new Timeline(new KeyFrame(Duration.millis(500), ae -> changeHidden(hide)));
 				dockRevealer.play();
-			}
-			else {			
+			} else {
 				changeHidden(hide);
 			}
 		}
 	}
 
 	private void stopDockRevealerTimer() {
-		if (dockRevealer != null
-				&& dockRevealer.getStatus() == Animation.Status.RUNNING)
+		if (dockRevealer != null && dockRevealer.getStatus() == Animation.Status.RUNNING)
 			dockRevealer.stop();
 	}
-	
+
 	private void changeHidden(boolean hide) {
 		hidePopOver();
-		
+
 		/*
-		 * If already hiding, we don't want the mouse event that MIGHT
-		 * happen when the resizing dock passes under the mouse (the user
-		 * wont have moved mouse yet)
+		 * If already hiding, we don't want the mouse event that MIGHT happen
+		 * when the resizing dock passes under the mouse (the user wont have
+		 * moved mouse yet)
 		 */
 		if (hiding) {
 			// TODO check this ...
@@ -956,8 +895,7 @@ public class Dock extends AbstractController implements Listener {
 		hidden = hide;
 		hiding = true;
 
-		dockHider = new Timeline(new KeyFrame(Duration.millis(5),
-				ae -> shiftDock()));
+		dockHider = new Timeline(new KeyFrame(Duration.millis(5), ae -> shiftDock()));
 		yEnd = System.currentTimeMillis() + AUTOHIDE_DURATION;
 		dockHider.play();
 	}
@@ -967,15 +905,13 @@ public class Dock extends AbstractController implements Listener {
 		Rectangle2D cfgBounds = Client.getConfiguredBounds();
 
 		// The bounds to work in
-		int boundsSize = cfg.isVertical() ? (int) cfgBounds.getHeight()
-				: (int) cfgBounds.getWidth();
+		int boundsSize = cfg.isVertical() ? (int) cfgBounds.getHeight() : (int) cfgBounds.getWidth();
 
 		// Total amount to slide
 		int value = cfg.sizeProperty().get() - AUTOHIDE_TAB_OPPOSITE_SIZE;
 
 		// How far along the timeline?
-		float fac = Math.min(1f,
-				1f - ((float) (yEnd - now) / (float) AUTOHIDE_DURATION));
+		float fac = Math.min(1f, 1f - ((float) (yEnd - now) / (float) AUTOHIDE_DURATION));
 
 		// The amount of movement so far
 		float amt = fac * (float) value;
@@ -1000,34 +936,24 @@ public class Dock extends AbstractController implements Listener {
 		if (stage != null) {
 			if (cfg.topProperty().get()) {
 				getScene().getRoot().translateYProperty().set(-amt);
-				stage.setHeight(cfg.sizeProperty().get() - amt
-						+ Client.DROP_SHADOW_SIZE);
-				stage.setWidth(Math.max(AUTOHIDE_TAB_SIZE, cfgBounds.getWidth()
-						- barSize));
-				stage.setX(cfgBounds.getMinX()
-						+ ((cfgBounds.getWidth() - stage.getWidth()) / 2f));
+				stage.setHeight(cfg.sizeProperty().get() - amt + Client.DROP_SHADOW_SIZE);
+				stage.setWidth(Math.max(AUTOHIDE_TAB_SIZE, cfgBounds.getWidth() - barSize));
+				stage.setX(cfgBounds.getMinX() + ((cfgBounds.getWidth() - stage.getWidth()) / 2f));
 			} else if (cfg.bottomProperty().get()) {
 				stage.setY(cfgBounds.getMaxY() + amt);
-				stage.setHeight(cfg.sizeProperty().get() - amt
-						+ Client.DROP_SHADOW_SIZE);
-				stage.setWidth(Math.max(AUTOHIDE_TAB_SIZE, cfgBounds.getWidth()
-						- barSize));
-				stage.setX(cfgBounds.getMinX()
-						+ ((cfgBounds.getWidth() - stage.getWidth()) / 2f));
+				stage.setHeight(cfg.sizeProperty().get() - amt + Client.DROP_SHADOW_SIZE);
+				stage.setWidth(Math.max(AUTOHIDE_TAB_SIZE, cfgBounds.getWidth() - barSize));
+				stage.setX(cfgBounds.getMinX() + ((cfgBounds.getWidth() - stage.getWidth()) / 2f));
 			} else if (cfg.leftProperty().get()) {
 				getScene().getRoot().translateXProperty().set(-amt);
 				stage.setWidth(cfg.sizeProperty().get() - amt);
-				stage.setHeight(Math.max(AUTOHIDE_TAB_SIZE,
-						cfgBounds.getHeight() - barSize));
-				stage.setY(cfgBounds.getMinY()
-						+ ((cfgBounds.getHeight() - stage.getHeight()) / 2f));
+				stage.setHeight(Math.max(AUTOHIDE_TAB_SIZE, cfgBounds.getHeight() - barSize));
+				stage.setY(cfgBounds.getMinY() + ((cfgBounds.getHeight() - stage.getHeight()) / 2f));
 			} else if (cfg.rightProperty().get()) {
 				stage.setX(cfgBounds.getMaxX() + amt - cfg.sizeProperty().get());
 				stage.setWidth(cfg.sizeProperty().get() - amt);
-				stage.setHeight(Math.max(AUTOHIDE_TAB_SIZE,
-						cfgBounds.getHeight() - barSize));
-				stage.setY(cfgBounds.getMinY()
-						+ ((cfgBounds.getHeight() - stage.getHeight()) / 2f));
+				stage.setHeight(Math.max(AUTOHIDE_TAB_SIZE, cfgBounds.getHeight() - barSize));
+				stage.setY(cfgBounds.getMinY() + ((cfgBounds.getHeight() - stage.getHeight()) / 2f));
 			} else {
 				throw new UnsupportedOperationException();
 			}
@@ -1099,24 +1025,20 @@ public class Dock extends AbstractController implements Listener {
 	}
 
 	private void setAvailable() {
-		for (String s : Arrays.asList("statusNotConnected", "statusConnected",
-				"statusError")) {
+		for (String s : Arrays.asList("statusNotConnected", "statusConnected", "statusError")) {
 			signIn.getStyleClass().remove(s);
 		}
 		if (context.getBridge().isConnected()) {
 			int connected = 0;
 			try {
-				List<ConnectionStatus> connections = context.getBridge()
-						.getClientService().getStatus();
+				List<ConnectionStatus> connections = context.getBridge().getClientService().getStatus();
 				for (ConnectionStatus c : connections) {
-					log.info(String.format("Connection %s = %s", c
-							.getConnection().getHostname(), c.getStatus()));
+					log.info(String.format("Connection %s = %s", c.getConnection().getHostname(), c.getStatus()));
 					if (c.getStatus() == ConnectionStatus.CONNECTED) {
 						connected++;
 					}
 				}
-				log.info(String.format("Bridge says %d are connected of %d",
-						connected, connections.size()));
+				log.info(String.format("Bridge says %d are connected of %d", connected, connections.size()));
 				if (connected > 0) {
 					signIn.getStyleClass().add("statusNotConnected");
 				} else {
@@ -1143,8 +1065,7 @@ public class Dock extends AbstractController implements Listener {
 	@FXML
 	private void evtMouseExit(MouseEvent evt) throws Exception {
 		stopDockRevealerTimer();
-		if (cfg.autoHideProperty().get() && !arePopupsOpen()
-				&& (contextMenu == null || !contextMenu.isShowing())) {
+		if (cfg.autoHideProperty().get() && !arePopupsOpen() && (contextMenu == null || !contextMenu.isShowing())) {
 			maybeHideDock();
 			evt.consume();
 		}
@@ -1194,8 +1115,7 @@ public class Dock extends AbstractController implements Listener {
 	private void evtOpenOptionsWindow(ActionEvent evt) throws Exception {
 		Window parent = this.scene.getWindow();
 		if (optionsPopup == null) {
-			optionsScene = (AbstractController) context
-					.openScene(Options.class);
+			optionsScene = (AbstractController) context.openScene(Options.class);
 			optionsPopup = new Popup(parent, optionsScene.getScene()) {
 
 				@Override
