@@ -1,9 +1,6 @@
 package com.hypersocket.client.gui.jfx;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
 import java.rmi.RemoteException;
 
 import javafx.application.Platform;
@@ -15,7 +12,7 @@ public class IconLoader implements Runnable {
 	private final String iconPath;
 	private final String cacheKey;
 	private final Client context;
-	private final ResourceGroupList group;
+//	private final ResourceGroupList group;
 	private final String host;
 
 	public IconLoader(String host, String cacheKey, ImageView imageView, String iconPath, Client context, ResourceGroupList group) {
@@ -24,7 +21,7 @@ public class IconLoader implements Runnable {
 		this.cacheKey = cacheKey;
 		this.host = host;
 		this.context = context;
-		this.group = group;
+//		this.group = group;
 	}
 	
 	protected void onImageLoaded() {
@@ -67,21 +64,21 @@ public class IconLoader implements Runnable {
 		}
 	}
 
-	private void setImageFromResource(
-			final ImageView imageView, URL resource)
-			throws IOException {
-		InputStream openStream = resource.openStream();
-		try {
-			Image img = new Image(openStream);
-			Platform.runLater(new Runnable() {
-				@Override
-				public void run() {
-					imageView.setImage(img);
-					onImageLoaded();
-				}
-			});
-		} finally {
-			openStream.close();
-		}
-	}
+//	private void setImageFromResource(
+//			final ImageView imageView, URL resource)
+//			throws IOException {
+//		InputStream openStream = resource.openStream();
+//		try {
+//			Image img = new Image(openStream);
+//			Platform.runLater(new Runnable() {
+//				@Override
+//				public void run() {
+//					imageView.setImage(img);
+//					onImageLoaded();
+//				}
+//			});
+//		} finally {
+//			openStream.close();
+//		}
+//	}
 }
