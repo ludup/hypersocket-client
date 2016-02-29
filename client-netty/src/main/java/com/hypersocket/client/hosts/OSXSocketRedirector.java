@@ -35,8 +35,29 @@ public class OSXSocketRedirector extends AbstractSocketRedirector {
 		}
 		
 		if(Boolean.getBoolean("hypersocket.development")) {
+			
+			// 
+			File cmddir = new File(new File(System.getProperty("user.home")), "smartgit/hypersocket-vpn/client-network/bin/macosx"); 
+			
+			// Try to find client-network by looking in the classpath for it
+			for(String path : System.getProperty("java.class.path").split(File.pathSeparator)) {
+				int idx = path.indexOf("/client-network/");
+				if(idx != -1) {
+					path = path.substring(0, idx + 16);
+					File kextdir = new File(new File(path), "bin/macosx");
+					File kext = new File(kextdir, kextName);
+					if(kext.exists()) {
+						redirectNke = kext;
+						cmddir = kextdir;
+						break;
+					}
+				}
+			}
 
-			redirectNke = new File("/Users/lee/smartgit/hypersocket-vpn/client-network/bin/macosx/" + kextName);
+			if(redirectNke == null) {
+				// Last ditch, will only work on Lee's computer ;)
+				redirectNke = new File(cmddir, kextName);
+			}
 			File tmpNke = File.createTempFile("nke", "tmp2");
 			
 			tmpNke = new File(tmpNke.getParentFile(), "RedirectNKE.kext");
@@ -64,7 +85,7 @@ public class OSXSocketRedirector extends AbstractSocketRedirector {
 			}
 			
 			redirectNke = tmpNke;
-			redirectCmd = new File("/Users/lee/smartgit/hypersocket-vpn/client-network/bin/macosx/" + redirectName);		
+			redirectCmd = new File(cmddir, redirectName);		
 		} else {
 			
 			redirectNke = new File(cwd, "bin/macosx/" + kextName);
