@@ -19,7 +19,6 @@ import com.hypersocket.client.HypersocketClientListener;
 import com.hypersocket.client.UserCancelledException;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUIRegistry;
-import com.hypersocket.client.rmi.Connection.UpdateState;
 import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.json.JsonResponse;
 import com.hypersocket.netty.NettyClientTransport;
@@ -124,6 +123,7 @@ public class ConnectionJob extends TimerTask {
 					String[] versionAndSerial = json.getMessage().split(";");
 					String version = versionAndSerial[0].trim();
 					String serial = versionAndSerial[1].trim();
+					updateInfo(client, version);
 
 					/*
 					 * Set the transient details. If an update is required it
@@ -132,9 +132,6 @@ public class ConnectionJob extends TimerTask {
 					 */
 					connection.setServerVersion(version);
 					connection.setSerial(serial);
-					connection.setUpdateState(checkIfUpdateRequired(client,
-							version) ? UpdateState.UPDATE_REQUIRED
-							: UpdateState.UP_TO_DATE);
 					client.addListener(listener);
 
 					if (log.isInfoEnabled()) {
@@ -195,7 +192,7 @@ public class ConnectionJob extends TimerTask {
 
 	}
 
-	private boolean checkIfUpdateRequired(ServiceClient client,
+	private void updateInfo(ServiceClient client,
 			String versionString) {
 		Version ourVersion = new Version(
 				HypersocketVersion.getVersion("client-service"));
@@ -206,7 +203,6 @@ public class ConnectionJob extends TimerTask {
 			log.info(String
 					.format("Updating required, server is version %s, and we are version %s.",
 							version.toString(), ourVersion.toString()));
-			return true;
 		} else if (version.compareTo(ourVersion) < 0) {
 			log.warn(String
 					.format("Client is on a later version than the server. This client is %s, where as the server is %s.",
@@ -215,7 +211,6 @@ public class ConnectionJob extends TimerTask {
 			log.info(String.format("Both server and client are on version %s",
 					version.toString()));
 		}
-		return false;
 	}
 
 }

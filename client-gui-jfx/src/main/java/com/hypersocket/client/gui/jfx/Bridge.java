@@ -468,7 +468,9 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public ExtensionPlace getExtensionPlace() {
-		return ExtensionPlace.getDefault();
+		ExtensionPlace defaultExt = ExtensionPlace.getDefault();
+		defaultExt.setDownloadAllExtensions(true);
+		return defaultExt;
 	}
 
 	@Override

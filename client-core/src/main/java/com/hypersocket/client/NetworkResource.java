@@ -9,6 +9,8 @@ package com.hypersocket.client;
 
 import java.io.Serializable;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.hypersocket.utils.IPAddressValidator;
 
 public class NetworkResource implements Serializable,ServiceResource {
@@ -89,7 +91,7 @@ public class NetworkResource implements Serializable,ServiceResource {
 
 	@Override
 	public String getServiceDescription() {
-		return getDestinationHostname() + ":" + getPort() + " (-> " + actualPort + ")";
+		return String.format("%-15s %-15s %5d %5d", StringUtils.left(localHostname, 15), StringUtils.left(desintationHostname, 15), port, actualPort);
 	}
 
 }

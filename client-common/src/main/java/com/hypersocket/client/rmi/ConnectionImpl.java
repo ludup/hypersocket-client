@@ -49,7 +49,6 @@ public class ConnectionImpl implements Connection, Serializable {
 	
 	// Not peristed
 	private String serverVersion;
-	private UpdateState updateState;
 	private String serial;
 	
 	
@@ -215,16 +214,6 @@ public class ConnectionImpl implements Connection, Serializable {
 	}
 
 	@Override
-	public void setUpdateState(UpdateState updateState) {
-		this.updateState = updateState;
-	}
-
-	@Override
-	public UpdateState getUpdateState() {
-		return updateState;
-	}
-
-	@Override
 	public String getServerVersion() {
 		return serverVersion;
 	}
@@ -245,7 +234,7 @@ public class ConnectionImpl implements Connection, Serializable {
 				+ ", port=" + port + ", path=" + path + ", realm=" + realm
 				+ ", username=" + username + ", stayConnected=" + stayConnected
 				+ ", connectAtStartup=" + connectAtStartup + ", serverVersion="
-				+ serverVersion + ", updateState=" + updateState + ", serial="
+				+ serverVersion + ", serial="
 				+ serial + "]";
 	}
 

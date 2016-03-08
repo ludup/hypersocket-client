@@ -27,7 +27,6 @@ import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.client.rmi.ClientService;
 import com.hypersocket.client.rmi.ConfigurationService;
 import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.rmi.Connection.UpdateState;
 import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.ConnectionStatus;
 import com.hypersocket.client.rmi.ConnectionStatusImpl;
@@ -288,14 +287,13 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	public boolean update(final Connection c, ServiceClient client) throws RemoteException {
-		Version highestVersionAvailable = null;
-		if (c.getUpdateState() != UpdateState.UPDATE_REQUIRED || "true".equals(System
+		
+		if ("true".equals(System
 						.getProperty("hypersocket.development.noUpdates"))) {
 			log.info("No updates to do.");
 			guiNeedsSeparateUpdate = false;
 		} else {
-			log.info("Updating to " + highestVersionAvailable + " via "
-					+ getUrl(c));
+			log.info("Updating via " + getUrl(c));
 
 			try {
 				updating = true;
@@ -305,8 +303,10 @@ public class ClientServiceImpl implements ClientService {
 				 * For the client service, we use the local 'extension place'
 				 */
 				appsToUpdate = 1;
+				ExtensionPlace defaultExt = ExtensionPlace.getDefault();
+				defaultExt.setDownloadAllExtensions(true);
 				serviceUpdateJob = new ClientUpdater(guiRegistry, c,
-						client, ExtensionPlace.getDefault());
+						client, defaultExt);
 
 				/*
 				 * For the GUI, we get the extension place remotely, as the GUI
