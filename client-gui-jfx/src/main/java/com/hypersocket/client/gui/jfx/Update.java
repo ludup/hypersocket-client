@@ -166,7 +166,13 @@ public class Update extends AbstractController {
 		if (errorMessage == null) {
 			if(restart) {
 				LOG.info(String
-						.format("All apps updated, starting restart process"));
+						.format("All apps updated, starting restart process " + Math.random()));
+				try {
+					throw new Exception();
+				}
+				catch(Exception e) {
+					LOG.error("TRACE" , e);
+				}
 				awaitingBridgeLoss = new Timeline(new KeyFrame(
 						Duration.seconds(30), ae -> giveUpWaitingForBridgeStop()));
 				awaitingBridgeLoss.play();
@@ -235,5 +241,9 @@ public class Update extends AbstractController {
 		sz -= df;
 		icon.setFitWidth(sz - df);
 		icon.setFitHeight(sz - df);
+	}
+
+	public boolean isAwaitingBridgeLoss() {
+		return awaitingBridgeLoss != null;
 	}
 }
