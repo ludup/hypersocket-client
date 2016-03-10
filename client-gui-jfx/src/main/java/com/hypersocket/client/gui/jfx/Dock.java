@@ -363,7 +363,8 @@ public class Dock extends AbstractController implements Listener {
 	public void bridgeLost() {
 		log.info(String.format("Bridge lost, rebuilding all launchers"));
 		Platform.runLater(() -> {
-			setMode(Mode.IDLE);
+			if(updateScene == null || !updateScene.isAwaitingBridgeLoss())
+				setMode(Mode.IDLE);
 			rebuildAllLaunchers();
 		});
 

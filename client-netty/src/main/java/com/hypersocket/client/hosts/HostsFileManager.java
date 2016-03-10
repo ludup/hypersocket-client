@@ -176,7 +176,7 @@ public class HostsFileManager {
 		selectNextRange();
 		
 		for (int i=1; i <= 254; i++) {
-			System.out.println("Generating " + _8bits + "." + _16bits + "." + _24bits + "." + i);
+			log.debug("Generating " + _8bits + "." + _16bits + "." + _24bits + "." + i);
 			aliasPool.addLast(_8bits + "." + _16bits + "." + _24bits + "." + i);
 		}
 		_24bits++;
