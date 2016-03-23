@@ -79,7 +79,8 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 				res.setModified(resource.getModifiedDate());
 	
 				if (resource.getType() != null
-						&& resource.getType().equals("BrowserSSOPlugin")) {
+						&& (resource.getType().equals("BrowserSSOPlugin")
+								|| resource.getType().equals("SAMLServiceProvider"))) {
 					res.setType(Type.SSO);
 				} else {
 					res.setType(Type.BROWSER);
@@ -92,7 +93,7 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 				 if (resource.isRequireVPNAccess()) {
 		              vpnService.createURLForwarding(
 		                        serviceClient, 
-		                        launchUrl, 
+		                        url, 
 		                        resource.getId());
 		         }
 				
