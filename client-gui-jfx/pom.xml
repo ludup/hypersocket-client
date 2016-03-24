@@ -67,6 +67,12 @@
 			<groupId>com.sshtools</groupId>
 			<artifactId>forker-client</artifactId>
 			<version>1.2-SNAPSHOT</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>jna</artifactId>
+					<groupId>net.java.dev.jna</groupId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.controlsfx</groupId>

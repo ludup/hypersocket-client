@@ -47,7 +47,7 @@ public class VPNServiceImpl implements VPNService {
 			}
 
 			NetworkResource resource = new NetworkResource(parentId, hostname,
-					url.getHost(), (int) port, "website");
+					url.getHost(), (int) port, "url");
 			boolean started = startLocalForwarding(resource, serviceClient);
 			if (started) {
 				return resource;
