@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ResourceBundle;
 
 import javax.imageio.ImageIO;
 
@@ -516,7 +517,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public Map<String, String> showPrompts(final List<Prompt> prompts, int attempts, boolean success) {
+	public Map<String, String> showPrompts(Connection connection, ResourceBundle resources, final List<Prompt> prompts, int attempts, boolean success) {
 		final Map<String, String> results = new HashMap<String, String>();
 
 		shell.getDisplay().syncExec(new Runnable() {

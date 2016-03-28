@@ -117,7 +117,7 @@ public class AbstractController implements FramedController, Listener {
 	}
 
 	@Override
-	public Map<String, String> showPrompts(List<Prompt> prompts, int attempts,
+	public Map<String, String> showPrompts(Connection connection, ResourceBundle resources, List<Prompt> prompts, int attempts,
 			boolean success) {
 		return null;
 	}

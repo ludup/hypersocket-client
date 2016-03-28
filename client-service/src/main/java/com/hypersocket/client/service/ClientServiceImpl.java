@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -52,6 +53,7 @@ public class ClientServiceImpl implements ClientService {
 	Map<Connection, HypersocketClient<Connection>> activeClients = new HashMap<Connection, HypersocketClient<Connection>>();
 	Map<Connection, TimerTask> connectingClients = new HashMap<Connection, TimerTask>();
 	Map<Connection, Set<ServicePlugin>> connectionPlugins = new HashMap<Connection, Set<ServicePlugin>>();
+	Map<Connection, ResourceBundle> resources = new HashMap<>();
 
 	Semaphore startupLock = new Semaphore(1);
 	TimerTask updateTask;
@@ -216,6 +218,7 @@ public class ClientServiceImpl implements ClientService {
 		}
 
 		activeClients.clear();
+		resources.clear();
 		connectingClients.clear();
 		bossExecutor.shutdown();
 		workerExecutor.shutdown();
@@ -239,6 +242,8 @@ public class ClientServiceImpl implements ClientService {
 					+ c.getHostname());
 		}
 
+		resources.remove(c);
+		
 		if (activeClients.containsKey(c)) {
 			log.info("Was connected, disconnecting");
 			activeClients.remove(c).disconnect(false);
@@ -254,6 +259,22 @@ public class ClientServiceImpl implements ClientService {
 		} else {
 			throw new RemoteException("Not connected.");
 		}
+	}
+
+	@Override
+	public ResourceBundle getResources(Connection c) throws RemoteException {
+		if(!resources.containsKey(c)) {
+			HypersocketClient<Connection> conx = activeClients.get(c);
+			if(conx != null) {
+				try {
+					resources.put(c, conx.getResources());
+				} catch (IOException e) {
+					log.error(String.format("Failed to get resources for connection %d", c.getId()));
+					resources.put(c, null);
+				}
+			}
+		}
+		return resources.get(c);
 	}
 
 	@Override

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
+import java.util.ResourceBundle;
 
 public interface ClientService extends Remote {
 	
@@ -36,6 +37,8 @@ public interface ClientService extends Remote {
 	int getStatus(Connection con) throws RemoteException;
 
 	void scheduleConnect(Connection c) throws RemoteException;
+	
+	ResourceBundle getResources(Connection c) throws RemoteException;
 
 	byte[] getBlob(Connection connection, String path, long timeout)
 			throws IOException, RemoteException;

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ResourceBundle;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,11 +44,12 @@ public class ServiceClient extends HypersocketClient<Connection> {
 	}
 
 	// @Override
-	protected Map<String, String> showLogin(List<Prompt> prompts, int attempt, boolean success)
+	protected Map<String, String> showLogin(HypersocketClient<Connection> attached, List<Prompt> prompts, int attempt, boolean success)
 			throws IOException {
 		if (guiRegistry.hasGUI()) {
 			try {
-				return guiRegistry.getGUI().showPrompts(prompts, attempt, success);
+				ResourceBundle rb = attached.getResources();
+				return guiRegistry.getGUI().showPrompts(attached.getAttachment(), rb, prompts, attempt, success);
 			} catch (RemoteException e) {
 				log.error("Failed to show prompts", e);
 				disconnect(true);
