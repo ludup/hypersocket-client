@@ -12,8 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-
-import javafx.application.Platform;
+import java.util.ResourceBundle;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +29,8 @@ import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionPlace;
+
+import javafx.application.Platform;
 
 @SuppressWarnings({ "serial" })
 public class Bridge extends UnicastRemoteObject implements GUICallback {
@@ -65,7 +66,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 		void ping();
 
-		Map<String, String> showPrompts(List<Prompt> prompts, int attempts, boolean success);
+		Map<String, String> showPrompts(Connection connection, ResourceBundle resources, List<Prompt> prompts, int attempts, boolean success);
 
 		void initUpdate(int apps, Dock.Mode mode);
 
@@ -265,10 +266,10 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public Map<String, String> showPrompts(List<Prompt> prompts, int attempts, boolean success)
+	public Map<String, String> showPrompts(Connection connection, ResourceBundle attached, List<Prompt> prompts, int attempts, boolean success)
 			throws RemoteException {
 		for (Listener l : new ArrayList<Listener>(listeners)) {
-			Map<String, String> m = l.showPrompts(prompts, attempts, success);
+			Map<String, String> m = l.showPrompts(connection, attached, prompts, attempts, success);
 			if (m != null) {
 				return m;
 			}

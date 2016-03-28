@@ -5,6 +5,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
 import java.util.Map;
+import java.util.ResourceBundle;
 
 import com.hypersocket.client.Prompt;
 import com.hypersocket.extensions.ExtensionDefinition;
@@ -28,7 +29,7 @@ public interface GUICallback extends Serializable, Remote {
 
 	void notify(String msg, int type) throws RemoteException;
 
-	Map<String, String> showPrompts(List<Prompt> prompts, int attempts, boolean success)
+	Map<String, String> showPrompts(Connection connection, ResourceBundle resources, List<Prompt> prompts, int attempts, boolean success)
 			throws RemoteException;
 
 	int executeAsUser(ApplicationLauncherTemplate launcherTemplate,

@@ -16,6 +16,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.Set;
 
 import org.apache.commons.codec.binary.Base64;
@@ -28,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hypersocket.client.i18n.I18N;
@@ -288,7 +290,7 @@ public abstract class HypersocketClient<T> {
 					showError("Incorrect username or password.");
 				}
 				
-				Map<String, String> results  = showLogin(prompts, attempts, success);
+				Map<String, String> results  = showLogin(this, prompts, attempts, success);
 				
 				if (results != null) {
 
@@ -448,7 +450,7 @@ public abstract class HypersocketClient<T> {
 		return transport.get("realm/" + name);
 	}
 	
-	protected abstract Map<String, String> showLogin(List<Prompt> prompts, int attempt, boolean success) throws IOException;
+	protected abstract Map<String, String> showLogin(HypersocketClient<T> attached, List<Prompt> prompts, int attempt, boolean success) throws IOException;
 	
 	public abstract void showWarning(String msg);
 
@@ -482,8 +484,17 @@ public abstract class HypersocketClient<T> {
 		return transport;
 	}
 
+	public ResourceBundle getResources() throws IOException {
+		String json = transport.get("i18n");
+		ObjectMapper mapper = new ObjectMapper();		
+		Map<String, Object> result = mapper.readValue(json, new TypeReference<Map<String, String>>() {});
+		if(result != null) {
+			return new MapResourceBundle(result);
+		}
+		return null;
+	}
+
 	public Map<String,String> getUserVariables() throws IOException {
-		
 		String json = transport.get("currentRealm/user/allVariables");
 		
 		ObjectMapper mapper = new ObjectMapper();

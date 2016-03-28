@@ -247,8 +247,7 @@ public class NettyClientTransport implements HypersocketClientTransport {
 		if (response.getStatusCode() == 200) {
 			return response.getContent().toString(Charset.forName("UTF-8"));
 		} else {
-			throw new IOException("GET did not respond with 200 OK ["
-					+ response.getStatusCode() + "]");
+			throw new IOException(String.format("GET of %s did not respond with 200 OK [%d]", uri, response.getStatusCode()));
 		}
 
 	}

@@ -2,6 +2,7 @@ package com.hypersocket.client.gui.jfx;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.rmi.RemoteException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -10,7 +11,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.ResourceBundle;
 import java.util.concurrent.Semaphore;
+
+import org.apache.commons.lang.StringUtils;
+import org.controlsfx.control.decoration.Decorator;
+import org.controlsfx.control.decoration.GraphicDecoration;
+import org.controlsfx.control.textfield.CustomPasswordField;
+import org.controlsfx.control.textfield.CustomTextField;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.hypersocket.client.Option;
+import com.hypersocket.client.Prompt;
+import com.hypersocket.client.gui.jfx.Bridge.Listener;
+import com.hypersocket.client.rmi.BrowserLauncher;
+import com.hypersocket.client.rmi.Connection;
+import com.hypersocket.client.rmi.ConnectionStatus;
+import com.hypersocket.client.rmi.GUICallback;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -42,21 +60,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-
-import org.apache.commons.lang.StringUtils;
-import org.controlsfx.control.decoration.Decorator;
-import org.controlsfx.control.decoration.GraphicDecoration;
-import org.controlsfx.control.textfield.CustomPasswordField;
-import org.controlsfx.control.textfield.CustomTextField;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.hypersocket.client.Option;
-import com.hypersocket.client.Prompt;
-import com.hypersocket.client.gui.jfx.Bridge.Listener;
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.rmi.ConnectionStatus;
-import com.hypersocket.client.rmi.GUICallback;
 
 /**
  * Controller for the "Sign In" window, where connections are managed and
@@ -237,7 +240,7 @@ public class SignIn extends AbstractController implements Listener {
 	}
 
 	@Override
-	public Map<String, String> showPrompts(List<Prompt> prompts, int attempts,
+	public Map<String, String> showPrompts(final Connection connection, final ResourceBundle promptResources, List<Prompt> prompts, int attempts,
 			boolean success) {
 
 		try {
@@ -251,7 +254,7 @@ public class SignIn extends AbstractController implements Listener {
 					VBox vbox = new VBox();
 					int idx = 0;
 					for (Prompt p : prompts) {
-						Label l = new Label(p.getLabel());
+						Label l = new Label(getLabelText(promptResources, p));
 						vbox.getChildren().add(l);
 						switch (p.getType()) {
 						case TEXT:
@@ -296,7 +299,18 @@ public class SignIn extends AbstractController implements Listener {
 							}
 							break;
 						case A:
-							Hyperlink h = new Hyperlink(p.getLabel());
+							String aLabel = getValueText(promptResources, p);
+							Hyperlink h = new Hyperlink(aLabel);
+							h.onActionProperty().set((val) -> {
+								String urlStr = p.getDefaultValue();
+								try {
+									new URL(urlStr);
+									new BrowserLauncher(urlStr).launch();
+								}
+								catch(Exception e) {
+									new BrowserLauncher(getUri(connection) + "/" + urlStr).launch();
+								}
+							});
 							h.getStyleClass().add("input");
 							vbox.getChildren().add(h);
 							promptNodes.put(p, h);
@@ -337,6 +351,29 @@ public class SignIn extends AbstractController implements Listener {
 
 			return promptValues;
 		}
+	}
+
+	private String getLabelText(final ResourceBundle promptResources, Prompt p) {
+		return getI18NText(promptResources, p.getResourceKey() + ".label", "");
+	}
+
+	private String getValueText(final ResourceBundle promptResources, Prompt p) {
+		return getI18NText(promptResources, p.getResourceKey(), p.getDefaultValue());
+	}
+	
+	private String getI18NText(final ResourceBundle promptResources, String key, String defaultStr) {
+		String aLabel;
+		try {
+			aLabel = promptResources.getString(key);
+		}
+		catch(Exception e) {
+			try {
+				aLabel = resources.getString(key);
+			} catch (Exception e2) {
+				aLabel = defaultStr;
+			}
+		}
+		return aLabel;
 	}
 
 	@Override
