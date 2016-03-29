@@ -119,6 +119,10 @@
 	-fx-text-fill: #aa0000;
     -fx-font-family: FontAwesome;
 }
+.statusBusy {
+	-fx-text-fill: #ff6c00;
+    -fx-font-family: FontAwesome;
+}
 .statusNotConnected {
 	-fx-text-fill: #00aa00;
     -fx-font-family: FontAwesome;

@@ -193,6 +193,7 @@ public class GroupButton extends ImageButton {
 	private void configureButton(final ImageView imageView) {
 		imageView.setFitHeight(32);
 		imageView.setFitWidth(32);
+		imageView.setSmooth(true);
 		imageView.setPreserveRatio(true);
 		imageView.getStyleClass().add("launcherIcon");
 	}

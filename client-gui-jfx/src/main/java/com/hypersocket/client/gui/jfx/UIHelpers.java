@@ -91,6 +91,7 @@ public class UIHelpers {
 			ImageView iv = ((ImageView) button.getGraphic());
 			iv.setFitWidth(sz - df);
 			iv.setFitHeight(sz - df);
+			iv.setSmooth(true);
 		} else {
 			int fs = (int) ((float) sz * 0.6f);
 			button.setStyle("-fx-font-size: " + fs + "px;");
