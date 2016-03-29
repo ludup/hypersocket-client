@@ -9,7 +9,27 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 
+import org.apache.commons.lang3.StringUtils;
+import org.controlsfx.control.Notifications;
+import org.controlsfx.control.action.Action;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.hypersocket.client.ServiceResource;
+import com.hypersocket.client.gui.jfx.Bridge.Listener;
+import com.hypersocket.client.gui.jfx.Flinger.Direction;
+import com.hypersocket.client.gui.jfx.Popup.PositionType;
+import com.hypersocket.client.rmi.Connection;
+import com.hypersocket.client.rmi.ConnectionStatus;
+import com.hypersocket.client.rmi.GUICallback;
+import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
+import com.hypersocket.client.rmi.Resource;
+import com.hypersocket.client.rmi.Resource.Type;
+import com.hypersocket.client.rmi.ResourceRealm;
+import com.hypersocket.client.rmi.ResourceService;
+
 import javafx.animation.Animation;
+import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -32,6 +52,7 @@ import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.effect.Glow;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
@@ -45,25 +66,6 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.util.Duration;
-
-import org.apache.commons.lang3.StringUtils;
-import org.controlsfx.control.Notifications;
-import org.controlsfx.control.action.Action;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.hypersocket.client.ServiceResource;
-import com.hypersocket.client.gui.jfx.Bridge.Listener;
-import com.hypersocket.client.gui.jfx.Flinger.Direction;
-import com.hypersocket.client.gui.jfx.Popup.PositionType;
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.rmi.ConnectionStatus;
-import com.hypersocket.client.rmi.GUICallback;
-import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
-import com.hypersocket.client.rmi.Resource;
-import com.hypersocket.client.rmi.Resource.Type;
-import com.hypersocket.client.rmi.ResourceRealm;
-import com.hypersocket.client.rmi.ResourceService;
 
 public class Dock extends AbstractController implements Listener {
 
@@ -145,6 +147,7 @@ public class Dock extends AbstractController implements Listener {
 	private SignIn signInScene;
 	private Timeline dockHider;
 	private boolean hidden;
+	private FadeTransition busyFade;
 	private Timeline dockHiderTrigger;
 	private Timeline launchWait;
 	private Timeline dockRevealer;
@@ -165,9 +168,7 @@ public class Dock extends AbstractController implements Listener {
 	private AbstractController optionsScene;
 	private Mode mode = Mode.LAUNCHERS;
 	private int appsToUpdate;
-
 	private Update updateScene;
-
 	private ResourceGroup resourceGroup;
 
 	public Dock() {
@@ -363,7 +364,7 @@ public class Dock extends AbstractController implements Listener {
 	public void bridgeLost() {
 		log.info(String.format("Bridge lost, rebuilding all launchers"));
 		Platform.runLater(() -> {
-			if(updateScene == null || !updateScene.isAwaitingBridgeLoss())
+			if (updateScene == null || !updateScene.isAwaitingBridgeLoss())
 				setMode(Mode.IDLE);
 			rebuildAllLaunchers();
 		});
@@ -402,6 +403,16 @@ public class Dock extends AbstractController implements Listener {
 		positionResourceGroupPopup(source);
 		resourceGroup.setResources(group);
 		resourceGroupPopup.popup();
+	}
+
+	@Override
+	public void connecting(Connection connection) {
+		Platform.runLater(() -> setAvailable());
+	}
+
+	@Override
+	public void started(Connection connection) {
+		Platform.runLater(() -> setAvailable());
 	}
 
 	private void positionResourceGroupPopup(Button source) {
@@ -576,6 +587,9 @@ public class Dock extends AbstractController implements Listener {
 		cfg.rightProperty().addListener(borderChangeListener);
 
 		dockContent.prefWidthProperty().bind(dockStack.widthProperty());
+		
+		// Hide the pull tab initially
+		pull.setVisible(false);
 
 		if (context.getBridge().isServiceUpdating()) {
 			setMode(Mode.UPDATE);
@@ -895,6 +909,8 @@ public class Dock extends AbstractController implements Listener {
 
 		hidden = hide;
 		hiding = true;
+		
+		pull.setVisible(true);
 
 		dockHider = new Timeline(new KeyFrame(Duration.millis(5), ae -> shiftDock()));
 		yEnd = System.currentTimeMillis() + AUTOHIDE_DURATION;
@@ -927,6 +943,8 @@ public class Dock extends AbstractController implements Listener {
 		if (!hidden) {
 			amt = value - amt;
 			barSize = (float) boundsSize - barSize;
+			if(!pull.isVisible())
+				pull.setVisible(true);
 		}
 
 		// Reveal or hide the pull tab
@@ -976,6 +994,7 @@ public class Dock extends AbstractController implements Listener {
 				public void run() {
 					if (!fhidden && stage != null) {
 						stage.requestFocus();
+						pull.setVisible(false);
 					}
 					hiding = false;
 				}
@@ -1026,33 +1045,60 @@ public class Dock extends AbstractController implements Listener {
 	}
 
 	private void setAvailable() {
-		for (String s : Arrays.asList("statusNotConnected", "statusConnected", "statusError")) {
+		for (String s : Arrays.asList("statusNotConnected", "statusConnected", "statusError", "statusBusy")) {
 			signIn.getStyleClass().remove(s);
 		}
 		if (context.getBridge().isConnected()) {
 			int connected = 0;
+			int connecting = 0;
 			try {
 				List<ConnectionStatus> connections = context.getBridge().getClientService().getStatus();
 				for (ConnectionStatus c : connections) {
 					log.info(String.format("Connection %s = %s", c.getConnection().getHostname(), c.getStatus()));
 					if (c.getStatus() == ConnectionStatus.CONNECTED) {
 						connected++;
+					} else if (c.getStatus() == ConnectionStatus.CONNECTING) {
+						connecting++;
 					}
 				}
 				log.info(String.format("Bridge says %d are connected of %d", connected, connections.size()));
-				if (connected > 0) {
+				if (connecting > 0) {
+					signIn.getStyleClass().add("statusBusy");
+					if(busyFade == null) {
+						busyFade = new FadeTransition(Duration.seconds(0.25), signIn);
+						signIn.setEffect(new Glow(0.5));
+						busyFade.setFromValue(0.5);
+						busyFade.setToValue(1.0);
+						busyFade.setAutoReverse(true);
+						busyFade.setCycleCount(Timeline.INDEFINITE);
+						busyFade.play();
+					}
+				} else if (connected > 0) {
 					signIn.getStyleClass().add("statusNotConnected");
+					removeBusyGlow();
 				} else {
 					signIn.getStyleClass().add("statusConnected");
+					removeBusyGlow();
+					signIn.setEffect(new Glow(0.5));
 				}
 			} catch (Exception e) {
 				log.error("Failed to check connection state.", e);
 				signIn.getStyleClass().add("statusError");
+				removeBusyGlow();
 			}
 		} else {
 			log.info("Bridge says not connected");
 			signIn.getStyleClass().add("statusError");
+			removeBusyGlow();
 		}
+	}
+
+	private void removeBusyGlow() {
+		if (busyFade != null) {
+			busyFade.stop();
+			busyFade = null;
+		}
+		signIn.setEffect(null);
 	}
 
 	@FXML

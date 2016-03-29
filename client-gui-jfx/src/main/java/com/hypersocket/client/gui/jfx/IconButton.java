@@ -154,6 +154,7 @@ public class IconButton extends LauncherButton {
 		imageView.setFitHeight(32);
 		imageView.setFitWidth(32);
 		imageView.setPreserveRatio(true);
+		imageView.setSmooth(true);
 		imageView.getStyleClass().add("launcherIcon");
 	}
 }
