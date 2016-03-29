@@ -96,6 +96,12 @@ public class Dock extends AbstractController implements Listener {
 	static final int AUTOHIDE_HIDE_TIME = 2000;
 
 	/*
+	 * The initial amount of time after startup before the dock is hidden
+	 * (in MS) when autohide is ON.
+	 */
+	static final int INITIAL_AUTOHIDE_HIDE_TIME = 10000;
+
+	/*
 	 * How long (in MS) to keep the dock open after a launch. This prevents
 	 * autohide when focus is lost for a number of milliseconds. If focus is
 	 * regained, the timer is cleared.
@@ -602,7 +608,7 @@ public class Dock extends AbstractController implements Listener {
 		setAvailable();
 		configurePull();
 		if (cfg.autoHideProperty().get())
-			maybeHideDock();
+			maybeHideDock(INITIAL_AUTOHIDE_HIDE_TIME);
 	}
 
 	private void configurePull() {
@@ -854,13 +860,17 @@ public class Dock extends AbstractController implements Listener {
 	}
 
 	private void maybeHideDock() {
+		maybeHideDock(AUTOHIDE_HIDE_TIME);
+	}
+
+	private void maybeHideDock(long time) {
 		if (hiding) {
 			return;
 		}
 		if (popOver != null && popOver.isShowing())
 			return;
 		stopDockHiderTrigger();
-		dockHiderTrigger = new Timeline(new KeyFrame(Duration.millis(AUTOHIDE_HIDE_TIME), ae -> hideDock(true)));
+		dockHiderTrigger = new Timeline(new KeyFrame(Duration.millis(time), ae -> hideDock(true)));
 		dockHiderTrigger.play();
 	}
 
