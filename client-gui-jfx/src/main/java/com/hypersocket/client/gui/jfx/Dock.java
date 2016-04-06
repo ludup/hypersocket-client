@@ -341,6 +341,7 @@ public class Dock extends AbstractController implements Listener {
 	@Override
 	public void finishedConnecting(Connection connection, Exception e) {
 		log.info(String.format("New connection finished connected (%s)", connection.toString()));
+		Platform.runLater(() -> setAvailable());		
 	}
 
 	@Override
