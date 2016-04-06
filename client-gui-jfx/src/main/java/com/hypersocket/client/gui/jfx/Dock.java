@@ -280,7 +280,7 @@ public class Dock extends AbstractController implements Listener {
 					if (cfg.isVertical())
 						((VBox) sceneRoot).minWidthProperty().bind(shortcuts.heightProperty());
 					else
-						((HBox) sceneRoot).minWidthProperty().bind(shortcuts.widthProperty());
+						((HBox) sceneRoot).minHeightProperty().bind(shortcuts.widthProperty());
 
 					flinger.getContent().getChildren().clear();
 					flinger.getContent().getChildren().add(sceneRoot);
@@ -341,6 +341,7 @@ public class Dock extends AbstractController implements Listener {
 	@Override
 	public void finishedConnecting(Connection connection, Exception e) {
 		log.info(String.format("New connection finished connected (%s)", connection.toString()));
+		Platform.runLater(() -> setAvailable());		
 	}
 
 	@Override

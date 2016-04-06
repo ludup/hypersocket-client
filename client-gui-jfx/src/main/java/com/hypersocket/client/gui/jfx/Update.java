@@ -18,7 +18,6 @@ import javafx.beans.value.ObservableValue;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 
 public class Update extends AbstractController {
@@ -28,8 +27,6 @@ public class Update extends AbstractController {
 	private ProgressBar progress;
 	@FXML
 	private Label message;
-	@FXML
-	private ImageView icon;
 
 	private Timeline awaitingBridgeLoss;
 	private Timeline awaitingBridgeEstablish;
@@ -239,8 +236,6 @@ public class Update extends AbstractController {
 		int sz = Configuration.getDefault().sizeProperty().get();
 		int df = sz / 8;
 		sz -= df;
-		icon.setFitWidth(sz - df);
-		icon.setFitHeight(sz - df);
 	}
 
 	public boolean isAwaitingBridgeLoss() {

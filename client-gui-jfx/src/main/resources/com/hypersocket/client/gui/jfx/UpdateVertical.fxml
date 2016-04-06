@@ -7,11 +7,10 @@
 <?import java.lang.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox alignment="CENTER" maxHeight="1.7976931348623157E308" styleClass="background" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.Update">
+<VBox alignment="CENTER" fillWidth="false" maxHeight="1.7976931348623157E308" scaleShape="false" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.Update">
    <children>
       <VBox alignment="CENTER" prefHeight="320.0" prefWidth="23.0" spacing="8.0">
          <children>
-            <ImageView fx:id="icon" pickOnBounds="true" preserveRatio="true" styleClass="logo" />
             <Group nodeOrientation="LEFT_TO_RIGHT">
                <children>
                   <ProgressBar fx:id="progress" prefWidth="150.0" progress="0.0" rotate="90.0" />
@@ -25,4 +24,8 @@
          </children>
       </VBox>
    </children>
+   <styleClass>
+      <String fx:value="background" />
+      <String fx:value="transparent" />
+   </styleClass>
 </VBox>
