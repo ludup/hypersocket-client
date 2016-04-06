@@ -280,7 +280,7 @@ public class Dock extends AbstractController implements Listener {
 					if (cfg.isVertical())
 						((VBox) sceneRoot).minWidthProperty().bind(shortcuts.heightProperty());
 					else
-						((HBox) sceneRoot).minWidthProperty().bind(shortcuts.widthProperty());
+						((HBox) sceneRoot).minHeightProperty().bind(shortcuts.widthProperty());
 
 					flinger.getContent().getChildren().clear();
 					flinger.getContent().getChildren().add(sceneRoot);

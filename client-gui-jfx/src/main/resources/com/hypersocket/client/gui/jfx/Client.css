@@ -138,7 +138,7 @@
  	-fx-background-color: -fx-background; 
 }
 
-.shadowed {
+.shadowed, .transparent {
 	-fx-background-color: transparent;
 }
 
