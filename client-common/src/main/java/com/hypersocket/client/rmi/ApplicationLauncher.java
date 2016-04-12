@@ -1,6 +1,5 @@
 package com.hypersocket.client.rmi;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
@@ -69,7 +68,6 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 			arg = ReplacementUtils.processTokenReplacements(arg, properties);
 			cmd.addArg(arg);
 		}
-		
 
 		try {
 			int exitCode = cmd.execute();
@@ -82,7 +80,7 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 			}
 			
 			return exitCode;
-		} catch (IOException e) {
+		} catch (Throwable e) {
 			log.error("Failed to launch application", e);
 			return Integer.MIN_VALUE;
 		} finally {

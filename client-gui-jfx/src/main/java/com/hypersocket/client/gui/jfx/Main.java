@@ -53,6 +53,11 @@ public class Main {
 			e.printStackTrace();
 			BasicConfigurator.configure();
 		}
+		
+		try {
+			log.info("I am currently using working directory " + new File(".").getCanonicalPath());
+		} catch (IOException e) {
+		}
 	}
 
 	/*
