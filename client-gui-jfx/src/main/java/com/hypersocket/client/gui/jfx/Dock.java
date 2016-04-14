@@ -113,6 +113,13 @@ public class Dock extends AbstractController implements Listener {
 	 */
 	static final double MESSAGE_FADE_TIME = 10000;
 
+	/**
+	 * How long (in MS) the mouse must hover over the reveal tab before the dock will be revealed.
+	 * If the mouse exits the tab before this time, the reveal will be cancelled. If the mouse is clicked
+	 * before leaving the tab, the dock will be immediatey revealed. 
+	 */
+	private static final double REVEAL_HOVER_TIME = 500;
+
 	static Logger log = LoggerFactory.getLogger(Dock.class);
 
 	private Popup signInPopup;
@@ -892,7 +899,7 @@ public class Dock extends AbstractController implements Listener {
 			 */
 			if (!hide) {
 				stopDockRevealerTimer();
-				dockRevealer = new Timeline(new KeyFrame(Duration.millis(500), ae -> changeHidden(hide)));
+				dockRevealer = new Timeline(new KeyFrame(Duration.millis(REVEAL_HOVER_TIME), ae -> changeHidden(hide)));
 				dockRevealer.play();
 			} else {
 				changeHidden(hide);
@@ -1134,8 +1141,9 @@ public class Dock extends AbstractController implements Listener {
 		if (evt.getButton() == MouseButton.SECONDARY) {
 			showContextMenu(evt.getX(), evt.getY());
 			evt.consume();
-		} else if (contextMenu != null)
+		} else if (contextMenu != null) {
 			contextMenu.hide();
+		}
 	}
 
 	@FXML
@@ -1157,6 +1165,11 @@ public class Dock extends AbstractController implements Listener {
 	@FXML
 	private void evtRefilter() {
 		rebuildIcons();
+	}
+
+	@FXML
+	private void evtShowPopup(MouseEvent evt) {
+		changeHidden(false);
 	}
 
 	@FXML

@@ -78,6 +78,7 @@
 }
 
 .item {
+    -fx-font-family: Monospaced;
 	-fx-font-size: 14;
 }
 
