@@ -27,7 +27,11 @@ public class NetworkResource implements Serializable,ServiceResource {
 	Status serviceStatus = Status.UNKNOWN;
 	Long parentResourceId;
 
-	public NetworkResource(Long parentResourceId, String hostname, String destinationHostname, int port, String uri) {
+	public NetworkResource(Long parentResourceId, 
+			String hostname, 
+			String destinationHostname, 
+			int port, 
+			String uri) {
 		this.hostname = IPAddressValidator.getInstance().getGuaranteedHostname(
 				hostname);
 		this.parentResourceId = parentResourceId;
