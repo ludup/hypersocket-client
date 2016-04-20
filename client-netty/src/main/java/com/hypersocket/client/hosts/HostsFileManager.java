@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.netty.handler.ipfilter.CIDR;
 import org.jboss.netty.handler.ipfilter.CIDR4;
 import org.slf4j.Logger;
@@ -265,6 +266,9 @@ public class HostsFileManager {
 		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out));
 		try {
 			for (String host : content) {
+				if(StringUtils.isBlank(host)) {
+					continue;
+				}
 				writer.write(host);
 				writer.write(System.getProperty("line.separator"));
 			}

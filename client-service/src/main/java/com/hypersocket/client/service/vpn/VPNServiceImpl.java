@@ -6,8 +6,10 @@ import java.net.URL;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +26,9 @@ import com.hypersocket.client.rmi.VPNService;
 public class VPNServiceImpl implements VPNService {
 	private static Logger log = LoggerFactory.getLogger(VPNServiceImpl.class);
 
-	private Map<String, NetworkResource> localForwards = new HashMap<String, NetworkResource>();
+	private Map<HypersocketClient<?>,Map<String, NetworkResource>> localForwards = new HashMap<HypersocketClient<?>,Map<String, NetworkResource>>();
+	private Set<NetworkResource> allForwards = new HashSet<NetworkResource>();
+	
 	private ResourceService resourceService;
 	private HostsFileManager mgr;
 	private SocketRedirector redirector;
@@ -81,6 +85,10 @@ public class VPNServiceImpl implements VPNService {
 			HypersocketClient<?> serviceClient, NetworkResource resource)
 			throws IOException {
 
+		if(!localForwards.containsKey(serviceClient)) {
+			localForwards.put(serviceClient, new HashMap<String,NetworkResource>());
+		}
+		
 		if (mgr == null) {
 			mgr = HostsFileManager.getSystemHostsFile();
 		}
@@ -101,7 +109,8 @@ public class VPNServiceImpl implements VPNService {
 				resource.setLocalPort(actualPort);				
 				resource.setAliasInterface(alias);
 
-				localForwards.put(resource.getLocalHostname() + ":" + actualPort, resource);
+				localForwards.get(serviceClient).put(resource.getLocalHostname() + ":" + actualPort, resource);
+				allForwards.add(resource);
 				return true;
 			} catch (Exception e) {
 				log.error("Failed to redirect local forwarding", e);
@@ -117,15 +126,16 @@ public class VPNServiceImpl implements VPNService {
 			HypersocketClient<?> serviceClient) {
 
 		List<NetworkResource> tmp = new ArrayList<NetworkResource>(
-				localForwards.values());
+				localForwards.get(serviceClient).values());
 		for (NetworkResource resource : tmp) {
 			stopLocalForwarding(resource, serviceClient);
 		}
 
+		localForwards.remove(serviceClient);
 	}
 
 	private boolean isHostnameInUse(String hostname) {
-		for (NetworkResource resource : localForwards.values()) {
+		for (NetworkResource resource : allForwards) {
 			if (resource.getHostname().equals(hostname)) {
 				return true;
 			}
@@ -135,13 +145,17 @@ public class VPNServiceImpl implements VPNService {
 
 	public synchronized void stopLocalForwarding(NetworkResource resource,
 			HypersocketClient<?> serviceClient) {
+		
 		try {
 			resourceService.getServiceResources().remove(resource);
 		} catch (RemoteException e1) {
 			// Accessing locally, shouldn't happen
 		}
 		String key = "127.0.0.1" + ":" + resource.getLocalPort();
-		if (localForwards.containsKey(key)) {
+		
+		Map<String,NetworkResource> forwards = localForwards.get(serviceClient);
+		
+		if (forwards.containsKey(key)) {
 			log.info(String.format("Stopping local forwarding for %s", key));
 			serviceClient.getTransport().stopLocalForwarding("127.0.0.1",
 					resource.getLocalPort());
@@ -152,10 +166,12 @@ public class VPNServiceImpl implements VPNService {
 			} catch (Exception e) {
 				log.error("Failed to stop local forwarding redirect", e);
 			} finally {
-				localForwards.remove(key);
+				forwards.remove(key);
+				allForwards.remove(resource);
 
 				if (!isHostnameInUse(resource.getHostname())) {
 					try {
+						log.info(String.format("Removing hosts file entry for %s", resource.getHostname()));
 						mgr.removeHostname(resource.getHostname());
 					} catch (IOException e) {
 					}
