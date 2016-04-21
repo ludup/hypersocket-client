@@ -78,7 +78,8 @@ public class GroupButton extends ImageButton {
 									+ URLEncoder.encode(typeName, "UTF-8")
 									+ "/"
 									+ URLEncoder.encode(group.getKey()
-											.getSubType(), "UTF-8") + "/"
+											.getSubType() == null ? "DEFAULT" : group.getKey()
+													.getSubType(), "UTF-8") + "/"
 									+ iconName.substring(7);
 						} catch (UnsupportedEncodingException e) {
 							throw new RuntimeException(e);

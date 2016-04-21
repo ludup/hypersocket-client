@@ -125,10 +125,15 @@ public class VPNServiceImpl implements VPNService {
 	public synchronized void stopAllForwarding(
 			HypersocketClient<?> serviceClient) {
 
-		List<NetworkResource> tmp = new ArrayList<NetworkResource>(
-				localForwards.get(serviceClient).values());
-		for (NetworkResource resource : tmp) {
-			stopLocalForwarding(resource, serviceClient);
+		Map<String, NetworkResource> map = localForwards.get(serviceClient);
+		if(map == null)
+			log.info("No client to stop yet for this connection.");
+		else {
+			List<NetworkResource> tmp = new ArrayList<NetworkResource>(
+					map.values());
+			for (NetworkResource resource : tmp) {
+				stopLocalForwarding(resource, serviceClient);
+			}
 		}
 
 		localForwards.remove(serviceClient);
