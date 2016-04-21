@@ -66,12 +66,20 @@ public class GUIRegistryImpl implements GUIRegistry {
 	 */
 	@Override
 	public void unregisterGUI(GUICallback gui) throws RemoteException {
+		if (log.isInfoEnabled()) {
+			log.info("Unregistering GUI");
+		}
 		synchronized (lock) {
 			if (gui == null)
 				throw new IllegalStateException("Not registered " + gui);
 			this.gui = null;
 			guiAttached = false;
-			gui.unregistered();
+			try {
+				gui.unregistered();
+			}
+			catch(Exception e) {
+				// Might EOF
+			}
 			if (log.isInfoEnabled()) {
 				log.info("Unregistered GUI");
 			}
