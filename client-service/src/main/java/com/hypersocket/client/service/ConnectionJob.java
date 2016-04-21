@@ -105,6 +105,9 @@ public class ConnectionJob extends TimerTask {
 							connection.getUsername(),
 							connection.getHashedPassword(), true);
 				} catch (IOException ioe) {
+					if(log.isInfoEnabled()) {
+						log.info(String.format("%s error during login", client.getHost()), ioe);
+					}
 					client.disconnect(true);
 					client.connect(connection.getHostname(),
 							connection.getPort(), connection.getPath(), locale);

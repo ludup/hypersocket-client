@@ -209,6 +209,9 @@ public abstract class HypersocketClient<T> {
 
 	public void exit() {
 		if (isLoggedOn()) {
+			if(log.isInfoEnabled()) {
+				log.info(String.format("%s is exiting", transport.getHost()));
+			}
 			disconnect(false);
 		}
 		transport.shutdown();
@@ -269,6 +272,9 @@ public abstract class HypersocketClient<T> {
 		while (!isLoggedOn()) {
 
 			if(attempts==0) {
+				if(log.isInfoEnabled()) {
+					log.info(String.format("%s too many authentication attempts", transport.getHost()));
+				}
 				disconnect(false);
 				throw new IOException("Too many failed authentication attempts");
 			}
@@ -304,6 +310,9 @@ public abstract class HypersocketClient<T> {
 					}
 					
 				} else {
+					if(log.isInfoEnabled()) {
+						log.info(String.format("%s user cancelled authentication", transport.getHost()));
+					}
 					disconnect(false);
 					throw new UserCancelledException("User has cancelled authentication");
 				}
@@ -472,6 +481,9 @@ public abstract class HypersocketClient<T> {
 						transport.get("session/touch");
 					} catch (IOException e) {
 						if(!userDisconnect && !isDisconnecting) {
+							if(log.isInfoEnabled()) {
+								log.info(String.format("%s error during session keep-alive", transport.getHost()));
+							}
 							disconnect(true);
 						}
 					}

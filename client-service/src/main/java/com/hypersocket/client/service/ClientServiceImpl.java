@@ -213,7 +213,12 @@ public class ClientServiceImpl implements ClientService {
 
 	public void stopService() throws RemoteException {
 
+		
+		
 		for (HypersocketClient<?> client : activeClients.values()) {
+			if(log.isInfoEnabled()) {
+				log.info(String.format("%s service is stopping", client.getHost()));
+			}
 			client.disconnect(false);
 		}
 
@@ -229,8 +234,6 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public boolean isConnected(Connection c) throws RemoteException {
-		// return activeClients.containsKey(c) ||
-		// connectingClients.containsKey(c);
 		return activeClients.containsKey(c);
 	}
 
@@ -245,10 +248,14 @@ public class ClientServiceImpl implements ClientService {
 		resources.remove(c);
 		
 		if (activeClients.containsKey(c)) {
-			log.info("Was connected, disconnecting");
+			if(log.isInfoEnabled()) {
+				log.info("Was connected, disconnecting");
+			}
 			activeClients.remove(c).disconnect(false);
 		} else if (connectingClients.containsKey(c)) {
-			log.info("Was connecting, cancelling");
+			if(log.isInfoEnabled()) {
+				log.info("Was connecting, cancelling");
+			}
 			connectingClients.get(c).cancel();
 			connectingClients.remove(c);
 
