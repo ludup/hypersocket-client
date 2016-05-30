@@ -306,10 +306,10 @@ public class GUIRegistryImpl implements GUIRegistry {
 	 * @see com.hypersocket.client.service.IGuiRegistry#updateResource(com.hypersocket.client.rmi.GUICallback.ResourceUpdateType, com.hypersocket.client.rmi.Resource)
 	 */
 	@Override
-	public void updateResource(ResourceUpdateType type, Resource resource) throws RemoteException {
+	public void updateResource(Connection connection, ResourceUpdateType type, Resource resource) throws RemoteException {
 		synchronized (lock) {
 			if (gui != null && guiAttached) {
-				gui.updateResource(type, resource);
+				gui.updateResource(connection, type, resource);
 			}
 		}
 	}

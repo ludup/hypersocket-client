@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.HypersocketClient;
+import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
 import com.hypersocket.client.rmi.GUIRegistry;
 import com.hypersocket.client.rmi.Resource;
@@ -37,7 +38,7 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 
 	protected String[] urls;
 	protected Map<String, String> fingerprints = new HashMap<>();
-	protected HypersocketClient<?> serviceClient;
+	protected HypersocketClient<Connection> serviceClient;
 	protected ResourceService resourceService;
 	protected GUIRegistry guiRegistry;
 	protected List<Resource> realmResources = new ArrayList<Resource>();
@@ -213,7 +214,7 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 						if (onDeletedResource(r)) {
 							realmResources.remove(r);
 							resourceRealm.removeResource(r);
-							guiRegistry.updateResource(ResourceUpdateType.DELETE, r);
+							guiRegistry.updateResource(serviceClient.getAttachment(), ResourceUpdateType.DELETE, r);
 						}
 					}
 				}
@@ -225,7 +226,7 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 						if (onCreatedResource(r)) {
 							realmResources.add(r);
 							resourceRealm.addResource(r);
-							guiRegistry.updateResource(ResourceUpdateType.CREATE, r);
+							guiRegistry.updateResource(serviceClient.getAttachment(), ResourceUpdateType.CREATE, r);
 						}
 					}
 				}
@@ -238,7 +239,7 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 							log.info(String.format("Found an update resource (%s) '%s'", r.getUid(), r.getName()));
 							if (onUpdatedResource(r)) {
 								realmResources.set(realmResources.indexOf(current), r);
-								guiRegistry.updateResource(ResourceUpdateType.UPDATE, r);
+								guiRegistry.updateResource(serviceClient.getAttachment(), ResourceUpdateType.UPDATE, r);
 							}
 							else
 								log.info(String.format("Although resource (%s) '%s' was updated, there weren't actually any changes", r.getUid(), r.getName()));

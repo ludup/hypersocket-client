@@ -1,10 +1,14 @@
 package com.hypersocket.client.gui;
 
 import java.awt.image.RenderedImage;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -19,6 +23,7 @@ import java.util.ResourceBundle;
 
 import javax.imageio.ImageIO;
 
+import org.apache.commons.lang.StringUtils;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ShellEvent;
@@ -154,24 +159,6 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	}
 
 	public void notify(String msg, int type) {
-
-		switch (type) {
-		case NOTIFY_CONNECT:
-		case NOTIFY_DISCONNECT:
-
-			Display.getDefault().asyncExec(new Runnable() {
-				public void run() {
-					if (connectionsWindow != null) {
-						connectionsWindow.updateActions();
-					}
-					rebuildLaunchMenu();
-				}
-			});
-
-			break;
-		default:
-			break;
-		}
 		showPopupMessage(msg, "Hypersocket Client");
 	}
 
@@ -179,7 +166,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 
 	}
 
-	private void rebuildLaunchMenu() {
+	private void rebuildLaunchMenu(Connection connection) {
 
 		Integer previousCount = (Integer) trayMenu.getData();
 		if (previousCount != null) {
@@ -209,13 +196,22 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 
 					Menu realmMenu = new Menu(trayMenu);
 					realmItem.setMenu(realmMenu);
-
+					
 					for (Resource res : realm.getResources()) {
+						
 						if (res.isLaunchable()) {
 							MenuItem resourceItem = new MenuItem(realmMenu,
 									SWT.PUSH);
 							resourceItem.setText(res.getName());
 							resourceItem.setData(res);
+							try {
+								resourceItem.setImage(loadIcon(realm, res.getIcon(), res.getGroup(), res.getName()));
+							} catch (IOException e1) {
+								/**
+								 * TODO use default icon
+								 */
+								e1.printStackTrace();
+							}
 							resourceItem.addListener(SWT.Selection,
 									new Listener() {
 										public void handleEvent(Event e) {
@@ -239,6 +235,47 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 		}
 	}
 
+	
+	private Image loadIcon(ResourceRealm realm, String iconName, String typeName, String resourceName) throws RemoteException, IOException {
+		
+		if (StringUtils.isBlank(iconName)) {
+			iconName = "logo://96_autotype_autotype_auto.png";
+		}
+
+		if(iconName.startsWith("res://")){
+			// Client specified icon (when retrieving resources)
+			resourceName = iconName.substring(6);
+			URL resource = getClass().getResource(resourceName);
+			if (resource != null) {
+				return new Image(getShell().getDisplay(), resource.openStream());
+			} else {
+				return null;
+			}
+		}
+		else {
+			// Server specified icon
+			String iconPath = iconName;
+			if(iconPath.indexOf("/") == -1) {
+				iconPath = "files/download/" + iconName;
+			}
+			else {
+				if(iconName.startsWith("logo://")) {
+					try {
+						iconPath = "logo/" + URLEncoder.encode(typeName, "UTF-8") + "/" + URLEncoder.encode(resourceName, "UTF-8") + "/24" + iconName.substring(9);
+					} catch (UnsupportedEncodingException e) {
+						throw new RuntimeException(e);
+					}
+				}
+			}
+			
+			byte[] blob = clientService.getBlob(realm.getName(), iconPath, DEFAULT_TIMEOUT);
+			Image image = new Image(getShell().getDisplay(), new ByteArrayInputStream(blob));
+
+		    return new Image(getShell().getDisplay(),
+		        image.getImageData().scaledTo(24, 24));
+		}
+		
+	}
 	private void connectToService() throws RemoteException, NotBoundException {
 
 		Properties properties = new Properties();
@@ -299,7 +336,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 					if (connectionsWindow != null) {
 						connectionsWindow.updateActions();
 					}
-					rebuildLaunchMenu();
+					rebuildLaunchMenu(null);
 				}
 			});
 
@@ -563,9 +600,17 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void disconnected(Connection connection, String errorMessage)
+	public void disconnected(final Connection connection, String errorMessage)
 			throws RemoteException {
-		// TODO use these instead of polling in SWT client too
+		
+		Display.getDefault().asyncExec(new Runnable() {
+			public void run() {
+				if (connectionsWindow != null) {
+					connectionsWindow.updateActions();
+				}
+				rebuildLaunchMenu(connection);
+			}
+		});
 	}
 
 	@Override
@@ -728,11 +773,29 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void started(Connection connection) throws RemoteException {
+	public void started(final Connection connection) throws RemoteException {
+		
+		Display.getDefault().asyncExec(new Runnable() {
+			public void run() {
+				if (connectionsWindow != null) {
+					connectionsWindow.updateActions();
+				}
+				rebuildLaunchMenu(connection);
+			}
+		});
 	}
 
 	@Override
-	public void updateResource(ResourceUpdateType type, Resource resource)
+	public void updateResource(final Connection connection, ResourceUpdateType type, Resource resource)
 			throws RemoteException {
+		
+		Display.getDefault().asyncExec(new Runnable() {
+			public void run() {
+				if (connectionsWindow != null) {
+					connectionsWindow.updateActions();
+				}
+				rebuildLaunchMenu(connection);
+			}
+		});
 	}
 }

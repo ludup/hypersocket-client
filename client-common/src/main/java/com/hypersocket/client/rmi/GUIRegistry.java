@@ -43,7 +43,8 @@ public interface GUIRegistry {
 
 	public abstract void onUpdateFailure(String app, Throwable e);
 
-	public abstract void updateResource(ResourceUpdateType type,
+	public abstract void updateResource(Connection connection,
+			ResourceUpdateType type,
 			Resource resource) throws RemoteException;
 
 	public abstract void onUpdateDone(boolean restart, String failureMessage)
