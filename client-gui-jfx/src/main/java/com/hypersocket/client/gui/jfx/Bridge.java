@@ -498,7 +498,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void updateResource(ResourceUpdateType type, Resource resource)
+	public void updateResource(Connection connection, ResourceUpdateType type, Resource resource)
 			throws RemoteException {
 		Platform.runLater(new Runnable() {
 			@Override

@@ -66,6 +66,6 @@ public interface GUICallback extends Serializable, Remote {
 	
 	ExtensionPlace getExtensionPlace() throws RemoteException;
 
-	void updateResource(ResourceUpdateType type, Resource resource) throws RemoteException;
+	void updateResource(Connection connection, ResourceUpdateType type, Resource resource) throws RemoteException;
 
 }

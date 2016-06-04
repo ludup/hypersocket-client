@@ -10,7 +10,7 @@ public interface ResourceService extends Remote {
 
 	public List<ResourceRealm> getResourceRealms() throws RemoteException;
 
-	ResourceRealm getResourceRealm(String name) throws RemoteException;
+	ResourceRealm getResourceRealm(String hostname) throws RemoteException;
 
 	public void removeResourceRealm(String host) throws RemoteException;
 	

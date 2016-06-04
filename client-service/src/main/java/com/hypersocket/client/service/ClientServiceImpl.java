@@ -495,7 +495,7 @@ public class ClientServiceImpl implements ClientService {
 						}
 						
 						@Override
-						public HypersocketClient<?> getClient() {
+						public HypersocketClient<Connection> getClient() {
 							return client;
 						}
 					});

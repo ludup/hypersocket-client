@@ -11,4 +11,5 @@ public interface ResourceRealm {
 	void addResource(Resource res);
 
 	void removeResource(Resource r);
+
 }
