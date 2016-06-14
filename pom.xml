@@ -50,6 +50,7 @@
 		<module>client-gui-jfx</module>
 		<module>client-netty</module>
 		<module>client-service</module>
+		<module>client-gui-cli</module>
 	</modules>
 
 	<dependencies>
