@@ -31,13 +31,9 @@ public class WindowsSocketRedirector extends AbstractSocketRedirector implements
 				+ File.separator
 				+ "ip_redirect_driver.sys");
 		
-		installCommand = new File(cwd, "bin"
+		installCommand = new File(windowsDir, "System32"
 				+ File.separator
-				+ "windows"
-				+ File.separator
-				+ arch
-				+ File.separator
-				+ "installer.exe");
+				+ "sc.exe");
 		
 		redirectCommand = new File(cwd, "bin"
 				+ File.separator
@@ -55,31 +51,64 @@ public class WindowsSocketRedirector extends AbstractSocketRedirector implements
 		
 		if(!driverFile.exists() || currentDriverFile.lastModified()!=driverFile.lastModified()) {
 			try {
+				
+				stopService(true);
+				
 				FileUtils.copyFile(currentDriverFile, driverFile);
 				driverFile.setLastModified(currentDriverFile.lastModified());
 		
-				CommandExecutor cmd = new CommandExecutor(installCommand.getAbsolutePath());
+				createService();
 				
-				cmd.addArg("ip_redirect_driver");
-				cmd.addArg(driverFile.getAbsolutePath());
-				
-				int exit = cmd.execute();
-				
-				if(exit!=0) {
-					if(exit!=1073) {
-						throw new IllegalStateException("Could not install redirect driver exitCode=" + exit);
-					} else {
-						log.warn("Ignoring 1073 exit code as this indicates driver is already installed");
-					}
-				}
 			} catch (IOException e) {
 				throw new IllegalStateException("Could not update redirect driver", e);
 			}
 		}
 		
+		startService();
+		
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			public void run() {
+				stopService(false);
+			}
+		});
+		
+	}
+	
+	private void createService() throws IOException {
+		
+		CommandExecutor cmd = new CommandExecutor(installCommand.getAbsolutePath());
+		
+		cmd.addArg("create");
+		cmd.addArg("ip_redirect_driver");
+		cmd.addArg("type=");
+		cmd.addArg("kernel");
+		cmd.addArg("start=");
+		cmd.addArg("demand");
+		cmd.addArg("binPath=");
+		cmd.addArg(driverFile.getAbsolutePath());
+		cmd.addArg("group=");
+		cmd.addArg("PNP_TDI");
+		cmd.addArg("depend=");
+		cmd.addArg("tcpip");
+		cmd.addArg("DisplayName=");
+		cmd.addArg("Hypersocket IP Redirect Driver");
+		
+		int exit = cmd.execute();
+		
+		if(exit!=0) {
+			if(exit!=1073) {
+				throw new IllegalStateException("Could not install redirect driver exitCode=" + exit);
+			} else {
+				log.warn("Ignoring 1073 exit code as this indicates driver is already installed");
+			}
+		}
+	}
+	
+	private void startService() {
 		CommandExecutor startCommand = new CommandExecutor(installCommand.getAbsolutePath());
-		startCommand.addArg("ip_redirect_driver");
 		startCommand.addArg("start");
+		startCommand.addArg("ip_redirect_driver");
+		
 		
 		int exit;
 		try {
@@ -94,26 +123,30 @@ public class WindowsSocketRedirector extends AbstractSocketRedirector implements
 		} catch (IOException e) {
 			throw new IllegalStateException("Could not execute driver start command", e);
 		}
+	}
+	
+	private void stopService(boolean failOnError) {
+		CommandExecutor stopCommand = new CommandExecutor(installCommand.getAbsolutePath());
 		
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			public void run() {
-				
-				CommandExecutor stopCommand = new CommandExecutor(installCommand.getAbsolutePath());
-				stopCommand.addArg("ip_redirect_driver");
-				stopCommand.addArg("stop");
-				
-				int exit;
-				try {
-					exit = stopCommand.execute();
-					if(exit!=0 && exit!=1063) {
-						log.error("Could not stop redirect driver exitCode=" + exit);
-					}	
-				} catch (IOException e) {
-					log.error("Could not execute driver stop command", e);
+		stopCommand.addArg("stop");
+		stopCommand.addArg("ip_redirect_driver");
+		
+		
+		int exit;
+		try {
+			exit = stopCommand.execute();
+			if(exit!=0 && exit!=1063) {
+				log.error("Could not stop redirect driver exitCode=" + exit);
+				if(failOnError) {
+					throw new IllegalStateException("Could not stop redirect driver exitCode=" + exit);
 				}
+			}	
+		} catch (IOException e) {
+			log.error("Could not execute driver stop command", e);
+			if(failOnError) {
+				throw new IllegalStateException("Could not stop redirect driver", e);
 			}
-		});
-		
+		}
 	}
 	
 	@Override
