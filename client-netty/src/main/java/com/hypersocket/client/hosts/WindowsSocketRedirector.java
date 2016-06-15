@@ -43,13 +43,20 @@ public class WindowsSocketRedirector extends AbstractSocketRedirector implements
 				+ File.separator
 				+ "redirect.exe");
 		
+		File debugDriverFile = new File(windowsDir, "System32"
+				+ File.separator
+				+ "drivers"
+				+ File.separator
+				+ "ip_redirect_driver.sys");
+		
 		driverFile = new File(windowsDir, "System32"
 				+ File.separator
 				+ "drivers"
 				+ File.separator
 				+ "ip_redirect_driver.sys");
 		
-		if(!driverFile.exists() || currentDriverFile.lastModified()!=driverFile.lastModified()) {
+		if(!debugDriverFile.exists() &&
+				(!driverFile.exists() || currentDriverFile.lastModified()!=driverFile.lastModified())) {
 			try {
 				
 				stopService(true);
@@ -62,6 +69,10 @@ public class WindowsSocketRedirector extends AbstractSocketRedirector implements
 			} catch (IOException e) {
 				throw new IllegalStateException("Could not update redirect driver", e);
 			}
+		}
+		
+		if(debugDriverFile.exists()) {
+			log.warn("Detected DEBUG version of IP redirect driver");
 		}
 		
 		startService();
