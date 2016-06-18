@@ -390,7 +390,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void updateResource(ResourceUpdateType type, Resource resource) throws RemoteException {
+	public void updateResource(Connection connection, ResourceUpdateType type, Resource resource) throws RemoteException {
 	}
 
 	public ConnectionService getConnectionService() {
