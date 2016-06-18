@@ -83,7 +83,7 @@
 	<repositories>
 		<repository>
 			<id>swt-repo</id>
-			<url>https://swt-repo.googlecode.com/svn/repo/</url>
+			<url>http://artifactory.javassh.com/swt-repo</url>
 		</repository>
 		<repository>
 			<id>public-releases</id>

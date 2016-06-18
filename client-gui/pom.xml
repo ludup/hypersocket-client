@@ -95,11 +95,7 @@
 	<repositories>
 		<repository>
 			<id>swt-repo</id>
-			<url>https://github.com/maven-eclipse/swt-repo</url>
-		</repository>
-		<repository>
-			<id>jface-repo</id>
-			<url>http://artifactory.javassh.com/ext-releases-local</url>
+			<url>http://artifactory.javassh.com/swt-repo/</url>
 		</repository>
 	</repositories>
 
