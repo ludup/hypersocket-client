@@ -19,9 +19,9 @@ public class ApplicationLauncherTemplate implements Serializable {
 	Long id;
 	String logo;
 	Calendar modifiedDate;
-	File applicationDirectory;
+	String applicationDirectory;
 	
-	public ApplicationLauncherTemplate(Long id, String name, String exe, String startupScript, String shutdownScript, File applicationDirectory, String logo, Map<String,String> variables, Calendar modifiedDate, String... args) {
+	public ApplicationLauncherTemplate(Long id, String name, String exe, String startupScript, String shutdownScript, String applicationDirectory, String logo, Map<String,String> variables, Calendar modifiedDate, String... args) {
 		this.name = name;
 		this.id = id;
 		this.exe = exe;
@@ -74,11 +74,11 @@ public class ApplicationLauncherTemplate implements Serializable {
 		return shutdownScript;
 	}
 	
-	public void setApplicationDirectory(File applicationDirectory) {
+	public void setApplicationDirectory(String applicationDirectory) {
 		this.applicationDirectory = applicationDirectory;
 	}
 	
-	public File getApplicationDirectory() {
+	public String getApplicationDirectory() {
 		return applicationDirectory;
 	}
 

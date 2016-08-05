@@ -1,5 +1,6 @@
 package com.hypersocket.client.rmi;
 
+import java.io.File;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,9 +38,17 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 		properties.put("username", username);
 		properties.put("timestamp", String.valueOf(System.currentTimeMillis()));
 		properties.put("java.home", System.getProperty("java.home"));
-		properties.put("client.appdir", launcher.getApplicationDirectory().getAbsolutePath());
+		
 		for(String prop : ALLOWED_SYSTEM_PROPERTIES) {
 			properties.put(prop.replace("user.", "client.user"), System.getProperty(prop));
+		}
+		
+		File launchDirectory = new File(ReplacementUtils.processTokenReplacements(
+				launcher.getApplicationDirectory(), 
+				properties));
+		
+		if(!launchDirectory.exists()) {
+			launchDirectory.mkdirs();
 		}
 		
 		properties.putAll(launcher.getVariables());
@@ -52,7 +61,7 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 				log.info("--------");
 			}
 			
-			ScriptLauncher script = new ScriptLauncher(launcher.getStartupScript(), launcher.getApplicationDirectory(), properties);
+			ScriptLauncher script = new ScriptLauncher(launcher.getStartupScript(), launchDirectory, properties);
 			int exitCode = script.launch();
 			if(exitCode!=0) {
 				log.warn("Startup script returned non zero exit code " + exitCode);
@@ -93,7 +102,8 @@ public class ApplicationLauncher implements ResourceLauncher, Serializable {
 				log.info("--------");
 				}
 				
-				ScriptLauncher script = new ScriptLauncher(launcher.getShutdownScript(), launcher.getApplicationDirectory(), properties);
+				ScriptLauncher script = new ScriptLauncher(launcher.getShutdownScript(),
+						new File(launcher.getApplicationDirectory()), properties);
 				int exitCode = script.launch();
 				if(exitCode!=0) {
 					log.warn("Shutdown script returned non zero exit code " + exitCode);
