@@ -118,6 +118,18 @@
 			<name>artifactory.javassh.com-oss-snapshots</name>
 			<url>http://artifactory.javassh.com/opensource-snapshots</url>
 		</repository>
+		<repository>
+			<id>sshtools-oss-releases</id>
+			<name>sshtools-oss-releases</name>
+			<url>http://artifactory.javassh.com/opensource-releases</url>
+			<releases/>
+		</repository>
+		<repository>
+			<id>sshtools-oss-snapshots</id>
+			<name>sshtools-oss-snapshots</name>
+			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<snapshots/>
+		</repository>
 	</repositories>
 
 </project>
