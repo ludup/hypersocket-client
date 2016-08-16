@@ -1,6 +1,5 @@
 package com.hypersocket.client.rmi;
 
-import java.io.File;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Calendar;
