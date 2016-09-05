@@ -354,7 +354,7 @@ public class Client extends Application {
 		}
 
 		// Bridges to the common client network code
-		bridge = new Bridge();
+		bridge = new Bridge(this);
 
 		// Setup the window
 		this.primaryStage = primaryStage;

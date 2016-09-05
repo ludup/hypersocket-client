@@ -16,9 +16,11 @@ import com.hypersocket.Version;
 import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.client.HypersocketClientAdapter;
 import com.hypersocket.client.HypersocketClientListener;
+import com.hypersocket.client.JsonResourceGroup;
 import com.hypersocket.client.UserCancelledException;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUIRegistry;
+import com.hypersocket.client.rmi.ResourceGroupImpl;
 import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.json.JsonResponse;
 import com.hypersocket.netty.NettyClientTransport;
@@ -36,6 +38,8 @@ public class ConnectionJob extends TimerTask {
 	private Connection connection;
 	private GUIRegistry guiRegistry;
 
+	private boolean startup;
+
 	public ConnectionJob(String url, Locale locale,
 			ClientServiceImpl clientService, ExecutorService boss,
 			ExecutorService worker, ResourceService resourceService,
@@ -48,6 +52,10 @@ public class ConnectionJob extends TimerTask {
 		this.worker = worker;
 		this.resourceService = resourceService;
 		this.connection = connection;
+	}
+
+	public void setStartup(boolean startup) {
+		this.startup = startup;		
 	}
 
 	@Override
@@ -80,6 +88,7 @@ public class ConnectionJob extends TimerTask {
 		};
 
 		ServiceClient client = null;
+		char[] pw = null;
 		try {
 
 			client = new ServiceClient(new NettyClientTransport(boss, worker),
@@ -93,17 +102,21 @@ public class ConnectionJob extends TimerTask {
 				log.info("Connected to " + url);
 			}
 			guiRegistry.transportConnected(connection);
-
+			
+			pw = StringUtils.isBlank(connection.getUsername()) || !guiRegistry.hasGUI() ? 
+					new char[0] : guiRegistry.getGUI().getPassword(connection.getUsername(), 
+							connection.getHostname() + ":" + connection.getPort() + connection.getPath());
+					
 			log.info("Awaiting authentication for " + url);
 			if (StringUtils.isBlank(connection.getUsername())
-					|| StringUtils.isBlank(connection.getHashedPassword())) {
+					|| pw == null || pw.length == 0) {
 				client.login();
 
 			} else {
 				try {
 					client.loginHttp(connection.getRealm(),
 							connection.getUsername(),
-							connection.getHashedPassword(), true);
+							new String(pw), true);
 				} catch (IOException ioe) {
 					if(log.isInfoEnabled()) {
 						log.info(String.format("%s error during login", client.getHost()), ioe);
@@ -152,6 +165,11 @@ public class ConnectionJob extends TimerTask {
 					 * for this connection, and the GUI will not be told to load its resources
 					 */
 					if(!clientService.update(connection, client)) {
+						
+						for(JsonResourceGroup jrg : client.getResourceGroups()) {
+							resourceService.getResourceRealm(connection.getHostname()).addResourceGroup(new ResourceGroupImpl(jrg.getName(), jrg.getLogo()));
+						}
+						
 						clientService.startPlugins(client);
 						guiRegistry.loadResources(connection);
 					}
@@ -179,10 +197,8 @@ public class ConnectionJob extends TimerTask {
 			clientService.failedToConnect(connection, e);
 
 			if (!(e instanceof UserCancelledException)) {
-				if (StringUtils.isNotBlank(connection.getUsername())
-						&& StringUtils.isNotBlank(connection
-								.getHashedPassword())) {
-					if (connection.isStayConnected()) {
+				if (StringUtils.isNotBlank(connection.getUsername())) {
+					if (connection.isStayConnected() || (connection.isConnectAtStartup() && startup)) {
 						try {
 							clientService.scheduleConnect(connection);
 							return;

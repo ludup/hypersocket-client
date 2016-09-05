@@ -3,6 +3,7 @@ package com.hypersocket.client.gui;
 import java.rmi.RemoteException;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.util.TextUtils;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.swt.SWT;
@@ -188,7 +189,12 @@ public class ConnectionDialog extends Dialog {
 			txtPath.setText(connection.getPath());
 			txtRealm.setText(connection.getRealm());
 			txtUsername.setText(connection.getUsername());
-			txtPassword.setText(connection.getHashedPassword());
+			char[] password = null;
+			try {
+				password = swtGui.getPassword(connection.getUsername(), connection.getHostname() + ":" + connection.getPort() + connection.getPath());
+			} catch (RemoteException e) {
+			}
+			txtPassword.setText(password == null ? "": new String(password));
 			btnConnectAtStartup.setSelection(connection.isConnectAtStartup());
 			btnStayConnected.setSelection(connection.isStayConnected());
 		}
@@ -242,7 +248,11 @@ public class ConnectionDialog extends Dialog {
 		connection.setStayConnected(btnStayConnected.getSelection());
 		connection.setRealm(txtRealm.getText());
 		connection.setUsername(txtUsername.getText());
-		connection.setHashedPassword(txtPassword.getText());
+		try {
+			swtGui.setPassword(connection.getUsername(), connection.getHostname() + ":" + connection.getHostname() + connection.getPath(), txtPassword.getTextChars());
+		} catch (RemoteException e1) {
+			throw new RuntimeException(e1);
+		}
 		
 		Thread t = new Thread() {
 			public void run() {

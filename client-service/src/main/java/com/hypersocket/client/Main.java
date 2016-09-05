@@ -227,7 +227,6 @@ public class Main {
 						
 						// Prompt for authentication
 						con.setUsername("");
-						con.setHashedPassword("");
 						con.setRealm("");
 						
 						connectionService.save(con);

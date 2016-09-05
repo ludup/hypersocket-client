@@ -67,5 +67,9 @@ public interface GUICallback extends Serializable, Remote {
 	ExtensionPlace getExtensionPlace() throws RemoteException;
 
 	void updateResource(Connection connection, ResourceUpdateType type, Resource resource) throws RemoteException;
+	
+	char[] getPassword(String username, String service) throws RemoteException;
+
+	void setPassword(String username, String service, char[] password)  throws RemoteException;
 
 }

@@ -20,10 +20,6 @@ public interface Connection {
 
 	public boolean isStayConnected();
 
-	public void setHashedPassword(String hashedPassword);
-
-	public String getHashedPassword();
-
 	public void setUsername(String username);
 
 	public String getUsername();

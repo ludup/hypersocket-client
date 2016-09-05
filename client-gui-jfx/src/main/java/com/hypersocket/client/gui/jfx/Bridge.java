@@ -31,6 +31,11 @@ import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionPlace;
 
 import javafx.application.Platform;
+import net.east301.keyring.BackendNotSupportedException;
+import net.east301.keyring.Keyring;
+import net.east301.keyring.PasswordRetrievalException;
+import net.east301.keyring.PasswordSaveException;
+import net.east301.keyring.util.LockException;
 
 @SuppressWarnings({ "serial" })
 public class Bridge extends UnicastRemoteObject implements GUICallback {
@@ -43,6 +48,8 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 	private ConfigurationService configurationService;
 	private boolean connected;
 	private List<Listener> listeners = new ArrayList<>();
+
+	private Keyring keyring;
 
 	static int failedConnectionAttempts = 0;
 	
@@ -86,8 +93,15 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		void updateResource(ResourceUpdateType type, Resource resource);
 	}
 
-	public Bridge() throws RemoteException {
+	public Bridge(Client client) throws RemoteException {
 		super();
+		try {
+			keyring = Keyring.create();
+            if(keyring.isKeyStorePathRequired())
+            	keyring.setKeyStorePath(new File(new File(System.getProperty("user.home"), ".hypersocket"), "keyring.map").getAbsolutePath());
+		} catch (BackendNotSupportedException e1) {
+			throw new RuntimeException(e1);
+		}
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
 				try {
@@ -508,5 +522,32 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 				}
 			}
 		});
+	}
+
+	@Override
+	public char[] getPassword(String username, String service) throws RemoteException {
+		try {
+			String pw = keyring.getPassword("hypersocket://" + service, username);
+			return pw == null ? null : pw.toCharArray();
+		}
+		catch(PasswordRetrievalException pre) {
+			throw new RemoteException("Failed to retrieve password.", pre);		
+		}
+		catch(LockException pre) {
+			throw new RemoteException("Failed to retrieve password.", pre);		
+		}
+	}
+
+	@Override
+	public void setPassword(String username, String service, char[] password) throws RemoteException {
+		try {
+			keyring.setPassword("hypersocket://" + service, username, new String(password));
+		}
+		catch(PasswordSaveException pse) {
+			throw new RemoteException("Failed to save password.", pse);		
+		}
+		catch(LockException pre) {
+			throw new RemoteException("Failed to save password.", pre);		
+		}
 	}
 }

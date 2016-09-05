@@ -56,7 +56,7 @@ public class ServiceClient extends HypersocketClient<Connection> {
 				throw new IOException(e);
 			}
 		}
-		return null;
+		throw new IllegalStateException("No GUI");
 	}
 
 	protected void onConnected() {

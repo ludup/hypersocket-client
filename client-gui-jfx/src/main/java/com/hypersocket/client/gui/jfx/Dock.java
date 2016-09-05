@@ -25,6 +25,7 @@ import com.hypersocket.client.rmi.GUICallback;
 import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
 import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.Resource.Type;
+import com.hypersocket.client.rmi.ResourceGroup;
 import com.hypersocket.client.rmi.ResourceRealm;
 import com.hypersocket.client.rmi.ResourceService;
 
@@ -182,7 +183,7 @@ public class Dock extends AbstractController implements Listener {
 	private Mode mode = Mode.LAUNCHERS;
 	private int appsToUpdate;
 	private Update updateScene;
-	private ResourceGroup resourceGroup;
+	private ResourceGroupController resourceGroup;
 
 	public Dock() {
 		instance = this;
@@ -401,7 +402,7 @@ public class Dock extends AbstractController implements Listener {
 		Window parent = this.scene.getWindow();
 		if (resourceGroupPopup == null) {
 			try {
-				resourceGroup = (ResourceGroup) context.openScene(ResourceGroup.class);
+				resourceGroup = (ResourceGroupController) context.openScene(ResourceGroupController.class);
 			} catch (IOException ioe) {
 				throw new RuntimeException(ioe);
 			}
@@ -412,7 +413,7 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 			};
-			((ResourceGroup) resourceGroup).setPopup(resourceGroupPopup);
+			((ResourceGroupController) resourceGroup).setPopup(resourceGroupPopup);
 		}
 		positionResourceGroupPopup(source);
 		resourceGroup.setResources(group);
@@ -744,6 +745,11 @@ public class Dock extends AbstractController implements Listener {
 
 			try {
 				for (ResourceRealm resourceRealm : resourceService.getResourceRealms()) {
+					for (ResourceGroup rg : resourceRealm.getResourceGroups()) {
+						log.info("Resource group: " + rg);
+					}
+					
+					
 					for (Resource r : resourceRealm.getResources()) {
 						if (r.getType() != Type.ENDPOINT) {
 							rebuildResourceIcon(resourceRealm, r);

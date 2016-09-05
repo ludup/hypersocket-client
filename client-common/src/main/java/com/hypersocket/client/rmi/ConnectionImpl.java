@@ -38,9 +38,6 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Column(nullable=true)
 	String username;
 	
-	@Column(nullable=true)
-	String hashedPassword;
-	
 	@Column
 	boolean stayConnected;
 	
@@ -100,16 +97,6 @@ public class ConnectionImpl implements Connection, Serializable {
 		this.username = username;
 	}
 	
-	@Override
-	public String getHashedPassword() {
-		return hashedPassword;
-	}
-	
-	@Override
-	public void setHashedPassword(String hashedPassword) {
-		this.hashedPassword = hashedPassword;
-	}
-
 	@Override
 	public boolean isStayConnected() {
 		return stayConnected;

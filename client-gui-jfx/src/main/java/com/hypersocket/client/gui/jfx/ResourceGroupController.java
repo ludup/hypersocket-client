@@ -8,8 +8,8 @@ import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.layout.VBox;
 
-public class ResourceGroup extends AbstractController {
-	static Logger LOG = LoggerFactory.getLogger(ResourceGroup.class);
+public class ResourceGroupController extends AbstractController {
+	static Logger LOG = LoggerFactory.getLogger(ResourceGroupController.class);
 
 	@FXML
 	private VBox resourceItems;

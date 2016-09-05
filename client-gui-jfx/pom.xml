@@ -74,7 +74,12 @@
 			<artifactId>controlsfx</artifactId>
 			<version>8.40.10</version>
 		</dependency>
-
+		<dependency>
+			<groupId>net.east301</groupId>
+    		<artifactId>java-keyring</artifactId>
+    		<version>1.0.1-SNAPSHOT</version>
+			<scope>compile</scope>
+		</dependency>
 	</dependencies>
 
 	<profiles>

@@ -173,6 +173,7 @@ public class SignIn extends AbstractController implements Listener {
 
 	@Override
 	public void finishedConnecting(final Connection connection, Exception e) {
+		
 		Platform.runLater(() -> {
 			log.info("Finished connecting "
 					+ connection
@@ -200,7 +201,7 @@ public class SignIn extends AbstractController implements Listener {
 				}
 			}
 			;
-
+			
 			if (Objects.equals(connection, foregroundConnection)) {
 				foregroundConnection = null;
 
@@ -217,8 +218,7 @@ public class SignIn extends AbstractController implements Listener {
 								&& promptedPassword != null) {
 							try {
 								connection.setUsername(promptedUsername);
-								connection.setHashedPassword(new String(
-										promptedPassword));
+								context.getBridge().setPassword(promptedUsername, connection.getHostname() + ":" + connection.getPort() + connection.getPath(), promptedPassword);
 
 								saveConnection(connection);
 							} catch (Exception ex) {
@@ -544,7 +544,7 @@ public class SignIn extends AbstractController implements Listener {
 
 				// Prompt for authentication
 				newConnection.setUsername("");
-				newConnection.setHashedPassword("");
+//				newConnection.setHashedPassword("");
 				newConnection.setRealm("");
 
 				selectedConnection = foregroundConnection = newConnection;

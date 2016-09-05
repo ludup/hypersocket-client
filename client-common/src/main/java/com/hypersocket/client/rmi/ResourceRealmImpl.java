@@ -10,13 +10,15 @@ public class ResourceRealmImpl implements ResourceRealm, Serializable {
 
 	String name;
 	List<Resource> resources;
+	List<ResourceGroup> resourceGroups;
 
 	public ResourceRealmImpl() {
 	}
 
-	public ResourceRealmImpl(String name, List<Resource> resources) {
+	public ResourceRealmImpl(String name, List<Resource> resources, List<ResourceGroup> resourceGroups) {
 		this.name = name;
 		this.resources = resources;
+		this.resourceGroups = resourceGroups;
 
 		for (Resource r : resources) {
 			r.setResourceRealm(this);
@@ -75,6 +77,26 @@ public class ResourceRealmImpl implements ResourceRealm, Serializable {
 		} else if (!name.equals(other.name))
 			return false;
 		return true;
+	}
+
+	@Override
+	public void addResourceGroup(ResourceGroup group) {
+		group.setResourceRealm(this);
+		resourceGroups.add(group);		
+	}
+
+	@Override
+	public void removeResourceGroup(ResourceGroup group) {
+		if(this.equals(group.getRealm())) {
+			group.setResourceRealm(null);
+		}
+		resourceGroups.remove(group);
+		
+	}
+
+	@Override
+	public List<ResourceGroup> getResourceGroups() {
+		return Collections.unmodifiableList(resourceGroups);
 	}
 
 }

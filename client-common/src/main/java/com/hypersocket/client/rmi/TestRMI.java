@@ -44,7 +44,6 @@ public class TestRMI {
 				System.out.println(c.getPath());
 				System.out.println(c.getPort());
 				System.out.println(c.getUsername());
-				System.out.println(c.getHashedPassword());
 				System.out.println();
 			}
 			

@@ -40,7 +40,7 @@ public abstract class HypersocketClient<T> {
 	static Logger log = LoggerFactory.getLogger(HypersocketClient.class);
 
 	String sessionId = null;
-	
+
 	HypersocketClientTransport transport;
 	Map<String, String> staticHeaders = new HashMap<String, String>();
 	SessionKeepAliveThread keepAliveThread = null;
@@ -48,18 +48,19 @@ public abstract class HypersocketClient<T> {
 	Locale currentLocale;
 	Set<HypersocketClientListener<T>> listeners = new HashSet<HypersocketClientListener<T>>();
 	T attachment;
-	
+
 	boolean userDisconnect = false;
 	boolean isDisconnecting = false;
 
 	String principalName;
-	
+
 	String cachedUsername;
 	String cachedPassword;
 	String basePath;
-	
-	protected HypersocketClient(HypersocketClientTransport transport, Locale currentLocale)
-			throws IOException {
+
+	private ArrayList<Prompt> prompts;
+
+	protected HypersocketClient(HypersocketClientTransport transport, Locale currentLocale) throws IOException {
 		this.transport = transport;
 		this.currentLocale = currentLocale;
 		try {
@@ -68,26 +69,25 @@ public abstract class HypersocketClient<T> {
 
 		}
 	}
-	
-	protected HypersocketClient(HypersocketClientTransport transport,
-			Locale currentLocale, HypersocketClientListener<T> listener)
-			throws IOException {
+
+	protected HypersocketClient(HypersocketClientTransport transport, Locale currentLocale,
+			HypersocketClientListener<T> listener) throws IOException {
 		this(transport, currentLocale);
 		listeners.add(listener);
 	}
-	
+
 	public T getAttachment() {
 		return attachment;
 	}
-	
+
 	public void setAttachment(T attachment) {
 		this.attachment = attachment;
 	}
-	
+
 	public void addListener(HypersocketClientListener<T> listener) {
 		listeners.add(listener);
 	}
-	
+
 	public void changeLocale(Locale locale) {
 		currentLocale = locale;
 
@@ -119,23 +119,23 @@ public abstract class HypersocketClient<T> {
 		this.currentLocale = locale;
 
 		try {
-			for(HypersocketClientListener<T> l : listeners) {
+			for (HypersocketClientListener<T> l : listeners) {
 				try {
 					l.connectStarted(this);
 				} catch (Throwable t) {
 				}
 			}
-			
+
 			transport.connect(hostname, port, path);
-	
-			basePath = "https://" + hostname + (port!=443 ? ":" + port : "") + path;
+
+			basePath = "https://" + hostname + (port != 443 ? ":" + port : "") + path;
 			loadResources();
-		
-		} catch(IOException ex) {
-			
+
+		} catch (IOException ex) {
+
 			transport.disconnect(true);
-			
-			for(HypersocketClientListener<T> l : listeners) {
+
+			for (HypersocketClientListener<T> l : listeners) {
 				try {
 					l.connectFailed(ex, this);
 				} catch (Throwable t) {
@@ -148,7 +148,7 @@ public abstract class HypersocketClient<T> {
 	public String getBasePath() {
 		return basePath;
 	}
-	
+
 	protected void loadResources() throws IOException {
 
 		String resources = transport.get("i18n/" + currentLocale.getLanguage());
@@ -166,9 +166,9 @@ public abstract class HypersocketClient<T> {
 	public void disconnect(boolean onError) {
 
 		isDisconnecting = true;
-		
-		if(!onError && isLoggedOn()) {
-			
+
+		if (!onError && isLoggedOn()) {
+
 			userDisconnect = true;
 			try {
 				String json = transport.get("logoff");
@@ -186,15 +186,15 @@ public abstract class HypersocketClient<T> {
 			keepAliveThread.interrupt();
 		}
 
-		if(transport.isConnected()) {
+		if (transport.isConnected()) {
 			onDisconnecting();
-			
+
 			transport.disconnect(onError);
-	
+
 			sessionId = null;
 			keepAliveThread = null;
-	
-			for(HypersocketClientListener<T> l : listeners) {
+
+			for (HypersocketClientListener<T> l : listeners) {
 				try {
 					l.disconnected(this, onError);
 				} catch (Throwable t) {
@@ -209,7 +209,7 @@ public abstract class HypersocketClient<T> {
 
 	public void exit() {
 		if (isLoggedOn()) {
-			if(log.isInfoEnabled()) {
+			if (log.isInfoEnabled()) {
 				log.info(String.format("%s is exiting", transport.getHost()));
 			}
 			disconnect(false);
@@ -220,20 +220,17 @@ public abstract class HypersocketClient<T> {
 	protected abstract void onDisconnect();
 
 	protected abstract void onDisconnecting();
-	 
+
 	public void loginHttp(String realm, String username, String password) throws IOException {
 		loginHttp(realm, username, password, false);
 	}
-	
-	public void loginHttp(String realm, String username, String password, boolean hashedPassword)
-			throws IOException {
+
+	public void loginHttp(String realm, String username, String password, boolean hashedPassword) throws IOException {
 
 		Map<String, String> params = new HashMap<String, String>();
 		Base64 base64 = new Base64();
-		String authorization = "Basic "
-				+ new String(
-						base64.encode((username + (StringUtils.isBlank(realm) ? "" : "@" + realm) + ":" + password)
-								.getBytes()));
+		String authorization = "Basic " + new String(base64
+				.encode((username + (StringUtils.isBlank(realm) ? "" : "@" + realm) + ":" + password).getBytes()));
 
 		transport.setHeader("Authorization", authorization);
 
@@ -256,89 +253,101 @@ public abstract class HypersocketClient<T> {
 		/**
 		 * Reset authentication with client scheme
 		 */
-//		String json = transport.post("logon", params);
-		
+		// String json = transport.post("logon", params);
+
 		int maxAttempts = 3;
 		int attempts = maxAttempts;
 		boolean attemptedCached = false;
-		List<Prompt> prompts = new ArrayList<Prompt>();
-		
-		if(cachedUsername!=null && cachedPassword!=null) {
+
+		if (cachedUsername != null && cachedPassword != null) {
 			params.put("username", cachedUsername);
 			params.put("password", cachedPassword);
 			attemptedCached = true;
 		}
-		
+
 		while (!isLoggedOn()) {
 
-			if(attempts==0) {
-				if(log.isInfoEnabled()) {
+			if (attempts == 0) {
+				if (log.isInfoEnabled()) {
 					log.info(String.format("%s too many authentication attempts", transport.getHost()));
 				}
 				disconnect(false);
 				throw new IOException("Too many failed authentication attempts");
 			}
-			
-			String json = transport.post("logon/hypersocketClient", params);
-			
-			params.clear();
-			boolean success = processLogon(json, params, prompts);
-			if(!success) {
-				if(!attemptedCached) {
+
+			boolean success = false;
+
+			if (prompts == null) {
+				String json = transport.post("logon/hypersocketClient", params);
+				params.clear();
+				prompts = new ArrayList<Prompt>();
+				success = processLogon(json, params, prompts);
+			}
+
+			if (!success) {
+				if (!attemptedCached) {
 					attempts--;
 				}
 				attemptedCached = false;
 			}
 			if (!isLoggedOn() && prompts.size() > 0) {
-				
-				// If failed, and it's not the very first attempt (i.e. the one that triggers username and password entry), show an error
-				if(!success) {
+
+				// If failed, and it's not the very first attempt (i.e. the one
+				// that triggers username and password entry), show an error
+				if (!success) {
 					showError("Incorrect username or password.");
 				}
-				
-				Map<String, String> results  = showLogin(this, prompts, attempts, success);
-				
-				if (results != null) {
 
-					params.putAll(results);
-					
-					if(params.containsKey("username")) {
-						cachedUsername = params.get("username");
+				try {
+					Map<String, String> results = showLogin(this, prompts, attempts, success);
+					try {
+						if (results != null) {
+							params.putAll(results);
+
+							if (params.containsKey("username")) {
+								cachedUsername = params.get("username");
+							}
+							if (params.containsKey("password")) {
+								cachedPassword = params.get("password");
+							}
+
+						} else {
+							if (log.isInfoEnabled()) {
+								log.info(String.format("%s user cancelled authentication", transport.getHost()));
+							}
+							disconnect(false);
+							throw new UserCancelledException("User has cancelled authentication");
+						}
+					} finally {
+						prompts = null;
 					}
-					if(params.containsKey("password")) {
-						cachedPassword = params.get("password");
-					}
-					
-				} else {
-					if(log.isInfoEnabled()) {
-						log.info(String.format("%s user cancelled authentication", transport.getHost()));
-					}
-					disconnect(false);
-					throw new UserCancelledException("User has cancelled authentication");
+				} catch (IllegalStateException ise) {
+					// No GUI
+					throw ise;
 				}
 			}
 		}
-		
-		
 
 		if (log.isInfoEnabled()) {
 			log.info("Logon complete sessionId=" + getSessionId());
 		}
 
+		// We force a connection again next time login is called()
+		prompts = null;
+
 		postLogin();
-		
+
 		onConnected();
 	}
-	
 
 	protected abstract void onConnected();
-	
+
 	private void postLogin() {
 		if (keepAliveInterval > 0) {
 			keepAliveThread = new SessionKeepAliveThread();
 			keepAliveThread.start();
 		}
-		for(HypersocketClientListener<T> l : listeners) {
+		for (HypersocketClientListener<T> l : listeners) {
 			try {
 				l.connected(this);
 			} catch (Throwable t) {
@@ -347,8 +356,7 @@ public abstract class HypersocketClient<T> {
 		}
 	}
 
-	protected boolean processLogon(String json, Map<String, String> params, List<Prompt> prompts)
-			throws IOException {
+	protected boolean processLogon(String json, Map<String, String> params, List<Prompt> prompts) throws IOException {
 
 		try {
 			return parseLogonJSON(json, params, prompts);
@@ -356,7 +364,6 @@ public abstract class HypersocketClient<T> {
 			throw new IOException("Failed to parse logon request", e);
 		}
 	}
-
 
 	public boolean isLoggedOn() {
 		return sessionId != null && transport.isConnected();
@@ -377,13 +384,12 @@ public abstract class HypersocketClient<T> {
 	protected List<JsonPrincipal> parsePrincipals(String json)
 			throws JsonParseException, JsonMappingException, IOException {
 		ObjectMapper mapper = new ObjectMapper();
-		PrincipalResourcesWrapper wrapper = mapper.readValue(json,
-				PrincipalResourcesWrapper.class);
+		PrincipalResourcesWrapper wrapper = mapper.readValue(json, PrincipalResourcesWrapper.class);
 		return wrapper.getResources();
 	}
 
-	protected boolean parseLogonJSON(String json,
-			Map<String, String> params, List<Prompt> prompts) throws ParseException, IOException {
+	protected boolean parseLogonJSON(String json, Map<String, String> params, List<Prompt> prompts)
+			throws ParseException, IOException {
 
 		JSONParser parser = new JSONParser();
 		prompts.clear();
@@ -401,40 +407,33 @@ public abstract class HypersocketClient<T> {
 				PromptType type = PromptType.TEXT;
 				try {
 					type = PromptType.valueOf(field.get("type").toString().toUpperCase());
-				}
-				catch(IllegalArgumentException iae) {
+				} catch (IllegalArgumentException iae) {
 					log.warn("Unknown prompt type, default to text.", iae);
 				}
-						
 
 				switch (type) {
 				case HIDDEN: {
-					params.put((String) field.get("resourceKey"),
-							(String) field.get("defaultValue"));
+					params.put((String) field.get("resourceKey"), (String) field.get("defaultValue"));
 					break;
 				}
 				case SELECT: {
-					Prompt p = new Prompt(type,
-							(String) field.get("resourceKey"),
-							(String) field.get("defaultValue"));
+					Prompt p = new Prompt(type, (String) field.get("resourceKey"), (String) field.get("defaultValue"));
 					JSONArray options = (JSONArray) field.get("options");
 					@SuppressWarnings("unchecked")
-					Iterator<JSONObject> it2 = (Iterator<JSONObject>) options
-							.iterator();
+					Iterator<JSONObject> it2 = (Iterator<JSONObject>) options.iterator();
 					while (it2.hasNext()) {
 						JSONObject o = it2.next();
 						Boolean isResourceKey = (Boolean) o.get("isNameResourceKey");
-						p.addOption(new Option(isResourceKey ? I18N.getResource((String) o.get("name")) : (String) o.get("name"),
-								(String) o.get("value"), (Boolean) o
-										.get("selected")));
+						p.addOption(new Option(
+								isResourceKey ? I18N.getResource((String) o.get("name")) : (String) o.get("name"),
+								(String) o.get("value"), (Boolean) o.get("selected")));
 					}
 					prompts.add(p);
 					break;
 				}
 				default: {
-					prompts.add(new Prompt(type, (String) field
-							.get("resourceKey"), (String) field
-							.get("defaultValue")));
+					prompts.add(
+							new Prompt(type, (String) field.get("resourceKey"), (String) field.get("defaultValue")));
 					break;
 				}
 				}
@@ -445,7 +444,7 @@ public abstract class HypersocketClient<T> {
 		} else {
 			JSONObject session = (JSONObject) result.get("session");
 			sessionId = (String) session.get("id");
-			principalName = (String) ((JSONObject)session.get("currentPrincipal")).get("principalName");
+			principalName = (String) ((JSONObject) session.get("currentPrincipal")).get("principalName");
 			return true;
 		}
 	}
@@ -453,14 +452,15 @@ public abstract class HypersocketClient<T> {
 	public String getPrincipalName() {
 		return principalName;
 	}
-	
+
 	public String getRealm(String name) throws IOException {
 
 		return transport.get("realm/" + name);
 	}
-	
-	protected abstract Map<String, String> showLogin(HypersocketClient<T> attached, List<Prompt> prompts, int attempt, boolean success) throws IOException;
-	
+
+	protected abstract Map<String, String> showLogin(HypersocketClient<T> attached, List<Prompt> prompts, int attempt,
+			boolean success) throws IOException;
+
 	public abstract void showWarning(String msg);
 
 	public abstract void showError(String msg);
@@ -476,12 +476,12 @@ public abstract class HypersocketClient<T> {
 				} catch (InterruptedException e) {
 				}
 
-				if(!userDisconnect && !isDisconnecting) {
+				if (!userDisconnect && !isDisconnecting) {
 					try {
 						transport.get("session/touch");
 					} catch (IOException e) {
-						if(!userDisconnect && !isDisconnecting) {
-							if(log.isInfoEnabled()) {
+						if (!userDisconnect && !isDisconnecting) {
+							if (log.isInfoEnabled()) {
 								log.info(String.format("%s error during session keep-alive", transport.getHost()));
 							}
 							disconnect(true);
@@ -498,27 +498,40 @@ public abstract class HypersocketClient<T> {
 
 	public ResourceBundle getResources() throws IOException {
 		String json = transport.get("i18n");
-		ObjectMapper mapper = new ObjectMapper();		
-		Map<String, Object> result = mapper.readValue(json, new TypeReference<Map<String, String>>() {});
-		if(result != null) {
+		ObjectMapper mapper = new ObjectMapper();
+		Map<String, Object> result = mapper.readValue(json, new TypeReference<Map<String, String>>() {
+		});
+		if (result != null) {
 			return new MapResourceBundle(result);
 		}
 		return null;
 	}
 
-	public Map<String,String> getUserVariables() throws IOException {
-		String json = transport.get("currentRealm/user/allVariables");
-		
+	public List<JsonResourceGroup> getResourceGroups() throws IOException {
+		return parseResourceGroups(transport.get("resourceGroups/list"));
+	}
+
+	protected List<JsonResourceGroup> parseResourceGroups(String json)
+			throws JsonParseException, JsonMappingException, IOException {
+		System.out.println(json);
 		ObjectMapper mapper = new ObjectMapper();
-		
+		ResourceGroupsWrapper wrapper = mapper.readValue(json, ResourceGroupsWrapper.class);
+		return wrapper.getResources();
+	}
+
+	public Map<String, String> getUserVariables() throws IOException {
+		String json = transport.get("currentRealm/user/allVariables");
+
+		ObjectMapper mapper = new ObjectMapper();
+
 		VariableResult result = null;
 		result = mapper.readValue(json, VariableResult.class);
-		
+
 		return result.getResource();
 	}
-	
-	public String processReplacements(String value, Map<String,String> replacements) {
-		for(String key : replacements.keySet()) {
+
+	public String processReplacements(String value, Map<String, String> replacements) {
+		for (String key : replacements.keySet()) {
 			String variable = "${" + key + "}";
 			value = value.replace(variable, replacements.get(key));
 		}

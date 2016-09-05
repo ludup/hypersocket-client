@@ -85,7 +85,7 @@ public class ClientServiceImpl implements ClientService {
 		this.configurationService = configurationService;
 		this.resourceService = resourceService;
 		this.vpnService = vpnService;
-
+		
 		bossExecutor = Executors.newCachedThreadPool();
 		workerExecutor = Executors.newCachedThreadPool();
 
@@ -145,7 +145,7 @@ public class ClientServiceImpl implements ClientService {
 		try {
 			for (Connection c : connectionService.getConnections()) {
 				if (c.isConnectAtStartup()) {
-					connect(c);
+					connect(c, true);
 				}
 			}
 
@@ -160,6 +160,10 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public void connect(Connection c) throws RemoteException {
+		connect(c, false);
+	}
+
+	public void connect(Connection c, boolean startup) throws RemoteException {
 		checkValidConnect(c);
 		if (log.isInfoEnabled()) {
 			log.info("Scheduling connect for connection id " + c.getId() + "/"
@@ -167,6 +171,7 @@ public class ClientServiceImpl implements ClientService {
 		}
 
 		ConnectionJob task = createJob(c);
+		task.setStartup(startup);
 		connectingClients.put(c, task);
 		timer.schedule(task, 500);
 	}

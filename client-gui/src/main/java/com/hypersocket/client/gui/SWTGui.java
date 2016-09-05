@@ -60,6 +60,12 @@ import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionPlace;
 
+import net.east301.keyring.BackendNotSupportedException;
+import net.east301.keyring.Keyring;
+import net.east301.keyring.PasswordRetrievalException;
+import net.east301.keyring.PasswordSaveException;
+import net.east301.keyring.util.LockException;
+
 public class SWTGui extends UnicastRemoteObject implements GUICallback {
 
 	static Logger log = LoggerFactory.getLogger(SWTGui.class);
@@ -105,11 +111,19 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	private int appsToUpdate = -1;
 	private int appsUpdated = 0;
 	private UpdateWindow updateWindow;
+	private Keyring keyring;
 
 	protected SWTGui(Display display, Shell shell) throws RemoteException {
 		super();
 		this.display = display;
 		this.shell = shell;
+		try {
+			keyring = Keyring.create();
+            if(keyring.isKeyStorePathRequired())
+            	keyring.setKeyStorePath(new File(new File(System.getProperty("user.home"), ".hypersocket"), "keyring.map").getAbsolutePath());
+		} catch (BackendNotSupportedException e1) {
+			throw new RuntimeException(e1);
+		}
 
 		// try {
 		// configureGrowl();
@@ -797,5 +811,32 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 				rebuildLaunchMenu(connection);
 			}
 		});
+	}
+
+	@Override
+	public char[] getPassword(String username, String service) throws RemoteException {
+		try {
+			String pw = keyring.getPassword(service, username);
+			return pw == null ? null : pw.toCharArray();
+		}
+		catch(PasswordRetrievalException pre) {
+			throw new RemoteException("Failed to retrieve password.", pre);		
+		}
+		catch(LockException pre) {
+			throw new RemoteException("Failed to retrieve password.", pre);		
+		}
+	}
+
+	@Override
+	public void setPassword(String username, String service, char[] password) throws RemoteException {
+		try {
+			keyring.setPassword(service, username, new String(password));
+		}
+		catch(PasswordSaveException pse) {
+			throw new RemoteException("Failed to save password.", pse);		
+		}
+		catch(LockException pre) {
+			throw new RemoteException("Failed to save password.", pre);		
+		}
 	}
 }
