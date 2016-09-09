@@ -66,7 +66,7 @@ public class Main {
 		port = -1;
 		
 		File rmiPropertiesFile;
-		if (Boolean.getBoolean("hypersocket.development") || !Boolean.getBoolean("hypersocket.useLocalRMIFile")) {
+		if (Boolean.getBoolean("hypersocket.development")) {
 			rmiPropertiesFile = new File(System.getProperty("user.home")
 					+ File.separator + ".hypersocket" + File.separator
 					+ "conf" + File.separator + "rmi.properties");
