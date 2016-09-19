@@ -70,12 +70,15 @@ public class Main {
 			rmiPropertiesFile = new File(System.getProperty("user.home")
 					+ File.separator + ".hypersocket" + File.separator
 					+ "conf" + File.separator + "rmi.properties");
-			rmiPropertiesFile.getParentFile().mkdirs();
 		} else {
 			rmiPropertiesFile = new File("conf" + File.separator
 					+ "rmi.properties");
-			rmiPropertiesFile.getParentFile().mkdirs();
 		}
+		if (log.isInfoEnabled()) {
+			log.info("Writinng RMI info to " + rmiPropertiesFile);
+		}
+
+		rmiPropertiesFile.getParentFile().mkdirs();
 		
 		/* Get the existing port number, if any. If it is still
 		 * active, and appears to be an RMI server, then fail as

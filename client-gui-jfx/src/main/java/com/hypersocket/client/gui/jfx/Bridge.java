@@ -98,6 +98,9 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 				}
 			}
 		});
+	}
+	
+	public void start() {
 		new RMIConnectThread().start();
 	}
 
@@ -134,14 +137,18 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		Properties properties = new Properties();
 		FileInputStream in;
 		try {
+			String path;
 			if (Boolean.getBoolean("hypersocket.development")) {
-				in = new FileInputStream(System.getProperty("user.home")
+				path = System.getProperty("user.home")
 						+ File.separator + ".hypersocket" + File.separator
-						+ "conf" + File.separator + "rmi.properties");
+						+ "conf" + File.separator
+						+ "rmi.properties";
 			} else {
-				in = new FileInputStream("conf" + File.separator
-						+ "rmi.properties");
+				path = "conf" + File.separator
+						+ "rmi.properties";
 			}
+			in = new FileInputStream(path);
+			log.info("Reading RMI port from " + path);
 
 			try {
 				properties.load(in);

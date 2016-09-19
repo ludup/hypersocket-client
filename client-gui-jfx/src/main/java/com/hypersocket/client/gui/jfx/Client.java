@@ -503,6 +503,8 @@ public class Client extends Application {
 			confirmExit();
 			we.consume();
 		});
+		
+		bridge.start();
 	}
 
 	public void confirmExit() {

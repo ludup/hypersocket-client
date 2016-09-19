@@ -96,8 +96,8 @@ public class Dock extends AbstractController implements Listener {
 	static final int AUTOHIDE_HIDE_TIME = 2000;
 
 	/*
-	 * The initial amount of time after startup before the dock is hidden
-	 * (in MS) when autohide is ON.
+	 * The initial amount of time after startup before the dock is hidden (in
+	 * MS) when autohide is ON.
 	 */
 	static final int INITIAL_AUTOHIDE_HIDE_TIME = 10000;
 
@@ -114,9 +114,10 @@ public class Dock extends AbstractController implements Listener {
 	static final double MESSAGE_FADE_TIME = 10000;
 
 	/**
-	 * How long (in MS) the mouse must hover over the reveal tab before the dock will be revealed.
-	 * If the mouse exits the tab before this time, the reveal will be cancelled. If the mouse is clicked
-	 * before leaving the tab, the dock will be immediatey revealed. 
+	 * How long (in MS) the mouse must hover over the reveal tab before the dock
+	 * will be revealed. If the mouse exits the tab before this time, the reveal
+	 * will be cancelled. If the mouse is clicked before leaving the tab, the
+	 * dock will be immediatey revealed.
 	 */
 	private static final double REVEAL_HOVER_TIME = 500;
 
@@ -348,28 +349,34 @@ public class Dock extends AbstractController implements Listener {
 	@Override
 	public void finishedConnecting(Connection connection, Exception e) {
 		log.info(String.format("New connection finished connected (%s)", connection.toString()));
-		Platform.runLater(() -> setAvailable());		
+		Platform.runLater(() -> setAvailable());
 	}
 
 	@Override
 	public void bridgeEstablished() {
-		log.info(String.format("Bridge established, rebuilding all launchers"));
-		rebuildAllLaunchers();
-		if (context.getBridge().isServiceUpdating()) {
-			setMode(Mode.UPDATE);
-		} else {
-			final StringProperty prop = Configuration.getDefault().temporaryOnStartConnectionProperty();
-			String tmp = prop.get();
-			if (!StringUtils.isBlank(tmp)) {
-				try {
-					Connection c = context.getBridge().getConnectionService().getConnection(Long.parseLong(tmp));
-					if (c == null)
-						throw new Exception("No connection with id of " + tmp);
-					context.getBridge().connect(c);
-				} catch (Exception e) {
-					log.error("Failed to start temporary 'on start' connection.", e);
+		/* Only rebuild launchers if the updater is not waiting for the bridge to come back,
+		 * as the GUI will be restarted shortly */
+		if (updateScene == null || ( !updateScene.isAwaitingBridgeEstablish() && !updateScene.isAwaitingGUIRestart())) {
+			
+			log.info(String.format("Bridge established, rebuilding all launchers"));
+			rebuildAllLaunchers();
+			if (context.getBridge().isServiceUpdating()) {
+				setMode(Mode.UPDATE);
+			} else {
+				final StringProperty prop = Configuration.getDefault().temporaryOnStartConnectionProperty();
+				String tmp = prop.get();
+				if (!StringUtils.isBlank(tmp)) {
+					try {
+						Connection c = context.getBridge().getConnectionService().getConnection(Long.parseLong(tmp));
+						if (c == null)
+							throw new Exception("No connection with id of " + tmp);
+						log.info(String.format("Using temporary 'on start' connection %d (%s)", c.getId(), c.getHostname()));
+						context.getBridge().connect(c);
+					} catch (Exception e) {
+						log.error("Failed to start temporary 'on start' connection.", e);
+					}
+					prop.set("");
 				}
-				prop.set("");
 			}
 		}
 	}
@@ -601,7 +608,7 @@ public class Dock extends AbstractController implements Listener {
 		cfg.rightProperty().addListener(borderChangeListener);
 
 		dockContent.prefWidthProperty().bind(dockStack.widthProperty());
-		
+
 		// Hide the pull tab initially
 		pull.setVisible(false);
 
@@ -927,7 +934,7 @@ public class Dock extends AbstractController implements Listener {
 
 		hidden = hide;
 		hiding = true;
-		
+
 		pull.setVisible(true);
 
 		dockHider = new Timeline(new KeyFrame(Duration.millis(5), ae -> shiftDock()));
@@ -961,7 +968,7 @@ public class Dock extends AbstractController implements Listener {
 		if (!hidden) {
 			amt = value - amt;
 			barSize = (float) boundsSize - barSize;
-			if(!pull.isVisible())
+			if (!pull.isVisible())
 				pull.setVisible(true);
 		}
 
@@ -1082,7 +1089,7 @@ public class Dock extends AbstractController implements Listener {
 				log.info(String.format("Bridge says %d are connected of %d", connected, connections.size()));
 				if (connecting > 0) {
 					signIn.getStyleClass().add("statusBusy");
-					if(busyFade == null) {
+					if (busyFade == null) {
 						busyFade = new FadeTransition(Duration.seconds(0.25), signIn);
 						signIn.setEffect(new Glow(0.5));
 						busyFade.setFromValue(0.5);
