@@ -20,7 +20,7 @@ public class ConnectionImpl implements Connection, Serializable {
 	private static final long serialVersionUID = 7020419491848339718L;
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.TABLE)
+	@GeneratedValue(strategy=GenerationType.TABLE)
 	Long id;
 	
 	@Column(nullable=false)

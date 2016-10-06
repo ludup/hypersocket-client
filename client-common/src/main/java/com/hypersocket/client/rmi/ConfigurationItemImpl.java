@@ -5,6 +5,7 @@ import java.io.Serializable;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
@@ -15,7 +16,7 @@ public class ConfigurationItemImpl implements ConfigurationItem, Serializable {
 	private static final long serialVersionUID = -3650734390706745660L;
 
 	@Id
-	@GeneratedValue
+	@GeneratedValue(strategy=GenerationType.TABLE)
 	Long id;
 	
 	@Column
