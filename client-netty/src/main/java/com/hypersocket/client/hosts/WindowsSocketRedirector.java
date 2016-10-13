@@ -136,7 +136,7 @@ public class WindowsSocketRedirector extends AbstractSocketRedirector implements
 		int exit;
 		try {
 			exit = stopCommand.execute();
-			if(exit!=0 && exit!=1063 && exit!=1060) {
+			if(exit!=0 && exit!=1063 & exit != 1062 && exit!=1060) {
 				log.error("Could not stop redirect driver exitCode=" + exit);
 				if(failOnError) {
 					throw new IllegalStateException("Could not stop redirect driver exitCode=" + exit);
