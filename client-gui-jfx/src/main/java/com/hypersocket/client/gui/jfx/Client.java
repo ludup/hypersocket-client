@@ -273,8 +273,8 @@ public class Client extends Application {
 	public static Screen getConfiguredScreen() {
 		Configuration cfg = Configuration.getDefault();
 		ObservableList<Screen> screens = Screen.getScreens();
-		return screens.get(Math.min(screens.size() - 1, cfg.monitorProperty()
-				.get()));
+		return screens.get(Math.max(0, Math.min(screens.size() - 1, cfg.monitorProperty()
+				.get())));
 	}
 
 	public static Rectangle2D getConfiguredBounds() {
