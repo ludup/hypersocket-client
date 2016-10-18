@@ -333,7 +333,7 @@ public class ClientServiceImpl implements ClientService {
 				ExtensionPlace defaultExt = ExtensionPlace.getDefault();
 				defaultExt.setDownloadAllExtensions(true);
 				serviceUpdateJob = new ClientUpdater(guiRegistry, c,
-						client, defaultExt);
+						client, defaultExt, "CLIENT_SERVICE");
 
 				/*
 				 * For the GUI, we get the extension place remotely, as the GUI
@@ -350,7 +350,8 @@ public class ClientServiceImpl implements ClientService {
 					guiNeedsSeparateUpdate = false;
 					guiJob = new ClientUpdater(guiRegistry, c,
 							client, guiRegistry.getGUI()
-									.getExtensionPlace());
+									.getExtensionPlace(),
+									"CLIENT_GUI");
 				}
 
 				try {
@@ -378,7 +379,8 @@ public class ClientServiceImpl implements ClientService {
 							appsToUpdate = 1;
 							guiJob = new ClientUpdater(guiRegistry, c,
 									client, guiRegistry.getGUI()
-											.getExtensionPlace());
+											.getExtensionPlace(),
+											"CLIENT_GUI");
 							guiRegistry.onUpdateInit(appsToUpdate);
 							guiJob.update();
 
