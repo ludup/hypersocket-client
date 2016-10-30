@@ -46,7 +46,7 @@
 	<modules>
 		<module>client-common</module>
 		<module>client-core</module>
- 		<module>client-gui</module>
+		<module>client-gui</module>
 		<module>client-gui-jfx</module>
 		<module>client-netty</module>
 		<module>client-service</module>
@@ -138,6 +138,9 @@
 						<goals>
 							<goal>jar</goal>
 						</goals>
+						<configuration>
+							<additionalparam>-Xdoclint:none</additionalparam>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
