@@ -4,22 +4,22 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hypersocket.HypersocketVersion;
 import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUIRegistry;
 import com.hypersocket.extensions.AbstractExtensionUpdater;
-import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionHelper;
 import com.hypersocket.extensions.ExtensionPlace;
+import com.hypersocket.extensions.ExtensionTarget;
+import com.hypersocket.extensions.ExtensionVersion;
+import com.hypersocket.extensions.JsonExtensionUpdate;
 import com.hypersocket.utils.TrustModifier;
 
 public class ClientUpdater extends AbstractExtensionUpdater {
@@ -27,48 +27,19 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 	private GUIRegistry gui;
 	private HypersocketClient<Connection> hypersocketClient;
+	private ExtensionTarget target;
 	private ExtensionPlace extensionPlace;
 	private Connection connection; // Will probably be used again
 
 	public ClientUpdater(GUIRegistry gui, Connection connection,
 			HypersocketClient<Connection> hypersocketClient,
-			ExtensionPlace extensionPlace) {
+			ExtensionPlace extensionPlace, ExtensionTarget target) {
 		super();
 		this.connection = connection;
 		this.gui = gui;
 		this.hypersocketClient = hypersocketClient;
 		this.extensionPlace = extensionPlace;
-	}
-
-	@Override
-	protected Map<ExtensionPlace, List<ExtensionDefinition>> onResolveExtensions()
-			throws IOException {
-
-		log.info(String.format("Resolving extensions for %s in %s",
-				extensionPlace.getApp(), extensionPlace.getDir()));
-
-		// Client service first
-		String reply = hypersocketClient.getTransport().get(
-				"clientUpdates/resolveExtensions/" + extensionPlace.getApp());
-		ObjectMapper mapper = new ObjectMapper();
-		JsonExtensionResourceList json = mapper.readValue(reply,
-				JsonExtensionResourceList.class);
-		if (json.isSuccess()) {
-			// Compare extensions returned by server with those we have
-			// installed locally in the client service
-			Map<String, ExtensionDefinition> defMap = new HashMap<>();
-			for (ExtensionDefinition def : json.getResources()) {
-				defMap.put(def.getId(), def);
-			}
-
-			ArrayList<ExtensionDefinition> extensionList = new ArrayList<ExtensionDefinition>(
-					ExtensionHelper.processLocalExtensions(defMap,
-							extensionPlace).values());
-			Map<ExtensionPlace, List<ExtensionDefinition>> map = new HashMap<ExtensionPlace, List<ExtensionDefinition>>();
-			map.put(extensionPlace, extensionList);
-			return map;
-		}
-		throw new IOException(json.getError());
+		this.target = target;
 	}
 
 	@Override
@@ -102,8 +73,43 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	}
 
 	@Override
-	protected void onExtensionUpdateComplete(ExtensionDefinition def) {
-		gui.onExtensionUpdateComplete(extensionPlace.getApp(), def);
+	public ExtensionPlace getExtensionPlace() {
+		return extensionPlace;
+	}
+
+	@Override
+	public ExtensionTarget[] getUpdateTarget() {
+		return new ExtensionTarget[] { target };
+	}
+
+	@Override
+	public String getVersion() {
+		return HypersocketVersion.getVersion();
+	}
+
+	@Override
+	protected Map<String, ExtensionVersion> onResolveExtensions(String version) throws IOException {
+		
+		ObjectMapper mapper = new ObjectMapper();
+		String update = hypersocketClient.getTransport().get("extensions/checkVersion");
+		JsonExtensionUpdate v =  mapper.readValue(update, JsonExtensionUpdate.class);
+		
+		return ExtensionHelper
+				.resolveExtensions(
+						true,
+						System.getProperty("hypersocket.archivesURL",
+								"https://updates2.hypersocket.com/hypersocket/api/store/repos"),
+						v.getResource().getRepos(),
+						v.getResource().getCurrentVersion(),
+						HypersocketVersion.getSerial(),
+						extensionPlace,
+						true,
+						target);
+	}
+
+	@Override
+	protected void onExtensionUpdateComplete(ExtensionVersion def) {
+		
 	}
 
 }
