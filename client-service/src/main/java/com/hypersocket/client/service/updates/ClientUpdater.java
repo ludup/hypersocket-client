@@ -1,5 +1,6 @@
 package com.hypersocket.client.service.updates;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -78,7 +79,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	}
 
 	@Override
-	public ExtensionTarget[] getUpdateTarget() {
+	public ExtensionTarget[] getUpdateTargets() {
 		return new ExtensionTarget[] { target };
 	}
 
@@ -104,12 +105,22 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 						HypersocketVersion.getSerial(),
 						extensionPlace,
 						true,
-						target);
+						getUpdateTargets());
 	}
 
 	@Override
 	protected void onExtensionUpdateComplete(ExtensionVersion def) {
 		
+	}
+
+	@Override
+	public boolean hasLocalRepository(String version) {
+		return false;
+	}
+
+	@Override
+	public File getLocalRepositoryFile() {
+		return null;
 	}
 
 }
