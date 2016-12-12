@@ -518,11 +518,18 @@ public abstract class HypersocketClient<T> {
 	}
 	
 	public String processReplacements(String value, Map<String,String> replacements) {
-		for(String key : replacements.keySet()) {
-			String variable = "${" + key + "}";
-			value = value.replace(variable, replacements.get(key));
+		if(value!=null) {
+			for(String key : replacements.keySet()) {
+				String replacementValue = replacements.get(key);
+				if(replacementValue==null) {
+					replacementValue = "";
+				}
+				String variable = "${" + key + "}";
+				value = value.replace(variable, replacementValue);
+			}
+			return value;
 		}
-		return value;
+		return "";
 	}
 
 }
