@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.hypersocket</groupId>
 	<artifactId>hypersocket-client</artifactId>
-	<version>1.2.6-LOCAL</version>
+	<version>1.2.7-LOCAL</version>
 	<url>http://www.hypersocket.com/</url>
 	<packaging>pom</packaging>
 	<name>Hypersocket Client</name>
@@ -83,9 +83,6 @@
 				<configuration>
 					<source>1.7</source>
 					<target>1.7</target>
-					<compilerArgs>
-						<arg>-Xlint:-restriction</arg>
-					</compilerArgs>
 				</configuration>
 			</plugin>
 			<plugin>
