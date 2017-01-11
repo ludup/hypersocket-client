@@ -49,6 +49,15 @@ public class WebSocketHandler extends SimpleChannelUpstreamHandler implements
 		return channel.getId();
 	}
 
+	public void channelOpen(
+            ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+		if (log.isDebugEnabled()) {
+			log.debug("Web socket opened id=" + ctx.getChannel().getId());
+		}
+		channel = e.getChannel();
+		channel.setReadable(false);
+    }
+	
 	@Override
 	public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e)
 			throws Exception {
@@ -57,7 +66,6 @@ public class WebSocketHandler extends SimpleChannelUpstreamHandler implements
 			log.debug("Web socket connected id=" + ctx.getChannel().getId());
 		}
 		handshaker.handshake(ctx.getChannel());
-		channel = e.getChannel();
 	}
 
 	@Override
@@ -96,6 +104,7 @@ public class WebSocketHandler extends SimpleChannelUpstreamHandler implements
 				if(ch!=null) {
 					ch.setReadable(true);
 				}
+				channel.setReadable(true);
 				callback.onConnect(this);
 			} else {
 				callback.onError(new Exception("Handshake did not complete id=" + ctx.getChannel().getId()));
