@@ -408,35 +408,36 @@ public abstract class HypersocketClient<T> {
 						
 
 				switch (type) {
-				case HIDDEN: {
-					params.put((String) field.get("resourceKey"),
-							(String) field.get("defaultValue"));
-					break;
-				}
-				case SELECT: {
-					Prompt p = new Prompt(type,
-							(String) field.get("resourceKey"),
-							(String) field.get("defaultValue"));
-					JSONArray options = (JSONArray) field.get("options");
-					@SuppressWarnings("unchecked")
-					Iterator<JSONObject> it2 = (Iterator<JSONObject>) options
-							.iterator();
-					while (it2.hasNext()) {
-						JSONObject o = it2.next();
-						Boolean isResourceKey = (Boolean) o.get("isNameResourceKey");
-						p.addOption(new Option(isResourceKey ? I18N.getResource((String) o.get("name")) : (String) o.get("name"),
-								(String) o.get("value"), (Boolean) o
-										.get("selected")));
+					case HIDDEN: {
+						params.put((String) field.get("resourceKey"),
+								(String) field.get("defaultValue"));
+						break;
 					}
-					prompts.add(p);
-					break;
-				}
-				default: {
-					prompts.add(new Prompt(type, (String) field
-							.get("resourceKey"), (String) field
-							.get("defaultValue")));
-					break;
-				}
+					case SELECT: {
+						Prompt p = new Prompt(type,
+								(String) field.get("resourceKey"),
+								(String) field.get("defaultValue"),
+								(String) field.get("infoKey"));
+						JSONArray options = (JSONArray) field.get("options");
+						@SuppressWarnings("unchecked")
+						Iterator<JSONObject> it2 = (Iterator<JSONObject>) options
+								.iterator();
+						while (it2.hasNext()) {
+							JSONObject o = it2.next();
+							Boolean isResourceKey = (Boolean) o.get("isNameResourceKey");
+							p.addOption(new Option(isResourceKey ? I18N.getResource((String) o.get("name")) : (String) o.get("name"),
+									(String) o.get("value"), (Boolean) o
+											.get("selected")));
+						}
+						prompts.add(p);
+						break;
+					}
+					default: {
+						prompts.add(new Prompt(type, (String) field.get("resourceKey"),
+										(String) field.get("defaultValue"),
+										(String) field.get("infoKey")));
+						break;
+					}
 				}
 
 			}

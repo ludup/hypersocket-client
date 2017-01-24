@@ -22,11 +22,17 @@ public class Prompt implements Serializable {
 	private String defaultValue;
 	private PromptType type;
 	private List<Option> options = new ArrayList<Option>();
+	private String infoKey;
 	
 	public Prompt(PromptType type, String resourceKey, String defaultValue) {
 		this.type = type;
 		this.resourceKey = resourceKey;
 		this.defaultValue = defaultValue;
+	}
+
+	public Prompt(PromptType type, String resourceKey, String defaultValue, String infoKey) {
+		this(type, resourceKey, defaultValue);
+		this.infoKey = infoKey;
 	}
 	
 	public PromptType getType() {
@@ -53,11 +59,22 @@ public class Prompt implements Serializable {
 		return options;
 	}
 
+	public String getInfoKey() {
+		return infoKey;
+	}
+
+	public void setInfoKey(String infoKey) {
+		this.infoKey = infoKey;
+	}
+
 	@Override
 	public String toString() {
-		return "Prompt [resourceKey=" + resourceKey + ", defaultValue="
-				+ defaultValue + ", type=" + type + ", options=" + options
-				+ "]";
+		return "Prompt{" +
+				"resourceKey='" + resourceKey + '\'' +
+				", defaultValue='" + defaultValue + '\'' +
+				", type=" + type +
+				", options=" + options +
+				", infoKey='" + infoKey + '\'' +
+				'}';
 	}
-	
 }

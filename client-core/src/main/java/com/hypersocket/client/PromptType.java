@@ -14,5 +14,6 @@ public enum PromptType {
 	P,
 	SELECT,
 	HIDDEN,
-	A
+	A,
+	CHECKBOX
 }

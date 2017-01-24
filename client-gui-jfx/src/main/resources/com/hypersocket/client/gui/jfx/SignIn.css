@@ -1,3 +1,8 @@
 .rootPane {
 	fx-padding: 8 8 8 8;
+
+}
+
+VBox {
+    -fx-spacing: 5;
 }
