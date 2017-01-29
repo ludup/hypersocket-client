@@ -14,6 +14,8 @@ import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.concurrent.Semaphore;
 
+import javafx.geometry.Insets;
+import javafx.scene.control.*;
 import org.apache.commons.lang.StringUtils;
 import org.controlsfx.control.decoration.Decorator;
 import org.controlsfx.control.decoration.GraphicDecoration;
@@ -40,18 +42,7 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Control;
-import javafx.scene.control.Hyperlink;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.ProgressIndicator;
-import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
@@ -254,70 +245,88 @@ public class SignIn extends AbstractController implements Listener {
 					VBox vbox = new VBox();
 					int idx = 0;
 					for (Prompt p : prompts) {
-						Label l = new Label(getLabelText(promptResources, p));
-						vbox.getChildren().add(l);
 						switch (p.getType()) {
-						case TEXT:
-							CustomTextField txt = new CustomTextField();
-							txt.setText(p.getDefaultValue());
-							if (!success) {
-								txt.setLeft(createErrorImageNode());
-							}
-							vbox.getChildren().add(txt);
-							txt.getStyleClass().add("input");
-							txt.setOnAction((event) -> {
-								focusNextPrompt(txt);
-							});
-							promptNodes.put(p, txt);
-							break;
-						case HIDDEN:
-							promptValues.put(p.getResourceKey(),
-									p.getDefaultValue());
-							break;
-						case PASSWORD:
-							CustomPasswordField pw = new CustomPasswordField();
-							if (!success) {
-								pw.setLeft(createErrorImageNode());
-							}
-							vbox.getChildren().add(pw);
-							pw.getStyleClass().add("input");
-							promptNodes.put(p, pw);
-							pw.setOnAction((event) -> {
-								focusNextPrompt(pw);
-							});
-							break;
-						case SELECT:
-							ComboBox<String> cb = new ComboBox<String>();
-							for (Option o : p.getOptions()) {
-								cb.itemsProperty().get().add(o.getName());
-							}
-							cb.getStyleClass().add("input");
-							vbox.getChildren().add(cb);
-							promptNodes.put(p, cb);
-							if (idx == 0) {
-								cb.requestFocus();
-							}
-							break;
-						case A:
-							String aLabel = getValueText(promptResources, p);
-							Hyperlink h = new Hyperlink(aLabel);
-							h.onActionProperty().set((val) -> {
-								String urlStr = p.getDefaultValue();
-								try {
-									new URL(urlStr);
-									new BrowserLauncher(urlStr).launch();
+							case TEXT:
+								addLabel(vbox, p);
+								CustomTextField txt = new CustomTextField();
+								txt.setText(p.getDefaultValue());
+								if (!success) {
+									txt.setLeft(createErrorImageNode());
 								}
-								catch(Exception e) {
-									new BrowserLauncher(getUri(connection) + "/" + urlStr).launch();
+								vbox.getChildren().add(txt);
+								txt.getStyleClass().add("input");
+								addToolTip(p, txt);
+								txt.setOnAction((event) -> {
+									focusNextPrompt(txt);
+								});
+								promptNodes.put(p, txt);
+								break;
+							case HIDDEN:
+								promptValues.put(p.getResourceKey(),
+										p.getDefaultValue());
+								break;
+							case PASSWORD:
+								addLabel(vbox, p);
+								CustomPasswordField pw = new CustomPasswordField();
+								if (!success) {
+									pw.setLeft(createErrorImageNode());
 								}
-							});
-							h.getStyleClass().add("input");
-							vbox.getChildren().add(h);
-							promptNodes.put(p, h);
-							break;
-						case P:
-							// TODO What's a P?
-							break;
+								vbox.getChildren().add(pw);
+								pw.getStyleClass().add("input");
+								addToolTip(p, pw);
+								promptNodes.put(p, pw);
+								pw.setOnAction((event) -> {
+									focusNextPrompt(pw);
+								});
+								break;
+							case SELECT:
+								addLabel(vbox, p);
+								ComboBox<String> cb = new ComboBox<String>();
+								for (Option o : p.getOptions()) {
+									cb.itemsProperty().get().add(o.getName());
+								}
+								cb.getStyleClass().add("input");
+								addToolTip(p, cb);
+								vbox.getChildren().add(cb);
+								promptNodes.put(p, cb);
+								if (idx == 0) {
+									cb.requestFocus();
+								}
+								break;
+							case A:
+								addLabel(vbox, p);
+								String aLabel = getValueText(promptResources, p);
+								Hyperlink h = new Hyperlink(aLabel);
+								h.onActionProperty().set((val) -> {
+									String urlStr = p.getDefaultValue();
+									try {
+										new URL(urlStr);
+										new BrowserLauncher(urlStr).launch();
+									}
+									catch(Exception e) {
+										new BrowserLauncher(getUri(connection) + "/" + urlStr).launch();
+									}
+								});
+								h.getStyleClass().add("input");
+								vbox.getChildren().add(h);
+								promptNodes.put(p, h);
+								break;
+							case P:
+								Label l = new Label(getValueText(promptResources, p));
+								l.setWrapText(true);
+								vbox.getChildren().add(l);
+								break;
+
+							case CHECKBOX:
+								CheckBox checkBox = new CheckBox();
+								String label = getLabelText(promptResources, p);
+								checkBox.setText(label);
+								checkBox.setSelected(Boolean.parseBoolean(p.getDefaultValue()));
+								addToolTip(p, checkBox);
+								vbox.getChildren().add(checkBox);
+								promptNodes.put(p, checkBox);
+								break;
+
 						}
 						idx++;
 					}
@@ -332,6 +341,20 @@ public class SignIn extends AbstractController implements Listener {
 							focusNextPrompt(null);
 						}
 					});
+				}
+
+				private void addToolTip(Prompt p, Control control) {
+					if(StringUtils.isNotEmpty(p.getInfoKey())) {
+                        String toolTip = getI18NText(promptResources, p.getInfoKey(), "");
+                        if(StringUtils.isNotEmpty(toolTip)) {
+							control.setTooltip(new Tooltip(toolTip));
+                        }
+                    }
+				}
+
+				private void addLabel(VBox vbox, Prompt p) {
+					Label l = new Label(getLabelText(promptResources, p));
+					vbox.getChildren().add(l);
 				}
 			});
 			promptSemaphore.acquire();
@@ -1104,6 +1127,9 @@ public class SignIn extends AbstractController implements Listener {
 				} else if (en.getValue() instanceof ComboBox) {
 					promptValues.put(en.getKey().getResourceKey(),
 							((ComboBox<String>) en.getValue()).getValue());
+				} else if (en.getValue() instanceof CheckBox) {
+					promptValues.put(en.getKey().getResourceKey(),
+							Boolean.toString(((CheckBox) en.getValue()).isSelected()));
 				}
 			}
 			if (log.isDebugEnabled()) {
