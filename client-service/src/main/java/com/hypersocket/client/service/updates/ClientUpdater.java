@@ -62,12 +62,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 		gui.onUpdateProgress(extensionPlace.getApp(), sincelastProgress,
 				totalSoFar,totalBytesExpected);
 	}
-
-	@Override
-	protected void onUpdateComplete(long totalBytesTransfered) {
-		gui.onUpdateComplete(extensionPlace.getApp(), totalBytesTransfered);
-	}
-
+	
 	@Override
 	protected void onUpdateFailure(Throwable e) {
 		gui.onUpdateFailure(extensionPlace.getApp(), e);
@@ -121,6 +116,11 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	public File getLocalRepositoryFile() {
 		return null;
+	}
+
+	@Override
+	protected void onUpdateComplete(long totalBytesTransfered, int totalUpdates) {
+		gui.onUpdateComplete(extensionPlace.getApp(), totalBytesTransfered);
 	}
 
 }
