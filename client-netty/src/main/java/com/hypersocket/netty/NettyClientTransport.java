@@ -349,6 +349,10 @@ public class NettyClientTransport implements HypersocketClientTransport {
 		NetworkResource resource = resourcesBySocketAddress.get(channel
 				.getLocalAddress());
 
+		if(log.isDebugEnabled()) {
+			log.debug(String.format("Creating tunnel to %s:%d", resource.getDestinationHostname(), resource.getPort()));
+		}
+		
 		return createWebsocket(resource.getUri() + "?resourceId=" + resource.getParentResourceId()
 				+ "&hostname=" + resource.getDestinationHostname()
 				+ "&port=" + resource.getPort(), callback);

@@ -60,9 +60,14 @@ public class LocalForwardingHandler extends SimpleChannelUpstreamHandler
 		channel = e.getChannel();
 		channel.setReadable(false);
 
-		webSocketClient = nettyClient.createTunnel(e.getChannel(), this);
-		webSocketClient.setAttachment(channel);
-		webSocketClient.connect();
+		try {
+			webSocketClient = nettyClient.createTunnel(e.getChannel(), this);
+			webSocketClient.setAttachment(channel);
+			webSocketClient.connect();
+		} catch (Exception e1) {
+			log.error("Failed to connect", e);
+			throw e1;
+		}
 	}
 
 	@Override
@@ -117,7 +122,9 @@ public class LocalForwardingHandler extends SimpleChannelUpstreamHandler
 	}
 
 	public void onConnect(WebSocket client) {
-
+		if (log.isDebugEnabled()) {
+			log.debug("Web socket connected id=" + client.getId());
+		}
 	}
 
 	public void onDisconnect(WebSocket client) {
