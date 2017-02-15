@@ -55,7 +55,6 @@ public class WebSocketHandler extends SimpleChannelUpstreamHandler implements
 			log.debug("Web socket opened id=" + ctx.getChannel().getId());
 		}
 		channel = e.getChannel();
-		channel.setReadable(false);
     }
 	
 	@Override
