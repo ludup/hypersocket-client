@@ -104,7 +104,7 @@ public abstract class AbstractServicePlugin implements ServicePlugin {
 				processResourceUpdates();
 			}
 
-		}, 5, 5, TimeUnit.SECONDS);
+		}, 60, 60, TimeUnit.SECONDS);
 
 		return onStart();
 	}
