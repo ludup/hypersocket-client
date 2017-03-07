@@ -133,6 +133,9 @@ public class HttpClient {
 			}
 		}
 
+		if(cookies.containsKey("HYPERSOCKET_CSRF_TOKEN")) {
+			addStaticHeader("X-Csrf-Token", cookies.get("HYPERSOCKET_CSRF_TOKEN").getCookie().getValue());
+		}
 		debugResponse(response);
 		return response;
 	}
