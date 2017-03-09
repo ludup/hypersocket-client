@@ -133,7 +133,7 @@ public class Configuration {
 		browserCommand.addListener(new StringPreferenceUpdateChangeListener(
 				node, "browserCommand"));
 
-		color.setValue(getColor("color", node, Color.web("#494B4C")));
+		color.setValue(getColor("color", node, Color.web("#000000")));
 		color.addListener(new ColorPreferenceUpdateChangeListener(node, "color"));
 
 		showSSO.set(node.getBoolean("showSSO", true));

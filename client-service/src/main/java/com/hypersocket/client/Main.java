@@ -11,7 +11,6 @@ import java.net.SocketException;
 import java.net.URL;
 import java.rmi.AccessException;
 import java.rmi.NoSuchObjectException;
-import java.rmi.RMISecurityManager;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -345,7 +344,7 @@ public class Main {
 		System.setProperty("java.rmi.server.hostname", "localhost");
 		
 		if (System.getSecurityManager() == null) {
-			System.setSecurityManager(new RMISecurityManager());
+			System.setSecurityManager(new SecurityManager());
 		}
 
 		while(true) {

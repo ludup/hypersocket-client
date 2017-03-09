@@ -2,7 +2,6 @@ package com.hypersocket.client.gui;
 
 import java.io.File;
 import java.io.IOException;
-import java.rmi.RMISecurityManager;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.PropertyConfigurator;
@@ -48,7 +47,7 @@ public class Main {
 
 		try {
 			if (System.getSecurityManager() == null) {
-				System.setSecurityManager(new RMISecurityManager());
+				System.setSecurityManager(new SecurityManager());
 			}
 
 			display = new Display();
