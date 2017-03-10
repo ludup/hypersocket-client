@@ -1,4 +1,4 @@
-package com.hypersocket.client.gui.cli;
+package com.hypersocket.client.cli;
 
 import com.hypersocket.client.i18n.I18N;
 

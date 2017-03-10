@@ -1,4 +1,4 @@
-package com.hypersocket.client.gui.cli;
+package com.hypersocket.client.cli;
 
 import java.awt.image.RenderedImage;
 import java.io.File;
@@ -187,19 +187,17 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 		resourceService = (ResourceService) registry.lookup("resourceService");
 		clientService = (ClientService) registry.lookup("clientService");
 		clientService.registerGUI(this);
-
-		// Runtime.getRuntime().addShutdownHook(new Thread() {
-		// public void run() {
-		// System.out.println("Unregistering");
-		// }
-		// });
-
-		//
-		String cmd = cli.getArgs()[0];
-		Command command = createCommand(cmd);
+		
 		try {
-			command.run(this);
+			if(cli.getArgs().length > 0) {
+				String cmd = cli.getArgs()[0];
+				Command command = createCommand(cmd);
+				command.run(this);
+			} else {
+				// Print help
+			}
 		} finally {
+			clientService.unregisterGUI(this);
 			if (!exitWhenDone)
 				exitCli();
 		}

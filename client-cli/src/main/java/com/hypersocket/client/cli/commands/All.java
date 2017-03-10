@@ -1,11 +1,11 @@
-package com.hypersocket.client.gui.cli.commands;
+package com.hypersocket.client.cli.commands;
 
 import org.apache.commons.cli.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.client.gui.cli.CLI;
-import com.hypersocket.client.gui.cli.Command;
+import com.hypersocket.client.cli.CLI;
+import com.hypersocket.client.cli.Command;
 import com.hypersocket.client.rmi.Connection;
 
 public class All implements Command {

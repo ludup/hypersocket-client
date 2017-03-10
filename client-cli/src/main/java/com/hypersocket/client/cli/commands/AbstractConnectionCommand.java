@@ -1,4 +1,4 @@
-package com.hypersocket.client.gui.cli.commands;
+package com.hypersocket.client.cli.commands;
 
 import java.io.IOException;
 import java.rmi.RemoteException;
@@ -7,9 +7,9 @@ import java.util.List;
 
 import org.apache.commons.cli.Options;
 
-import com.hypersocket.client.gui.cli.CLI;
-import com.hypersocket.client.gui.cli.Command;
-import com.hypersocket.client.gui.cli.ConsoleProvider;
+import com.hypersocket.client.cli.CLI;
+import com.hypersocket.client.cli.Command;
+import com.hypersocket.client.cli.ConsoleProvider;
 import com.hypersocket.client.rmi.Connection;
 
 public abstract class AbstractConnectionCommand implements Command {

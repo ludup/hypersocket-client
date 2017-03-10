@@ -1,4 +1,4 @@
-package com.hypersocket.client.gui.cli;
+package com.hypersocket.client.cli;
 
 import java.io.IOException;
 import java.io.PrintWriter;

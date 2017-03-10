@@ -1,4 +1,4 @@
-package com.hypersocket.client.gui.cli;
+package com.hypersocket.client.cli;
 
 import org.apache.commons.lang.StringUtils;
 

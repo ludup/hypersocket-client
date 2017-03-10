@@ -5,7 +5,7 @@
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
  ******************************************************************************/
-package com.hypersocket.client.gui.cli;
+package com.hypersocket.client.cli;
 
 import java.io.IOException;
 import java.util.HashMap;
