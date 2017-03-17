@@ -508,7 +508,12 @@ public class Client extends Application {
 	}
 
 	public void confirmExit() {
-		int active = bridge.getActiveConnections();
+		
+		/*
+		 * LDP - I don't want to be prompted to disconnect if 
+		 * I have set the connection to stay connected.
+		 */
+		int active = bridge.getActiveButNonPersistentConnections();
 
 		if (active > 0) {
 			Alert alert = new Alert(AlertType.CONFIRMATION);

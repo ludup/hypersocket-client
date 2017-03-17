@@ -377,6 +377,22 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		}
 		return active;
 	}
+	
+	public int getActiveButNonPersistentConnections() {
+		int active = 0;
+		if (isConnected()) {
+			try {
+				for (ConnectionStatus s : clientService.getStatus()) {
+					if (s.getStatus() == ConnectionStatus.CONNECTED && !s.getConnection().isStayConnected()) {
+						active++;
+					}
+				}
+			} catch (RemoteException e) {
+				log.error("Failed to get active connections.", e);
+			}
+		}
+		return active;
+	}
 
 	public void disconnectAll() {
 		try {
