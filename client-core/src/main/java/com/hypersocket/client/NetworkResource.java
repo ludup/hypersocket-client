@@ -98,4 +98,9 @@ public class NetworkResource implements Serializable,ServiceResource {
 		return String.format("%-17s %5d", StringUtils.left(hostname, 17), port);
 	}
 
+	@Override
+	public String getFullServiceDescription() {
+		return String.format("%s:%d", hostname, port);
+	}
+
 }

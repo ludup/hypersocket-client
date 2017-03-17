@@ -9,4 +9,6 @@ public interface ServiceResource {
 	public Status getServiceStatus();
 	
 	public String getServiceDescription();
+
+	public String getFullServiceDescription();
 }

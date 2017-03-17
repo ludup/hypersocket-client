@@ -9,6 +9,7 @@ import com.hypersocket.client.ServiceResource;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
@@ -54,6 +55,7 @@ public class Status extends AbstractController {
 			// Text
 			Label label = new Label();
 			label.setText(item.getServiceDescription());
+			label.setTooltip(new Tooltip(item.getFullServiceDescription()));
 			hb.getChildren().add(label);
 			
 			//
