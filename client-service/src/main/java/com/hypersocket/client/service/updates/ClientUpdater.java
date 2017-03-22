@@ -99,6 +99,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 						v.getResource().getLatestVersion(),
 						HypersocketVersion.getSerial(),
 						"Hypersocket Client",
+						v.getCustomer(),
 						extensionPlace,
 						true,
 						getUpdateTargets());
