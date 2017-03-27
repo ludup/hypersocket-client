@@ -188,7 +188,7 @@ public class ConnectionDialog extends Dialog {
 			txtPath.setText(connection.getPath());
 			txtRealm.setText(connection.getRealm());
 			txtUsername.setText(connection.getUsername());
-			txtPassword.setText(connection.getHashedPassword());
+			txtPassword.setText(connection.getPassword());
 			btnConnectAtStartup.setSelection(connection.isConnectAtStartup());
 			btnStayConnected.setSelection(connection.isStayConnected());
 		}

@@ -11,10 +11,13 @@ import java.util.ResourceBundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.client.CredentialCache;
+import com.hypersocket.client.CredentialCache.Credential;
 import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.client.HypersocketClientListener;
 import com.hypersocket.client.HypersocketClientTransport;
 import com.hypersocket.client.Prompt;
+import com.hypersocket.client.rmi.ClientService;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.GUICallback;
 import com.hypersocket.client.rmi.GUIRegistry;
@@ -26,14 +29,17 @@ public class ServiceClient extends HypersocketClient<Connection> {
 
 	ResourceService resourceService;
 	GUIRegistry guiRegistry;
+	ClientService clientService; 
 	List<ServicePlugin> plugins = new ArrayList<ServicePlugin>();
 
 	protected ServiceClient(HypersocketClientTransport transport,
+			ClientService clientService,
 			Locale currentLocale, HypersocketClientListener<Connection> service,
 			ResourceService resourceService, Connection connection,
 			GUIRegistry guiRegistry) throws IOException {
 		super(transport, currentLocale, service);
 		this.resourceService = resourceService;
+		this.clientService = clientService;
 		this.guiRegistry = guiRegistry;
 		setAttachment(connection);
 	}
@@ -61,6 +67,15 @@ public class ServiceClient extends HypersocketClient<Connection> {
 
 	protected void onConnected() {
 
+		Credential creds = CredentialCache.getInstance().getCredentials(getTransport().getHost());
+		if(creds!=null) {
+			getAttachment().setUsername(creds.getUsername());
+			getAttachment().setHashedPassword(creds.getPassword());
+			try {
+				clientService.save(getAttachment());
+			} catch (RemoteException e) {
+			}
+		}
 	}
 
 	@Override

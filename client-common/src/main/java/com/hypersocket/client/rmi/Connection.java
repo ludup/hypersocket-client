@@ -22,7 +22,7 @@ public interface Connection {
 
 	public void setHashedPassword(String hashedPassword);
 
-	public String getHashedPassword();
+	public String getPassword();
 
 	public void setUsername(String username);
 

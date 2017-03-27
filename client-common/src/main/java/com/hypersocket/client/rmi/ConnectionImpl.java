@@ -101,7 +101,7 @@ public class ConnectionImpl implements Connection, Serializable {
 	}
 	
 	@Override
-	public String getHashedPassword() {
+	public String getPassword() {
 		return hashedPassword;
 	}
 	

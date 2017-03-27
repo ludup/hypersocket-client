@@ -21,6 +21,7 @@ import java.util.Set;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.auth.Credentials;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -32,6 +33,7 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hypersocket.client.CredentialCache.Credential;
 import com.hypersocket.client.i18n.I18N;
 import com.hypersocket.json.JsonPrincipal;
 
@@ -53,9 +55,6 @@ public abstract class HypersocketClient<T> {
 	boolean isDisconnecting = false;
 
 	String principalName;
-	
-	String cachedUsername;
-	String cachedPassword;
 	String basePath;
 	
 	protected HypersocketClient(HypersocketClientTransport transport, Locale currentLocale)
@@ -262,10 +261,10 @@ public abstract class HypersocketClient<T> {
 		int attempts = maxAttempts;
 		boolean attemptedCached = false;
 		List<Prompt> prompts = new ArrayList<Prompt>();
-		
-		if(cachedUsername!=null && cachedPassword!=null) {
-			params.put("username", cachedUsername);
-			params.put("password", cachedPassword);
+		Credential credential = CredentialCache.getInstance().getCredentials(transport.getHost());
+		if(credential!=null) {
+			params.put("username", credential.username);
+			params.put("password", credential.password);
 			attemptedCached = true;
 		}
 		
@@ -302,11 +301,10 @@ public abstract class HypersocketClient<T> {
 
 					params.putAll(results);
 					
-					if(params.containsKey("username")) {
-						cachedUsername = params.get("username");
-					}
-					if(params.containsKey("password")) {
-						cachedPassword = params.get("password");
+					if(params.containsKey("username") && params.containsKey("password")) {
+						CredentialCache.getInstance().saveCredentials(transport.getHost(), 
+								params.get("username"), 
+								params.get("password"));
 					}
 					
 				} else {
@@ -319,8 +317,6 @@ public abstract class HypersocketClient<T> {
 			}
 		}
 		
-		
-
 		if (log.isInfoEnabled()) {
 			log.info("Logon complete sessionId=" + getSessionId());
 		}

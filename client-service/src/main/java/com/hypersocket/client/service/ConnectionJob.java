@@ -83,6 +83,7 @@ public class ConnectionJob extends TimerTask {
 		try {
 
 			client = new ServiceClient(new NettyClientTransport(boss, worker),
+					clientService,
 					locale, listener, resourceService, connection,
 					guiRegistry);
 
@@ -96,14 +97,14 @@ public class ConnectionJob extends TimerTask {
 
 			log.info("Awaiting authentication for " + url);
 			if (StringUtils.isBlank(connection.getUsername())
-					|| StringUtils.isBlank(connection.getHashedPassword())) {
+					|| StringUtils.isBlank(connection.getPassword())) {
 				client.login();
 
 			} else {
 				try {
 					client.loginHttp(connection.getRealm(),
 							connection.getUsername(),
-							connection.getHashedPassword(), true);
+							connection.getPassword(), true);
 				} catch (IOException ioe) {
 					if(log.isInfoEnabled()) {
 						log.info(String.format("%s error during login", client.getHost()), ioe);
@@ -181,7 +182,7 @@ public class ConnectionJob extends TimerTask {
 			if (!(e instanceof UserCancelledException)) {
 				if (StringUtils.isNotBlank(connection.getUsername())
 						&& StringUtils.isNotBlank(connection
-								.getHashedPassword())) {
+								.getPassword())) {
 					if (connection.isStayConnected()) {
 						try {
 							clientService.scheduleConnect(connection);

@@ -94,7 +94,6 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 			}
 		}
 		
-
 		CommandLineParser pp = new DefaultParser();
 		cli = pp.parse(opts, args);
 
@@ -107,7 +106,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	public ConsoleProvider getConsole() {
 		return console;
 	}
-
+	
 	public void exitWhenDone() {
 		exitWhenDone = true;
 	}
@@ -197,7 +196,6 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 				// Print help
 			}
 		} finally {
-			clientService.unregisterGUI(this);
 			if (!exitWhenDone)
 				exitCli();
 		}
