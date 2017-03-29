@@ -1201,7 +1201,6 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 
-				@SuppressWarnings("restriction")
 				protected boolean isChildFocussed() {
 					// HACK!
 					//
