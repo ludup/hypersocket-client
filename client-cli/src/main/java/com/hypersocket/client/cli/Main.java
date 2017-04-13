@@ -72,10 +72,8 @@ public class Main {
 		instance.run(args);
 	}
 
-	public static void runApplication(Runnable restartCallback, Runnable shutdownCallback) throws IOException {
-		// TODO args via wrapper?
-		new Main(restartCallback, shutdownCallback).run(new String[0]);
-
+	public static void runApplication(Runnable restartCallback, Runnable shutdownCallback, String[] args) throws IOException {
+		new Main(restartCallback, shutdownCallback).run(args);
 	}
 
 	static class DefaultRestartCallback implements Runnable {
