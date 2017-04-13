@@ -204,7 +204,7 @@ public class ClientServiceImpl implements ClientService {
 	protected ConnectionJob createJob(Connection c) throws RemoteException {
 		return new ConnectionJob(getUrl(c), new Locale(
 				configurationService.getValue("ui.locale", "en")), this,
-				bossExecutor, workerExecutor, resourceService, c, guiRegistry);
+				bossExecutor, workerExecutor, resourceService, c, guiRegistry, connectionService);
 	}
 
 	protected String getUrl(Connection c) {

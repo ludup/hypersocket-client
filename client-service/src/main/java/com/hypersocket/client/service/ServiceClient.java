@@ -70,7 +70,7 @@ public class ServiceClient extends HypersocketClient<Connection> {
 		Credential creds = CredentialCache.getInstance().getCredentials(getTransport().getHost());
 		if(creds!=null) {
 			getAttachment().setUsername(creds.getUsername());
-			getAttachment().setHashedPassword(creds.getPassword());
+			getAttachment().setPassword(creds.getPassword());
 			try {
 				clientService.save(getAttachment());
 			} catch (RemoteException e) {

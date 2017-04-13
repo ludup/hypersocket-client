@@ -47,7 +47,7 @@ public class Connect implements Command {
 
 			// Prompt for authentication
 			connection.setUsername("");
-			connection.setHashedPassword("");
+			connection.setPassword("");
 			connection.setRealm("");
 			
 			System.out.println(String.format("Created new connection for %s", uri.getHost()));

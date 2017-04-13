@@ -3,6 +3,7 @@ package com.hypersocket.client.service;
 import java.rmi.RemoteException;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -14,6 +15,7 @@ import com.hypersocket.client.db.HibernateSessionFactory;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionImpl;
 import com.hypersocket.client.rmi.ConnectionService;
+import com.hypersocket.encrypt.RsaEncryptionProvider;
 
 public class ConnectionServiceImpl implements ConnectionService {
 
@@ -34,20 +36,51 @@ public class ConnectionServiceImpl implements ConnectionService {
 	
 		Transaction trans = session.beginTransaction();
 		
-		if(connection.getId()!=null) {
-			log.info("Updating existing connection " + connection);
-			session.merge(connection);
-		} else {
-			log.info("Saving new connection " + connection);
-			session.save(connection);
+		try {
+			if(StringUtils.isNotBlank(connection.getEncryptedPassword())) {
+				if(!connection.getEncryptedPassword().startsWith("!ENC!")) {
+					connection.setPassword(RsaEncryptionProvider.getInstance().encrypt(connection.getEncryptedPassword()));
+				}
+			}
+			if(connection.getId()!=null) {
+				log.info("Updating existing connection " + connection);
+				session.merge(connection);
+			} else {
+				log.info("Saving new connection " + connection);
+				session.save(connection);
+			}
+			session.flush();
+			trans.commit();
+		} catch (Throwable e) {
+			trans.rollback();
+			throw new IllegalStateException(e.getMessage(), e);
 		}
-		session.flush();
-		trans.commit();
 			
 		return connection;
 	}
 	
+	@Override
+	public Boolean hasEncryptedPassword(Connection connection) throws RemoteException {
+		if(StringUtils.isNotBlank(connection.getEncryptedPassword())) {
+			if(connection.getEncryptedPassword().startsWith("!ENC!")) {
+				return true;
+			}
+		}
+		return false;
+	}
 	
+	@Override
+	public char[] getDecryptedPassword(Connection connection) throws RemoteException {
+		if(!hasEncryptedPassword(connection)) {
+			return StringUtils.isBlank(connection.getEncryptedPassword()) ? "".toCharArray() : connection.getEncryptedPassword().toCharArray();
+		}
+		
+		try {
+			return RsaEncryptionProvider.getInstance().decrypt(connection.getEncryptedPassword()).toCharArray();
+		} catch (Throwable e) {
+			throw new IllegalStateException(e.getMessage(), e);
+		}
+	}
 
 	@SuppressWarnings("unchecked")
 	@Override

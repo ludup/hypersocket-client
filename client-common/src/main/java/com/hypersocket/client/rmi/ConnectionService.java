@@ -17,5 +17,9 @@ public interface ConnectionService extends Remote {
 	public Connection getConnection(Long id) throws RemoteException;
 
 	Connection getConnection(String server) throws RemoteException;
-	
+
+	Boolean hasEncryptedPassword(Connection connection) throws RemoteException;
+
+	char[] getDecryptedPassword(Connection connection) throws RemoteException;
+
 }

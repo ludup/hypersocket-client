@@ -45,6 +45,6 @@ public class Disconnect extends AbstractConnectionCommand {
 		System.out.println(String.format("Serial: %s", connection.getSerial()));
 		System.out.println(String.format("Server Version: %s", connection.getServerVersion()));
 		System.out.println(String.format("Username: %s", connection.getUsername()));
-		System.out.println(String.format("Password: %s", connection.getPassword()));
+		System.out.println(String.format("Password: %s", connection.getEncryptedPassword()));
 	}
 }

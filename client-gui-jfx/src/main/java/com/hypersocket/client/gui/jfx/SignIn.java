@@ -218,7 +218,7 @@ public class SignIn extends AbstractController implements Listener {
 								&& promptedPassword != null) {
 							try {
 								connection.setUsername(promptedUsername);
-								connection.setHashedPassword(new String(
+								connection.setPassword(new String(
 										promptedPassword));
 
 								saveConnection(connection);
@@ -577,7 +577,7 @@ public class SignIn extends AbstractController implements Listener {
 
 				// Prompt for authentication
 				newConnection.setUsername("");
-				newConnection.setHashedPassword("");
+				newConnection.setPassword("");
 				newConnection.setRealm("");
 
 				selectedConnection = foregroundConnection = newConnection;

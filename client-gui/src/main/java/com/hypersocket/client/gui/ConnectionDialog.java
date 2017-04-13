@@ -188,7 +188,7 @@ public class ConnectionDialog extends Dialog {
 			txtPath.setText(connection.getPath());
 			txtRealm.setText(connection.getRealm());
 			txtUsername.setText(connection.getUsername());
-			txtPassword.setText(connection.getPassword());
+			txtPassword.setText(connection.getEncryptedPassword());
 			btnConnectAtStartup.setSelection(connection.isConnectAtStartup());
 			btnStayConnected.setSelection(connection.isStayConnected());
 		}
@@ -242,7 +242,7 @@ public class ConnectionDialog extends Dialog {
 		connection.setStayConnected(btnStayConnected.getSelection());
 		connection.setRealm(txtRealm.getText());
 		connection.setUsername(txtUsername.getText());
-		connection.setHashedPassword(txtPassword.getText());
+		connection.setPassword(txtPassword.getText());
 		
 		Thread t = new Thread() {
 			public void run() {

@@ -101,12 +101,12 @@ public class ConnectionImpl implements Connection, Serializable {
 	}
 	
 	@Override
-	public String getPassword() {
+	public String getEncryptedPassword() {
 		return hashedPassword;
 	}
 	
 	@Override
-	public void setHashedPassword(String hashedPassword) {
+	public void setPassword(String hashedPassword) {
 		this.hashedPassword = hashedPassword;
 	}
 

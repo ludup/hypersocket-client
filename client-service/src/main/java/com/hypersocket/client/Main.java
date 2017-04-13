@@ -229,7 +229,7 @@ public class Main {
 						
 						// Prompt for authentication
 						con.setUsername("");
-						con.setHashedPassword("");
+						con.setPassword("");
 						con.setRealm("");
 						
 						connectionService.save(con);

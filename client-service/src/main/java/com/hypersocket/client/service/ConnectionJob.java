@@ -18,6 +18,7 @@ import com.hypersocket.client.HypersocketClientAdapter;
 import com.hypersocket.client.HypersocketClientListener;
 import com.hypersocket.client.UserCancelledException;
 import com.hypersocket.client.rmi.Connection;
+import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.GUIRegistry;
 import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.json.JsonResponse;
@@ -33,13 +34,14 @@ public class ConnectionJob extends TimerTask {
 	private ResourceService resourceService;
 	private ExecutorService worker;
 	private ExecutorService boss;
+	private ConnectionService connectionService;
 	private Connection connection;
 	private GUIRegistry guiRegistry;
 
 	public ConnectionJob(String url, Locale locale,
 			ClientServiceImpl clientService, ExecutorService boss,
 			ExecutorService worker, ResourceService resourceService,
-			Connection connection, GUIRegistry guiRegistry) {
+			Connection connection, GUIRegistry guiRegistry, ConnectionService connectionService) {
 		this.guiRegistry = guiRegistry;
 		this.url = url;
 		this.locale = locale;
@@ -47,6 +49,7 @@ public class ConnectionJob extends TimerTask {
 		this.boss = boss;
 		this.worker = worker;
 		this.resourceService = resourceService;
+		this.connectionService = connectionService;
 		this.connection = connection;
 	}
 
@@ -97,14 +100,14 @@ public class ConnectionJob extends TimerTask {
 
 			log.info("Awaiting authentication for " + url);
 			if (StringUtils.isBlank(connection.getUsername())
-					|| StringUtils.isBlank(connection.getPassword())) {
+					|| !connectionService.hasEncryptedPassword(connection)) {
 				client.login();
 
 			} else {
 				try {
 					client.loginHttp(connection.getRealm(),
 							connection.getUsername(),
-							connection.getPassword(), true);
+							new String(connectionService.getDecryptedPassword(connection)), true);
 				} catch (IOException ioe) {
 					if(log.isInfoEnabled()) {
 						log.info(String.format("%s error during login", client.getHost()), ioe);
@@ -182,7 +185,7 @@ public class ConnectionJob extends TimerTask {
 			if (!(e instanceof UserCancelledException)) {
 				if (StringUtils.isNotBlank(connection.getUsername())
 						&& StringUtils.isNotBlank(connection
-								.getPassword())) {
+								.getEncryptedPassword())) {
 					if (connection.isStayConnected()) {
 						try {
 							clientService.scheduleConnect(connection);
