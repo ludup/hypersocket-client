@@ -42,6 +42,7 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Column(nullable=true)
 	String hashedPassword;
 	
+	@Column(columnDefinition="clob")
 	@Lob
 	char[] encryptedPassword;
 	

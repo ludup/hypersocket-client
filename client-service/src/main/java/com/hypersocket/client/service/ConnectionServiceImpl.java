@@ -39,7 +39,7 @@ public class ConnectionServiceImpl implements ConnectionService {
 		try {
 			if(StringUtils.isNotBlank(connection.getEncryptedPassword())) {
 				if(!connection.getEncryptedPassword().startsWith("!ENC!")) {
-					connection.setPassword(RsaEncryptionProvider.getInstance().encrypt(connection.getEncryptedPassword()));
+					connection.setPassword("!ENC!" + RsaEncryptionProvider.getInstance().encrypt(connection.getEncryptedPassword()));
 				}
 			}
 			if(connection.getId()!=null) {
@@ -61,8 +61,9 @@ public class ConnectionServiceImpl implements ConnectionService {
 	
 	@Override
 	public Boolean hasEncryptedPassword(Connection connection) throws RemoteException {
-		if(StringUtils.isNotBlank(connection.getEncryptedPassword())) {
-			if(connection.getEncryptedPassword().startsWith("!ENC!")) {
+		String password = connection.getEncryptedPassword();
+		if(StringUtils.isNotBlank(password)) {
+			if(password.startsWith("!ENC!")) {
 				return true;
 			}
 		}
@@ -76,7 +77,7 @@ public class ConnectionServiceImpl implements ConnectionService {
 		}
 		
 		try {
-			return RsaEncryptionProvider.getInstance().decrypt(connection.getEncryptedPassword()).toCharArray();
+			return RsaEncryptionProvider.getInstance().decrypt(connection.getEncryptedPassword().substring(5)).toCharArray();
 		} catch (Throwable e) {
 			throw new IllegalStateException(e.getMessage(), e);
 		}
