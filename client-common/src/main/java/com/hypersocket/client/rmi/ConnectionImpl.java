@@ -10,6 +10,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Lob;
 import javax.persistence.Table;
 
 
@@ -40,6 +41,9 @@ public class ConnectionImpl implements Connection, Serializable {
 	
 	@Column(nullable=true)
 	String hashedPassword;
+	
+	@Lob
+	char[] encryptedPassword;
 	
 	@Column
 	boolean stayConnected;
@@ -102,12 +106,13 @@ public class ConnectionImpl implements Connection, Serializable {
 	
 	@Override
 	public String getEncryptedPassword() {
-		return hashedPassword;
+		return new String(encryptedPassword);
 	}
 	
 	@Override
-	public void setPassword(String hashedPassword) {
-		this.hashedPassword = hashedPassword;
+	public void setPassword(String encryptedPassword ) {
+		this.hashedPassword = null;
+		this.encryptedPassword = encryptedPassword==null ? null : encryptedPassword.toCharArray();
 	}
 
 	@Override
