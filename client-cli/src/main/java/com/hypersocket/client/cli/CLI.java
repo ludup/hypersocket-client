@@ -260,14 +260,17 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void disconnected(Connection connection, String errorMessage) throws RemoteException {
+		System.out.println(String.format("Disconnected: %s", getUri(connection)));
 	}
 
 	@Override
 	public void failedToConnect(Connection connection, String errorMessage) throws RemoteException {
+		System.err.println(String.format("Connection failed: %s", errorMessage));
 	}
 
 	@Override
 	public void transportConnected(Connection connection) throws RemoteException {
+		System.out.println(String.format("Connected: %s", getUri(connection)));
 	}
 
 	@Override
@@ -277,6 +280,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void ready(Connection connection) throws RemoteException {
+		System.out.println(String.format("Ready: %s", getUri(connection)));
 	}
 
 	@Override
