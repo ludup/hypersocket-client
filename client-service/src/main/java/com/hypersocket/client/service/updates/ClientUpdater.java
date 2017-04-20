@@ -94,7 +94,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 				.resolveExtensions(
 						true,
 						System.getProperty("hypersocket.archivesURL",
-								"https://updates2.hypersocket.com/hypersocket/api/store/repos"),
+								"https://updates2.hypersocket.com/hypersocket/api/store/repos2"),
 						v.getResource().getRepos(),
 						v.getResource().getLatestVersion(),
 						HypersocketVersion.getSerial(),
@@ -102,6 +102,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 						v.getCustomer(),
 						extensionPlace,
 						true,
+						null,
 						getUpdateTargets());
 	}
 
