@@ -102,6 +102,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 						v.getCustomer(),
 						extensionPlace,
 						true,
+						null,
 						getUpdateTargets());
 	}
 
