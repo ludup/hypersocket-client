@@ -3,7 +3,6 @@ package com.hypersocket.client.cli.commands;
 import java.net.URI;
 import java.rmi.RemoteException;
 
-import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
