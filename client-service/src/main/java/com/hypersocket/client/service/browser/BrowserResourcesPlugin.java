@@ -104,6 +104,7 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 										+ URLEncoder.encode(launchUrl, "UTF-8"))));
 				realmResources.add(res);
 			} catch(Throwable t) {
+				log.error("error ...............................", t);
 				errors++;
 			}
 

@@ -147,3 +147,14 @@
 	-fx-padding: 8 8 8 8;
 }
 
+.favourite {    
+    -fx-opacity: 0.4;
+	-fx-padding: 4 4 4 4;
+	-fx-text-fill: #FFA500;
+    -fx-background-color: inherit;
+}
+
+.favourite:selected {
+    -fx-opacity: 1;
+} 
+

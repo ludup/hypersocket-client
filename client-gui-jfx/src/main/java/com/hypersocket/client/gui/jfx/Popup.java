@@ -23,7 +23,7 @@ public class Popup extends Stage {
 	private PopOver popOver;
 
 	public enum PositionType {
-		POSITIONED, DOCKED
+		POSITIONED, DOCKED, DOCKED_OPPOSITE
 	}
 
 	public Popup(Window parent, Scene scene) {
@@ -227,8 +227,11 @@ public class Popup extends Stage {
 				else
 					setX(position);
 				break;
+			case DOCKED_OPPOSITE:
+				setX(getOwner().getX());
+				break;
 			default:
-				setX(getOwner().getX() + getOwner().getWidth() - getWidth());
+				setX(getOwner().getX() + getOwner().getWidth()  - getWidth());
 			}
 		} else if (cfg.bottomProperty().get()) {
 			setY(getOwner().getY() - getHeight());
@@ -238,6 +241,9 @@ public class Popup extends Stage {
 					setX(getOwner().getWidth() - getWidth());
 				else
 					setX(position);
+				break;
+			case DOCKED_OPPOSITE:
+				setX(getOwner().getX());
 				break;
 			default:
 				setX(getOwner().getX() + getOwner().getWidth() - getWidth());
@@ -252,6 +258,9 @@ public class Popup extends Stage {
 				else
 					setY(position);
 				break;
+			case DOCKED_OPPOSITE:
+				setY(getOwner().getY() + getOwner().getHeight() - getHeight());
+				break;
 			default:
 				setY(getOwner().getY());
 			}
@@ -264,6 +273,9 @@ public class Popup extends Stage {
 					setY(getOwner().getHeight() - getHeight());
 				else
 					setY(position);
+				break;
+			case DOCKED_OPPOSITE:
+				setY(getOwner().getY() + getOwner().getHeight() - getHeight());
 				break;
 			default:
 				setY(getOwner().getY());

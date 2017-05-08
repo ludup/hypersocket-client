@@ -32,5 +32,9 @@ public interface Resource extends Launchable {
 	String getName();
 	
 	Calendar getModified();
+	
+	boolean getFavourite();
+	
+	void setFavourite(boolean favourite);
 
 }

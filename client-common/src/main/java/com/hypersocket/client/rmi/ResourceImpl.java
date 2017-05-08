@@ -21,6 +21,7 @@ public final class ResourceImpl implements Resource, Serializable {
 	Calendar modified;
 	String group;
 	String groupIcon;
+	boolean favourite;
 	
 	public ResourceImpl() {
 	}
@@ -145,6 +146,15 @@ public final class ResourceImpl implements Resource, Serializable {
 	public String getName() {
 		return name;
 	}
+	
+	@Override
+	public boolean getFavourite() {
+		return favourite;
+	}
+
+	public void setFavourite(boolean favourite) {
+		this.favourite = favourite;
+	}
 
 	@Override
 	public int hashCode() {
@@ -182,5 +192,4 @@ public final class ResourceImpl implements Resource, Serializable {
 				+ ", groupIcon=" + groupIcon + "]";
 	}
 
-	
 }
