@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.*?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import java.lang.*?>
+<?import javafx.scene.layout.*?>
+<?import org.controlsfx.control.textfield.*?>
+
+<StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.AddConnection">
+   <children>
+   		<VBox fx:id="root" alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="350.0" styleClass="windowContent">
+   			<children>
+   				<BorderPane fx:id="titleBp">
+                	<left>
+                		<HBox fx:id="titleHb" VBox.vgrow="ALWAYS">
+	                     <children>
+	                     	<Button fx:id="addConectionIcon" mnemonicParsing="false" styleClass="uiButton, iconButton" text="%connect.icon" />
+                    	 	<Label fx:id="nameLbl" styleClass="title, info-lg" text="%title" textOverrun="CLIP">
+                        	</Label>
+                        </children>
+                        <styleClass>
+      						<String fx:value="group" />
+   						</styleClass>
+   						<padding>
+                        	<Insets bottom="14.0" left="4.0" right="4.0" top="4.0" />
+                        </padding>
+                       </HBox>
+                    </left>
+                </BorderPane>
+   				<BorderPane fx:id="nameBp">
+                	<left>
+                    	 <Label fx:id="nameLbl" alignment="CENTER" styleClass="info-lg" text="%name" textOverrun="CLIP">
+                           <padding>
+                              <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
+                           </padding>
+                        </Label>
+                    </left>
+                    <right>
+                    	<CustomTextField fx:id="nameInput" BorderPane.alignment="CENTER" styleClass="element-padding" minWidth="250"/>
+                    </right>
+                </BorderPane>
+                <BorderPane fx:id="serverBp">
+                	<left>
+                    	 <Label fx:id="serverLbl" alignment="CENTER" styleClass="info-lg" text="%server" textOverrun="CLIP">
+                           <padding>
+                              <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
+                           </padding>
+                        </Label>
+                    </left>
+                    <right>
+                    	<CustomTextField fx:id="serverInput" BorderPane.alignment="CENTER" styleClass="element-padding" minWidth="250"/>
+                    </right>
+                </BorderPane>
+				<BorderPane fx:id="usernameBp">
+                	<left>
+                    	 <Label fx:id="usernameLbl" alignment="CENTER" styleClass="info-lg" text="%username" textOverrun="CLIP">
+                           <padding>
+                              <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
+                           </padding>
+                        </Label>
+                    </left>
+                    <right>
+                    	<CustomTextField fx:id="usernameInput" BorderPane.alignment="CENTER" styleClass="element-padding" minWidth="250"/>
+                    </right>
+                </BorderPane>
+                <BorderPane fx:id="passwordBp">
+                	<left>
+                    	 <Label fx:id="passwordLbl" alignment="CENTER" styleClass="info-lg" text="%password" textOverrun="CLIP">
+                           <padding>
+                              <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
+                           </padding>
+                        </Label>
+                    </left>
+                    <right>
+                    	<CustomPasswordField fx:id="passwordInput" BorderPane.alignment="CENTER" styleClass="element-padding" minWidth="250"/>
+                    </right>
+                </BorderPane>
+                <BorderPane fx:id="saveCredsBp">
+                    <right>
+                    	<HBox fx:id="saveCredsHb" VBox.vgrow="ALWAYS">
+	                     <children>
+	                     	<Label fx:id="saveCredsLbl" alignment="CENTER" styleClass="info-lg" text="%saveCred" textOverrun="CLIP">
+                           <padding>
+                              <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
+                           </padding>
+                        </Label>
+	                        <CheckBox fx:id="saveCredsCBox" mnemonicParsing="false" />
+	                     </children>
+	                     <padding>
+	                        <Insets bottom="8.0" left="8.0" right="0" top="8.0" />
+	                     </padding>
+	                  </HBox>
+                    </right>
+                </BorderPane>
+                <BorderPane fx:id="conOnstartBp">
+                    <right>
+                    	<HBox fx:id="conOnstartHb" VBox.vgrow="ALWAYS">
+	                     <children>
+	                     	<Label fx:id="conOnstartLbl" alignment="CENTER" styleClass="info-lg" text="%conOnstart" textOverrun="CLIP">
+                           <padding>
+                              <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
+                           </padding>
+                        </Label>
+	                        <CheckBox fx:id="conOnstartCBox" mnemonicParsing="false" />
+	                     </children>
+	                     <padding>
+	                        <Insets bottom="8.0" left="8.0" right="0" top="8.0" />
+	                     </padding>
+	                  </HBox>
+                    </right>
+                </BorderPane>   
+                <BorderPane fx:id="passwordBp">
+                    <right>
+                    	<HBox fx:id="passwordHb">
+	                     <children>
+	                     	<Button fx:id="cancel" mnemonicParsing="false" styleClass="element-padding1" text="%cancel">
+                           		
+                        	</Button>
+	                       	<Button fx:id="add" mnemonicParsing="false" styleClass="element-padding1" text="%add">
+                           		
+                        	</Button>
+	                     </children>
+	                     <padding>
+	                        <Insets bottom="8.0" left="8.0" right="5.0" top="8.0" />
+	                     </padding>
+	                     <spacing>
+	                        <Double fx:value="15" />
+	                     </spacing>
+	                  </HBox>
+                    </right>
+                </BorderPane>             
+   			</children>
+   		</VBox>	
+   </children>
+   <styleClass>
+      <String fx:value="shadowed" />
+      <String fx:value="background" />
+   </styleClass>
+</StackPane>

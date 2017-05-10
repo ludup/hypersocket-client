@@ -88,6 +88,11 @@
                   <Insets top="8.0" />
                </padding>
             </VBox>
+            <BorderPane fx:id="addConnectionUI" VBox.vgrow="SOMETIMES" >
+          		<right>
+                	<Button fx:id="addConnection" mnemonicParsing="false" onAction="#evtAddConnection" styleClass="uiButton" text="%addConnection" BorderPane.alignment="CENTER" />
+             	</right>
+          	</BorderPane>
          </children>
          <opaqueInsets>
             <Insets />

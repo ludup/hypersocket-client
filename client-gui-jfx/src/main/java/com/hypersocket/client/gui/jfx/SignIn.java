@@ -1,5 +1,6 @@
 package com.hypersocket.client.gui.jfx;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import com.hypersocket.client.Option;
 import com.hypersocket.client.Prompt;
 import com.hypersocket.client.gui.jfx.Bridge.Listener;
+import com.hypersocket.client.gui.jfx.Popup.PositionType;
 import com.hypersocket.client.rmi.BrowserLauncher;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionStatus;
@@ -60,6 +62,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 /**
@@ -105,7 +108,7 @@ public class SignIn extends AbstractController implements Listener {
 	private Label messageText;
 	@FXML
 	private Label messageIcon;
-
+	
 	private Connection foregroundConnection;
 	private Semaphore promptSemaphore = new Semaphore(1);
 	private boolean abortPrompt;
@@ -119,6 +122,8 @@ public class SignIn extends AbstractController implements Listener {
 	private List<Connection> waitingForUpdatesOrResources = new ArrayList<>();
 	private boolean adjusting;
 	private boolean deleteOnDisconnect;
+	private Popup addConnectionPopUp;
+	private AddConnection addConnectionContent;
 
 	/*
 	 * Class methods
@@ -1171,5 +1176,21 @@ public class SignIn extends AbstractController implements Listener {
 	@FXML
 	private void evtHideTooltipPopover(MouseEvent evt) {
 		hidePopOver();
+	}
+	
+	@FXML
+	private void evtAddConnection(ActionEvent evt) throws IOException {
+		Window parent = Dock.getInstance().getScene().getWindow();
+		if (addConnectionPopUp == null) {
+			addConnectionContent = (AddConnection) context.openScene(AddConnection.class);
+			addConnectionPopUp = new Popup(parent, addConnectionContent.getScene(), false, PositionType.CENTER);
+			
+			addConnectionContent.setPopup(popup);
+		}
+		
+		/*if (context.getBridge().isConnected() && !context.getBridge().isServiceUpdating()) {
+			addConnectionContent.setResources(icons);
+		}*/
+		addConnectionPopUp.popup();
 	}
 }

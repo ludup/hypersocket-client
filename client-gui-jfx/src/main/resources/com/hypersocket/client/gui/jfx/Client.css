@@ -55,6 +55,11 @@
 	-fx-font-size: 10;
 }
 
+.info-lg {
+	-fx-font-weight: bold;
+	-fx-font-size: 12;
+}
+
 .small {
 	-fx-font-size: 9;
 }
@@ -157,4 +162,9 @@
 .favourite:selected {
     -fx-opacity: 1;
 } 
+
+.element-padding {
+	-fx-padding: 8px;
+    -fx-background-insets: 5px;
+}
 

@@ -11,19 +11,21 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.util.Duration;
+import javafx.geometry.Rectangle2D;
+import javafx.stage.Screen;
 
 import org.controlsfx.control.PopOver;
 
 public class Popup extends Stage {
 
 	private boolean sizeObtained;
-	private double position;
+	private double position = 100.0;
 	private PositionType positionType;
 	private boolean dismiss;
 	private PopOver popOver;
 
 	public enum PositionType {
-		POSITIONED, DOCKED, DOCKED_OPPOSITE
+		POSITIONED, DOCKED, DOCKED_OPPOSITE, CENTER
 	}
 
 	public Popup(Window parent, Scene scene) {
@@ -230,6 +232,9 @@ public class Popup extends Stage {
 			case DOCKED_OPPOSITE:
 				setX(getOwner().getX());
 				break;
+			case CENTER:
+				sizeToSceneCenter();
+				break;
 			default:
 				setX(getOwner().getX() + getOwner().getWidth()  - getWidth());
 			}
@@ -244,6 +249,9 @@ public class Popup extends Stage {
 				break;
 			case DOCKED_OPPOSITE:
 				setX(getOwner().getX());
+				break;
+			case CENTER:
+				sizeToSceneCenter();
 				break;
 			default:
 				setX(getOwner().getX() + getOwner().getWidth() - getWidth());
@@ -261,6 +269,9 @@ public class Popup extends Stage {
 			case DOCKED_OPPOSITE:
 				setY(getOwner().getY() + getOwner().getHeight() - getHeight());
 				break;
+			case CENTER:
+				sizeToSceneCenter();
+				break;
 			default:
 				setY(getOwner().getY());
 			}
@@ -277,6 +288,9 @@ public class Popup extends Stage {
 			case DOCKED_OPPOSITE:
 				setY(getOwner().getY() + getOwner().getHeight() - getHeight());
 				break;
+			case CENTER:
+				sizeToSceneCenter();
+				break;
 			default:
 				setY(getOwner().getY());
 			}
@@ -289,5 +303,16 @@ public class Popup extends Stage {
 
 	protected boolean isChildFocussed() {
 		return false;
+	}
+	
+	protected void sizeToSceneCenter() {
+		Rectangle2D screenBounds = Screen.getPrimary().getVisualBounds();
+		
+		double height = Double.isNaN(this.getHeight()) ? 0 : this.getHeight();
+		double width = Double.isNaN(this.getWidth()) ? 0 : this.getWidth();
+		
+		setX((screenBounds.getWidth() - width) / 2); 
+		//100, adding a kind of padding, exact center makes user focus a lot, with 100 padding looks nice and easy to focus. 
+		setY(((screenBounds.getHeight() - height) / 2) - 100);  
 	}
 }
