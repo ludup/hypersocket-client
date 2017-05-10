@@ -549,41 +549,10 @@ public class SignIn extends AbstractController implements Listener {
 
 			// If no connection for this URI was found, it is new, so add it
 			try {
+				URI uriObj = Util.getURI(uriString);
+				
 				Connection newConnection = context.getBridge()
-						.getConnectionService().createNew();
-
-				String realUri = uriString;
-				if (!realUri.startsWith("https://")) {
-					if (realUri.indexOf("://") != -1) {
-						throw new IllegalArgumentException(
-								"Only HTTPS is supported.");
-					}
-					realUri = "https://" + realUri;
-				}
-				URI uri = new URI(realUri);
-				if (!uri.getScheme().equals("https")) {
-					throw new IllegalArgumentException(
-							"Only HTTPS is supported.");
-				}
-
-				log.info(String.format("Created new connection for %s",
-						uri.toString()));
-
-				newConnection.setHostname(uri.getHost());
-				newConnection.setPort(uri.getPort() <= 0 ? 443 : uri.getPort());
-				newConnection.setConnectAtStartup(false);
-				String path = uri.getPath();
-				if (path.equals("") || path.equals("/")) {
-					path = "/hypersocket";
-				} else if (path.indexOf('/', 1) > -1) {
-					path = path.substring(0, path.indexOf('/', 1));
-				}
-				newConnection.setPath(path);
-
-				// Prompt for authentication
-				newConnection.setUsername("");
-				newConnection.setPassword("");
-				newConnection.setRealm("");
+						.getConnectionService().createNew(uriObj);
 
 				selectedConnection = foregroundConnection = newConnection;
 
@@ -1183,7 +1152,13 @@ public class SignIn extends AbstractController implements Listener {
 		Window parent = Dock.getInstance().getScene().getWindow();
 		if (addConnectionPopUp == null) {
 			addConnectionContent = (AddConnection) context.openScene(AddConnection.class);
-			addConnectionPopUp = new Popup(parent, addConnectionContent.getScene(), false, PositionType.CENTER);
+			addConnectionPopUp = new Popup(parent, addConnectionContent.getScene(), false, PositionType.CENTER) {
+				@Override
+				public void popup() {
+					addConnectionContent.onInitialize();
+					super.popup();
+				}
+			};
 			
 			addConnectionContent.setPopup(popup);
 		}

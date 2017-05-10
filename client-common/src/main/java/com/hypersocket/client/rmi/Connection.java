@@ -43,5 +43,9 @@ public interface Connection {
 	public String getHostname();
 
 	Long getId();
+	
+	String getName();
+	
+	void setName(String name);
 
 }

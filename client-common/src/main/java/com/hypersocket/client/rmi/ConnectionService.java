@@ -1,5 +1,6 @@
 package com.hypersocket.client.rmi;
 
+import java.net.URI;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
@@ -7,6 +8,8 @@ import java.util.List;
 public interface ConnectionService extends Remote {
 
 	public Connection createNew() throws RemoteException;
+	
+	public Connection createNew(URI uri) throws RemoteException;
 	
 	public Connection save(Connection connection) throws RemoteException;
 	
@@ -17,6 +20,8 @@ public interface ConnectionService extends Remote {
 	public Connection getConnection(Long id) throws RemoteException;
 
 	Connection getConnection(String server) throws RemoteException;
+	
+	Connection getConnectionByName(String name) throws RemoteException;
 
 	Boolean hasEncryptedPassword(Connection connection) throws RemoteException;
 

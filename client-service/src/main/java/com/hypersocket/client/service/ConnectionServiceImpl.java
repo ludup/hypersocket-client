@@ -1,5 +1,6 @@
 package com.hypersocket.client.service;
 
+import java.net.URI;
 import java.rmi.RemoteException;
 import java.util.List;
 
@@ -29,6 +30,37 @@ public class ConnectionServiceImpl implements ConnectionService {
 	@Override
 	public Connection createNew() {
 		return new ConnectionImpl();
+	}
+	
+	@Override
+	public Connection createNew(URI uriObj) {
+		Connection newConnection =  new ConnectionImpl();
+		
+		if (!uriObj.getScheme().equals("https")) {
+			throw new IllegalArgumentException(
+					"Only HTTPS is supported.");
+		}
+
+		log.info(String.format("Created new connection for %s",
+				uriObj.toString()));
+
+		newConnection.setHostname(uriObj.getHost());
+		newConnection.setPort(uriObj.getPort() <= 0 ? 443 : uriObj.getPort());
+		newConnection.setConnectAtStartup(false);
+		String path = uriObj.getPath();
+		if (path.equals("") || path.equals("/")) {
+			path = "/hypersocket";
+		} else if (path.indexOf('/', 1) > -1) {
+			path = path.substring(0, path.indexOf('/', 1));
+		}
+		newConnection.setPath(path);
+
+		// Prompt for authentication
+		newConnection.setUsername("");
+		newConnection.setPassword("");
+		newConnection.setRealm("");
+		
+		return newConnection;
 	}
 
 	@Override
@@ -113,6 +145,16 @@ public class ConnectionServiceImpl implements ConnectionService {
 		
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		crit.add(Restrictions.eq("hostname", hostname));
+		return (Connection) crit.uniqueResult();
+		
+	}
+	
+	
+	@Override
+	public Connection getConnectionByName(String name) throws RemoteException {
+		
+		Criteria crit = session.createCriteria(ConnectionImpl.class);
+		crit.add(Restrictions.eq("name", name));
 		return (Connection) crit.uniqueResult();
 		
 	}

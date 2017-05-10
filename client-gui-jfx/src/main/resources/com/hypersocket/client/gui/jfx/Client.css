@@ -163,8 +163,6 @@
     -fx-opacity: 1;
 } 
 
-.element-padding {
-	-fx-padding: 8px;
-    -fx-background-insets: 5px;
+.italics {
+	-fx-font-style: italic;
 }
-
