@@ -8,14 +8,23 @@
 
 <StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" styleClass="shadowed" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.SignIn">
    <children>
-      <VBox fx:id="root" alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="260.0" styleClass="windowContent">
+      <VBox fx:id="root" alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="300.0" styleClass="windowContent">
          <children>
             <Label text="%serverURL">
                <padding>
                   <Insets bottom="8.0" />
                </padding>
             </Label>
-            <HBox alignment="CENTER_LEFT" spacing="4.0" VBox.vgrow="ALWAYS">
+            <ScrollPane prefHeight="175.0">
+              <content>
+                <AnchorPane minHeight="175.0" minWidth="0.0" >
+                     <children>
+            			<VBox fx:id="connections" />
+            		 </children>
+                  </AnchorPane>
+              </content>
+            </ScrollPane>
+            <!-- <HBox alignment="CENTER_LEFT" spacing="4.0" VBox.vgrow="ALWAYS">
                <children>
                   <ComboBox fx:id="serverUrls" editable="true" maxWidth="1.7976931348623157E308" onAction="#evtServerUrlSelected" promptText="%urlPrompt" styleClass="input" HBox.hgrow="SOMETIMES" />
                   <Button fx:id="connect" maxHeight="1.7976931348623157E308" mnemonicParsing="false" onAction="#evtConnect" onMouseEntered="#evtShowTooltipPopover" onMouseExited="#evtHideTooltipPopover" text="%connect.icon" textOverrun="CLIP" HBox.hgrow="NEVER">
@@ -37,7 +46,7 @@
                      </styleClass>
                   </Button>
                </children>
-            </HBox>
+            </HBox> -->
             <VBox fx:id="container" maxHeight="999.0" VBox.vgrow="ALWAYS">
                <children>
                   <VBox fx:id="optionsUI" fillWidth="false" scaleShape="false">
@@ -88,11 +97,11 @@
                   <Insets top="8.0" />
                </padding>
             </VBox>
-            <!-- <BorderPane fx:id="addConnectionUI" VBox.vgrow="SOMETIMES" >
+            <BorderPane fx:id="addConnectionUI" VBox.vgrow="SOMETIMES" >
           		<right>
                 	<Button fx:id="addConnection" mnemonicParsing="false" onAction="#evtAddConnection" styleClass="uiButton" text="%addConnection" BorderPane.alignment="CENTER" />
              	</right>
-          	</BorderPane> -->
+          	</BorderPane>
          </children>
          <opaqueInsets>
             <Insets />

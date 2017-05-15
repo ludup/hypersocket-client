@@ -538,10 +538,7 @@ public class Dock extends AbstractController implements Listener {
 			}
 		}
 		
-		SsoResources.getInstance().clearList();
-		BrowserResources.getInstance().clearList();
-		NetworkResources.getInstance().clearList();
-		FileResources.getInstance().clearList();
+		DockOnEventDo.refreshResourcesFavouriteLists();
 	}
 
 	@Override
@@ -1335,6 +1332,23 @@ public class Dock extends AbstractController implements Listener {
 			}
 		} catch (RemoteException e) {
 			throw new IllegalStateException(e.getMessage(), e);
+		}
+	}
+	
+	public static class DockOnEventDo {
+		
+		/**
+		 * We need null check at times this code might be called when favourite lists are not initialized.
+		 */
+		public static void refreshResourcesFavouriteLists() {
+			if(SsoResources.getInstance() != null)
+				SsoResources.getInstance().clearList();
+			if(BrowserResources.getInstance() != null)
+				BrowserResources.getInstance().clearList();
+			if(NetworkResources.getInstance() != null)
+				NetworkResources.getInstance().clearList();
+			if(FileResources.getInstance() != null)
+				FileResources.getInstance().clearList();
 		}
 	}
 

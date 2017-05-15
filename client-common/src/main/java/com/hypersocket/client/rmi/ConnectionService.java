@@ -11,6 +11,8 @@ public interface ConnectionService extends Remote {
 	
 	public Connection createNew(URI uri) throws RemoteException;
 	
+	public void update(URI uri, Connection connection) throws RemoteException;
+	
 	public Connection save(Connection connection) throws RemoteException;
 	
 	public List<Connection> getConnections() throws RemoteException;
@@ -22,6 +24,8 @@ public interface ConnectionService extends Remote {
 	Connection getConnection(String server) throws RemoteException;
 	
 	Connection getConnectionByName(String name) throws RemoteException;
+	
+	Connection getConnectionByNameWhereIdIsNot(String name, Long conId) throws RemoteException;
 
 	Boolean hasEncryptedPassword(Connection connection) throws RemoteException;
 

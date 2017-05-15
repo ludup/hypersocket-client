@@ -35,33 +35,15 @@ public class ConnectionServiceImpl implements ConnectionService {
 	@Override
 	public Connection createNew(URI uriObj) {
 		Connection newConnection =  new ConnectionImpl();
-		
-		if (!uriObj.getScheme().equals("https")) {
-			throw new IllegalArgumentException(
-					"Only HTTPS is supported.");
-		}
-
-		log.info(String.format("Created new connection for %s",
-				uriObj.toString()));
-
-		newConnection.setHostname(uriObj.getHost());
-		newConnection.setPort(uriObj.getPort() <= 0 ? 443 : uriObj.getPort());
-		newConnection.setConnectAtStartup(false);
-		String path = uriObj.getPath();
-		if (path.equals("") || path.equals("/")) {
-			path = "/hypersocket";
-		} else if (path.indexOf('/', 1) > -1) {
-			path = path.substring(0, path.indexOf('/', 1));
-		}
-		newConnection.setPath(path);
-
-		// Prompt for authentication
-		newConnection.setUsername("");
-		newConnection.setPassword("");
-		newConnection.setRealm("");
-		
+		prepareConnectionWithURI(uriObj, newConnection);
 		return newConnection;
 	}
+	
+	@Override
+	public void update(URI uriObj, Connection connection) throws RemoteException {
+		prepareConnectionWithURI(uriObj, connection);
+	}
+	
 
 	@Override
 	public Connection save(Connection connection) {
@@ -165,6 +147,41 @@ public class ConnectionServiceImpl implements ConnectionService {
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		crit.add(Restrictions.eq("id", id));
 		return (Connection) crit.uniqueResult();
+		
+	}
+
+	@Override
+	public Connection getConnectionByNameWhereIdIsNot(String name, Long conId) throws RemoteException {
+		Criteria crit = session.createCriteria(ConnectionImpl.class);
+		crit.add(Restrictions.eq("name", name));
+		crit.add(Restrictions.not(Restrictions.idEq(conId)));
+		return (Connection) crit.uniqueResult();
+	}
+	
+	private void prepareConnectionWithURI(URI uriObj, Connection connection) {
+		if (!uriObj.getScheme().equals("https")) {
+			throw new IllegalArgumentException(
+					"Only HTTPS is supported.");
+		}
+
+		log.info(String.format("Created new connection for %s",
+				uriObj.toString()));
+
+		connection.setHostname(uriObj.getHost());
+		connection.setPort(uriObj.getPort() <= 0 ? 443 : uriObj.getPort());
+		connection.setConnectAtStartup(false);
+		String path = uriObj.getPath();
+		if (path.equals("") || path.equals("/")) {
+			path = "/hypersocket";
+		} else if (path.indexOf('/', 1) > -1) {
+			path = path.substring(0, path.indexOf('/', 1));
+		}
+		connection.setPath(path);
+
+		// Prompt for authentication
+		connection.setUsername(connection.getUsername());
+		connection.setPassword(connection.getEncryptedPassword());
+		connection.setRealm(connection.getRealm());
 		
 	}
 
