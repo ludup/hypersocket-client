@@ -6,6 +6,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -197,6 +198,7 @@ public class Dock extends AbstractController implements Listener {
 	private int appsToUpdate;
 	private Update updateScene;
 	private ResourceGroup resourceGroup;
+	private Set<Long> toggleResourcesForConnection = new HashSet<>();
 
 	public Dock() {
 		instance = this;
@@ -469,6 +471,7 @@ public class Dock extends AbstractController implements Listener {
 
 	@Override
 	public void updateResource(ResourceUpdateType type, Resource resource) {
+		System.out.println("We got a notification of type ---------------------- " + type.toString());
 		switch (type) {
 		case CREATE: {
 				rebuildResourceIcon(resource.getRealm(), resource);
@@ -500,7 +503,7 @@ public class Dock extends AbstractController implements Listener {
 				break;
 			}
 		case DELETE: {
-				ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getIcon());
+				ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
 				ResourceGroupList list = icons.get(key);
 				if (list != null) {
 					ResourceItem rit = list.getItemForResource(resource);
@@ -804,6 +807,16 @@ public class Dock extends AbstractController implements Listener {
 		}
 		return null;
 	}
+	
+	public void toggleHideResources(Long connectionId) {
+		toggleResourcesForConnection.add(connectionId);
+		rebuildIcons();
+	}
+	
+	public void toggleShowResources(Long connectionId) {
+		toggleResourcesForConnection.remove(connectionId);
+		rebuildIcons();
+	}
 
 	void rebuildIcons() {
 
@@ -848,7 +861,7 @@ public class Dock extends AbstractController implements Listener {
 
 			List<ResourceGroupList> groupsAdded = new ArrayList<ResourceGroupList>();
 			for (ResourceItem item : ig.getValue().getItems()) {
-				if(!item.getResource().getFavourite()) {
+				if(!item.getResource().getFavourite() || toggleResourcesForConnection.contains(item.getResource().getConnectionId())) {
 					continue;
 				}
 				ResourceGroupKey gk = new ResourceGroupKey(item.getResource().getType(), item.getResource().getGroup());

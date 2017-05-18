@@ -36,5 +36,9 @@ public interface Resource extends Launchable {
 	boolean getFavourite();
 	
 	void setFavourite(boolean favourite);
+	
+	Long getConnectionId();
+	
+	void setConnectionId(Long connectionId);
 
 }

@@ -1,6 +1,7 @@
 package com.hypersocket.client.service;
 
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.rmi.RemoteException;
 import java.util.Locale;
 import java.util.TimerTask;
@@ -13,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hypersocket.HypersocketVersion;
 import com.hypersocket.Version;
+import com.hypersocket.client.CredentialCache;
+import com.hypersocket.client.CredentialCache.Credential;
 import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.client.HypersocketClientAdapter;
 import com.hypersocket.client.HypersocketClientListener;
@@ -101,22 +104,16 @@ public class ConnectionJob extends TimerTask {
 			log.info("Awaiting authentication for " + url);
 			if (StringUtils.isBlank(connection.getUsername())
 					|| !connectionService.hasEncryptedPassword(connection)) {
-				client.login();
-
-			} else {
-				try {
-					client.loginHttp(connection.getRealm(),
-							connection.getUsername(),
-							new String(connectionService.getDecryptedPassword(connection)), true);
-				} catch (IOException ioe) {
-					if(log.isInfoEnabled()) {
-						log.info(String.format("%s error during login", client.getHost()), ioe);
-					}
-					client.disconnect(true);
-					client.connect(connection.getHostname(),
-							connection.getPort(), connection.getPath(), locale);
+				//check if we have anything in credential cache
+				Credential credential = CredentialCache.getInstance().getCredentials(connection.getHostname());
+				if(credential != null) {
+					attemptLoginToServer(client, connection, credential.getUsername(), credential.getPassword());
+				} else {
 					client.login();
 				}
+
+			} else {
+				attemptLoginToServer(client, connection, connection.getUsername(),new String(connectionService.getDecryptedPassword(connection)));
 			}
 			log.info("Received authentication for " + url);
 
@@ -197,6 +194,23 @@ public class ConnectionJob extends TimerTask {
 			}
 		} 
 
+	}
+
+	private void attemptLoginToServer(ServiceClient client, Connection connection, String username, String password)
+			throws IOException, UnknownHostException, UserCancelledException {
+		try {
+			client.loginHttp(connection.getRealm(),
+					username,
+					password, true);
+		} catch (IOException ioe) {
+			if(log.isInfoEnabled()) {
+				log.info(String.format("%s error during login", client.getHost()), ioe);
+			}
+			client.disconnect(true);
+			client.connect(connection.getHostname(),
+					connection.getPort(), connection.getPath(), locale);
+			client.login();
+		}
 	}
 
 	private void updateInfo(ServiceClient client,

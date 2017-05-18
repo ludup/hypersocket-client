@@ -22,6 +22,7 @@ public final class ResourceImpl implements Resource, Serializable {
 	String group;
 	String groupIcon;
 	boolean favourite;
+	Long connectionId;
 	
 	public ResourceImpl() {
 	}
@@ -154,6 +155,16 @@ public final class ResourceImpl implements Resource, Serializable {
 
 	public void setFavourite(boolean favourite) {
 		this.favourite = favourite;
+	}
+	
+	@Override
+	public Long getConnectionId() {
+		return this.connectionId;
+	}
+
+	@Override
+	public void setConnectionId(Long connectionId) {
+		this.connectionId = connectionId;
 	}
 
 	@Override

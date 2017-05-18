@@ -1,6 +1,8 @@
 package com.hypersocket.client.gui.jfx;
 
 import java.net.URI;
+import java.rmi.RemoteException;
+import java.util.function.Predicate;
 
 import org.apache.commons.lang3.StringUtils;
 import org.controlsfx.control.decoration.Decorator;
@@ -10,18 +12,20 @@ import org.controlsfx.control.textfield.CustomTextField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.client.CredentialCache;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.ConnectionStatus;
 import com.hypersocket.client.rmi.GUICallback;
+import com.hypersocket.client.rmi.Util;
 
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
@@ -86,7 +90,7 @@ public class AddConnection extends AbstractController {
 		usernameInput.setText(currentConnection.getUsername());
 		passwordInput.setText(currentConnection.getEncryptedPassword());
 		conOnstartCBox.setSelected(currentConnection.isConnectAtStartup());
-		saveCredsCBox.setSelected(currentConnection.getId() != null);
+		saveCredsCBox.setSelected(false);
 		edit.setVisible(true);
 		add.setVisible(false);
 	}
@@ -107,53 +111,60 @@ public class AddConnection extends AbstractController {
 			String username = usernameInput.getText();
 			String password = passwordInput.getText();
 			
-			if(StringUtils.isBlank(name) || StringUtils.isBlank(server) || StringUtils.isBlank(username) || StringUtils.isBlank(password)) {
-				//show error message 
-				messageLbl.setText(resources.getString("all.fields.required"));
-				if(Decorator.getDecorations(messageLbl) == null) {
-					Decorator.addDecoration(messageLbl,
-						new GraphicDecoration(createErrorImageNode()));
-				}
+			if(checkEmptyFields(name, server, username, password)) {
 				return;
 			}
 			
 			ConnectionService connectionService = context.getBridge().getConnectionService();
-			Connection connection = connectionService.getConnectionByName(name);
-			if(connection != null) {
-				//show error message 
-				messageLbl.setText(resources.getString("same.name"));
-				if(Decorator.getDecorations(messageLbl) == null) {
-					Decorator.addDecoration(messageLbl,
-						new GraphicDecoration(createErrorImageNode()));
+			
+			if(sameNameCheck(null, (conId) -> {
+				try {
+					return connectionService.getConnectionByName(name) != null;
+				} catch (RemoteException e) {
+					throw new IllegalStateException(e.getMessage(), e);
 				}
+			})) {
 				return;
 			}
 			
-			
 			URI uriObj = Util.getUri(server);
 			
-			connection = context.getBridge().getConnectionService().createNew(uriObj);
+			final Connection connection = context.getBridge().getConnectionService().createNew(uriObj);
+			
+			if(sameHostPortPathCheck(null, (conId) -> {
+				try {
+					return connectionService.getConnectionByHostPortAndPath(connection.getHostname(), connection.getPort(), connection.getPath()) != null;
+				} catch (RemoteException e) {
+					throw new IllegalStateException(e.getMessage(), e);
+				}
+			})) {
+				return;
+			}
 			
 			connection.setName(name);
-			connection.setUsername(username);
-			connection.setPassword(password);
+			
 			
 			connection.setConnectAtStartup(conOnstartCBox.isSelected());
 			
 			if(saveCredsCBox.isSelected()) {
-				connectionService.save(connection);
-			}
+				connection.setUsername(username);
+				connection.setPassword(password);
+			} 
+			
+			context.getBridge().getConnectionService().saveCredentials(connection.getHostname(), username, password);
+			
+			Connection connectionSaved = connectionService.save(connection);
 			
 			closePopUp();
 			
-			SignIn.getInstance().addConnection(connection, false);	
-		}catch (Exception e) {
+			SignIn.getInstance().addConnection(connectionSaved, false);	
+		}catch (Exception e) {e.printStackTrace();
 			Dock.getInstance().notify(resources.getString("connection.add.failure"), GUICallback.NOTIFY_ERROR);
 			log.error("Problem in adding connection.", e);
 		}
 		
 	}
-	
+
 	@FXML
 	private void evtEdit(ActionEvent evt) {
 		try{
@@ -162,54 +173,59 @@ public class AddConnection extends AbstractController {
 			String username = usernameInput.getText();
 			String password = passwordInput.getText();
 			
-			if(StringUtils.isBlank(name) || StringUtils.isBlank(server) || StringUtils.isBlank(username) || StringUtils.isBlank(password)) {
-				//show error message 
-				messageLbl.setText(resources.getString("all.fields.required"));
-				if(Decorator.getDecorations(messageLbl) == null) {
-					Decorator.addDecoration(messageLbl,
-						new GraphicDecoration(createErrorImageNode()));
-				}
+			if(checkEmptyFields(name, server, username, password)) {
 				return;
 			}
 			
 			ConnectionService connectionService = context.getBridge().getConnectionService();
-			Connection connection = connectionService.getConnectionByNameWhereIdIsNot(name, currentConnection.getId());
-			if(connection != null) {
-				//show error message 
-				messageLbl.setText(resources.getString("same.name"));
-				if(Decorator.getDecorations(messageLbl) == null) {
-					Decorator.addDecoration(messageLbl,
-						new GraphicDecoration(createErrorImageNode()));
+			if(sameNameCheck(currentConnection.getId(), (conId) -> {
+				try {
+					return connectionService.getConnectionByNameWhereIdIsNot(name, currentConnection.getId()) != null;
+				} catch (RemoteException e) {
+					throw new IllegalStateException(e.getMessage(), e);
 				}
+			})) {
+				return;
+			}
+					
+			URI uriObj = Util.getUri(server);
+			
+			Connection connection = context.getBridge().getConnectionService().getConnection(currentConnection.getId());
+			context.getBridge().getConnectionService().update(uriObj, connection);
+			
+			if(sameHostPortPathCheck(currentConnection.getId(), (conId) -> {
+				try {
+					return connectionService.getConnectionByHostPortAndPathWhereIdIsNot(connection.getHostname(), connection.getPort(),
+							connection.getPath(), conId) != null;
+				} catch (RemoteException e) {
+					throw new IllegalStateException(e.getMessage(), e);
+				}
+			})) {
 				return;
 			}
 			
-			
-			URI uriObj = Util.getUri(server);
-			
-			connection = context.getBridge().getConnectionService().getConnection(currentConnection.getId());
-			context.getBridge().getConnectionService().update(uriObj, connection);
-			
 			connection.setName(name);
-			connection.setUsername(username);
-			connection.setPassword(password);
-			
 			connection.setConnectAtStartup(conOnstartCBox.isSelected());
 			
 			if(saveCredsCBox.isSelected()) {
-				connectionService.save(connection);
+				connection.setUsername(username);
+				connection.setPassword(password);
 			}
 			
-			int status = context.getBridge().getClientService().getStatus(connection);
+			context.getBridge().getConnectionService().saveCredentials(connection.getHostname(), username, password);
+			
+			Connection connectionSaved = connectionService.save(connection);
+			
+			int status = context.getBridge().getClientService().getStatus(connectionSaved);
 			if(ConnectionStatus.CONNECTED == status) {
-				context.getBridge().getClientService().disconnect(connection);
-				context.getBridge().getClientService().connect(connection);
-				SignIn.getInstance().connectionSelected(connection);
+				context.getBridge().getClientService().disconnect(connectionSaved);
+				context.getBridge().getClientService().connect(connectionSaved);
+				SignIn.getInstance().connectionSelected(connectionSaved);
 			}
 			
 			closePopUp();
 			
-			SignIn.getInstance().updateConnectionInList(connection);
+			SignIn.getInstance().updateConnectionInList(connectionSaved);
 			
 		}catch (Exception e) {
 			Dock.getInstance().notify(resources.getString("connection.add.failure"), GUICallback.NOTIFY_ERROR);
@@ -240,5 +256,41 @@ public class AddConnection extends AbstractController {
 		imageView.scaleYProperty().set(0.5);
 		return imageView;
 	}
+	
+	private boolean checkEmptyFields(String name, String server, String username, String password) {
+		if(StringUtils.isBlank(name) || StringUtils.isBlank(server) || StringUtils.isBlank(username) || StringUtils.isBlank(password)) {
+			//show error message 
+			messageLbl.setText(resources.getString("all.fields.required"));
+			checkDecoration();
+			return true;
+		}
+		return false;
+	}
 
+	private boolean sameNameCheck(Long conId, Predicate<Long> predicate) {
+		if(predicate.test(conId)) {
+			//show error message 
+			messageLbl.setText(resources.getString("same.name"));
+			checkDecoration();
+			return true;
+		}
+		return false;
+	}
+	
+	private boolean sameHostPortPathCheck(Long conId, Predicate<Long> predicate) {
+		if(predicate.test(conId)) {
+			//show error message 
+			messageLbl.setText(resources.getString("same.server"));
+			checkDecoration();
+			return true;
+		}
+		return false;
+	}
+
+	private void checkDecoration() {
+		if(Decorator.getDecorations(messageLbl) == null) {
+			Decorator.addDecoration(messageLbl,
+				new GraphicDecoration(createErrorImageNode()));
+		}
+	}
 }

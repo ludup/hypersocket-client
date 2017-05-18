@@ -16,6 +16,10 @@ public class CredentialCache {
 		return cache.get(host);
 	}
 	
+	public void removeCredentials(String host) {
+		cache.remove(host);
+	}
+	
 	public void saveCredentials(String host, String username, String password) {
 		
 		Credential c = new Credential();

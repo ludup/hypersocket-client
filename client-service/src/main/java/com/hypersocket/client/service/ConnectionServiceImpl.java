@@ -12,16 +12,19 @@ import org.hibernate.criterion.Restrictions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.client.CredentialCache;
+import com.hypersocket.client.CredentialCache.Credential;
 import com.hypersocket.client.db.HibernateSessionFactory;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionImpl;
 import com.hypersocket.client.rmi.ConnectionService;
+import com.hypersocket.client.rmi.Util;
 import com.hypersocket.encrypt.RsaEncryptionProvider;
 
 public class ConnectionServiceImpl implements ConnectionService {
 
 	static Logger log = LoggerFactory.getLogger(ClientServiceImpl.class);
-
+	
 	Session session;
 	public ConnectionServiceImpl() {
 		session = HibernateSessionFactory.getFactory().openSession();
@@ -35,13 +38,17 @@ public class ConnectionServiceImpl implements ConnectionService {
 	@Override
 	public Connection createNew(URI uriObj) {
 		Connection newConnection =  new ConnectionImpl();
-		prepareConnectionWithURI(uriObj, newConnection);
+		Util.prepareConnectionWithURI(uriObj, newConnection);
 		return newConnection;
 	}
 	
 	@Override
 	public void update(URI uriObj, Connection connection) throws RemoteException {
-		prepareConnectionWithURI(uriObj, connection);
+		Util.prepareConnectionWithURI(uriObj, connection);
+		// Prompt for authentication
+		connection.setUsername(connection.getUsername());
+		connection.setPassword(connection.getEncryptedPassword());
+		connection.setRealm(connection.getRealm());
 	}
 	
 
@@ -123,22 +130,20 @@ public class ConnectionServiceImpl implements ConnectionService {
 	}
 
 	@Override
-	public Connection getConnection(String hostname) throws RemoteException {
+	public Connection getConnection(final String hostname) throws RemoteException {
 		
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		crit.add(Restrictions.eq("hostname", hostname));
 		return (Connection) crit.uniqueResult();
-		
 	}
 	
 	
 	@Override
-	public Connection getConnectionByName(String name) throws RemoteException {
+	public Connection getConnectionByName(final String name) throws RemoteException {
 		
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		crit.add(Restrictions.eq("name", name));
 		return (Connection) crit.uniqueResult();
-		
 	}
 	
 	@Override
@@ -147,7 +152,6 @@ public class ConnectionServiceImpl implements ConnectionService {
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		crit.add(Restrictions.eq("id", id));
 		return (Connection) crit.uniqueResult();
-		
 	}
 
 	@Override
@@ -157,32 +161,40 @@ public class ConnectionServiceImpl implements ConnectionService {
 		crit.add(Restrictions.not(Restrictions.idEq(conId)));
 		return (Connection) crit.uniqueResult();
 	}
-	
-	private void prepareConnectionWithURI(URI uriObj, Connection connection) {
-		if (!uriObj.getScheme().equals("https")) {
-			throw new IllegalArgumentException(
-					"Only HTTPS is supported.");
-		}
 
-		log.info(String.format("Created new connection for %s",
-				uriObj.toString()));
+	@Override
+	public Connection getConnectionByHostPortAndPath(String host, int port, String path) throws RemoteException {
+		Criteria crit = session.createCriteria(ConnectionImpl.class);
+		crit.add(Restrictions.eq("hostname", host));
+		crit.add(Restrictions.eq("port", port));
+		crit.add(Restrictions.eq("path", path));
+		return (Connection) crit.uniqueResult();
+	}
 
-		connection.setHostname(uriObj.getHost());
-		connection.setPort(uriObj.getPort() <= 0 ? 443 : uriObj.getPort());
-		connection.setConnectAtStartup(false);
-		String path = uriObj.getPath();
-		if (path.equals("") || path.equals("/")) {
-			path = "/hypersocket";
-		} else if (path.indexOf('/', 1) > -1) {
-			path = path.substring(0, path.indexOf('/', 1));
-		}
-		connection.setPath(path);
+	@Override
+	public Connection getConnectionByHostPortAndPathWhereIdIsNot(String host, int port, String path, Long conId)
+			throws RemoteException {
+		Criteria crit = session.createCriteria(ConnectionImpl.class);
+		crit.add(Restrictions.eq("hostname", host));
+		crit.add(Restrictions.eq("port", port));
+		crit.add(Restrictions.eq("path", path));
+		crit.add(Restrictions.not(Restrictions.idEq(conId)));
+		return (Connection) crit.uniqueResult();
+	}
 
-		// Prompt for authentication
-		connection.setUsername(connection.getUsername());
-		connection.setPassword(connection.getEncryptedPassword());
-		connection.setRealm(connection.getRealm());
-		
+	@Override
+	public Credential getCredentials(String host) {
+		return CredentialCache.getInstance().getCredentials(host);
+	}
+
+	@Override
+	public void removeCredentials(String host) {
+		CredentialCache.getInstance().removeCredentials(host);
+	}
+
+	@Override
+	public void saveCredentials(String host, String username, String password) {
+		CredentialCache.getInstance().saveCredentials(host, username, password);
 	}
 
 }

@@ -8,7 +8,7 @@
 
 <StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" styleClass="shadowed" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.SignIn">
    <children>
-      <VBox fx:id="root" alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="300.0" styleClass="windowContent">
+      <VBox fx:id="root" alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="340.0" styleClass="windowContent">
          <children>
             <Label text="%serverURL">
                <padding>
@@ -49,6 +49,7 @@
             </HBox> -->
             <VBox fx:id="container" maxHeight="999.0" VBox.vgrow="ALWAYS">
                <children>
+               <!--
                   <VBox fx:id="optionsUI" fillWidth="false" scaleShape="false">
                      <children>
                         <CheckBox fx:id="saveConnection" alignment="CENTER_RIGHT" mnemonicParsing="false" onAction="#evtSaveConnection" styleClass="info" text="%saveConnection" VBox.vgrow="NEVER">
@@ -68,6 +69,7 @@
                         </CheckBox>
                      </children>
                   </VBox>
+                  -->
                   <HBox fx:id="progressUI" alignment="CENTER" maxHeight="999.0" styleClass="progressUI" VBox.vgrow="ALWAYS">
                      <children>
                         <ProgressIndicator fx:id="spinner" HBox.hgrow="NEVER" />
@@ -77,9 +79,11 @@
                      </padding>
                   </HBox>
                   <BorderPane fx:id="promptUI" VBox.vgrow="NEVER">
+                  <!--
                      <center>
                         <CheckBox fx:id="saveCredentials" mnemonicParsing="false" onAction="#evtSaveCredentials" styleClass="info" text="%saveCredentials" BorderPane.alignment="CENTER_RIGHT" />
                      </center>
+                  -->   
                      <left>
                         <Button fx:id="login" mnemonicParsing="false" onAction="#evtLogin" styleClass="uiButton" text="%login" BorderPane.alignment="CENTER" />
                      </left>

@@ -120,6 +120,9 @@ public class ConnectionImpl implements Connection, Serializable {
 	
 	@Override
 	public String getEncryptedPassword() {
+		if(encryptedPassword == null) {
+			return null;
+		}
 		return new String(encryptedPassword);
 	}
 	

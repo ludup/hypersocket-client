@@ -21,6 +21,7 @@ import org.controlsfx.control.textfield.CustomTextField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.client.CredentialCache;
 import com.hypersocket.client.Option;
 import com.hypersocket.client.Prompt;
 import com.hypersocket.client.gui.jfx.Bridge.Listener;
@@ -30,6 +31,7 @@ import com.hypersocket.client.rmi.BrowserLauncher;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionStatus;
 import com.hypersocket.client.rmi.GUICallback;
+import com.hypersocket.client.rmi.Util;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -40,6 +42,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
@@ -54,6 +57,7 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
@@ -83,25 +87,25 @@ public class SignIn extends AbstractController implements Listener {
 	}
 	
 	private enum ButtonNature {
-		CONNECT, EDIT, DISCONNECT, DELETE
+		CONNECT, EDIT, REVEAL, DISCONNECT, DELETE
 	}
 	
 	@FXML
 	private BorderPane credentialsUI;
 	@FXML
 	private BorderPane promptUI;
-	@FXML
-	private VBox optionsUI;
+	//@FXML
+	//private VBox optionsUI;
 	//@FXML
 	//private ComboBox<String> serverUrls;
-	@FXML
-	private CheckBox saveConnection;
-	@FXML
-	private CheckBox saveCredentials;
-	@FXML
-	private CheckBox stayConnected;
-	@FXML
-	private CheckBox connectOnStartup;
+	//@FXML
+	//private CheckBox saveConnection;
+	//@FXML
+	//private CheckBox saveCredentials;
+	//@FXML
+	//private CheckBox stayConnected;
+	//@FXML
+	//private CheckBox connectOnStartup;
 	@FXML
 	private Button login;
 	//@FXML
@@ -244,12 +248,12 @@ public class SignIn extends AbstractController implements Listener {
 				// setMessage(null, null);
 				setAvailable(connection);
 				if (e == null) {
-					if (saveCredentials.selectedProperty().get()) {
+					/*if (saveCredentials.selectedProperty().get()) {
 						/*
 						 * If we get here this implies save connection as well,
 						 * but we need to have collected the username and
 						 * password
-						 */
+						 *
 						if (promptedUsername != null
 								&& promptedPassword != null) {
 							try {
@@ -264,7 +268,7 @@ public class SignIn extends AbstractController implements Listener {
 						} else {
 							log.warn("No username or password save as credentials. Does you scheme have both?");
 						}
-					}
+					}*/
 				} else {
 					abortPrompts(connection);
 					log.error("Failed to connect.", e);
@@ -482,13 +486,13 @@ public class SignIn extends AbstractController implements Listener {
 		//connect.managedProperty().bind(connect.visibleProperty());
 		//delete.managedProperty().bind(delete.visibleProperty());
 
-		optionsUI.managedProperty().bind(optionsUI.visibleProperty());
+		//optionsUI.managedProperty().bind(optionsUI.visibleProperty());
 		promptUI.managedProperty().bind(promptUI.visibleProperty());
 		progressUI.managedProperty().bind(progressUI.visibleProperty());
-		saveConnection.managedProperty().bind(saveConnection.visibleProperty());
-		stayConnected.managedProperty().bind(stayConnected.visibleProperty());
-		connectOnStartup.managedProperty().bind(
-				connectOnStartup.visibleProperty());
+		//saveConnection.managedProperty().bind(saveConnection.visibleProperty());
+		//stayConnected.managedProperty().bind(stayConnected.visibleProperty());
+		/*connectOnStartup.managedProperty().bind(
+				connectOnStartup.visibleProperty());*/
 
 		/*serverUrls.getEditor().textProperty()
 				.addListener(new ChangeListener<String>() {
@@ -660,7 +664,7 @@ public class SignIn extends AbstractController implements Listener {
 		promptValues.clear();
 	}
 
-	@FXML
+	/*@FXML
 	private void evtSaveConnection(ActionEvent evt) throws Exception {
 		Connection sel = getConnectionFromButton((Button) evt.getSource());
 		if (sel != null
@@ -674,7 +678,7 @@ public class SignIn extends AbstractController implements Listener {
 				setAvailable(sel);
 			}
 		}
-	}
+	}*/
 
 	private void saveConnection(Connection sel) throws RemoteException {
 		foregroundConnection = context.getBridge().getClientService().save(sel);
@@ -812,6 +816,7 @@ public class SignIn extends AbstractController implements Listener {
 	private void doDelete(Connection sel) throws RemoteException {
 		log.info(String.format("Deleting connection %s", sel));
 		context.getBridge().getConnectionService().delete(sel);
+		context.getBridge().getConnectionService().removeCredentials(sel.getHostname());
 		String uri = Util.getUri(sel);
 		adjusting = true;
 		try {
@@ -870,14 +875,14 @@ public class SignIn extends AbstractController implements Listener {
 
 	private void populateUserDetails(Connection connection) {
 		
-		saveConnection.setSelected(connection != null
+		/*saveConnection.setSelected(connection != null
 				&& connection.getId() != null);
 		saveCredentials.setSelected(connection != null
-				&& !StringUtils.isBlank(connection.getUsername()));
-		connectOnStartup.setSelected(connection != null
-				&& connection.isConnectAtStartup());
-		stayConnected.setSelected(connection != null
-				&& connection.isStayConnected());
+				&& !StringUtils.isBlank(connection.getUsername()));*/
+		/*connectOnStartup.setSelected(connection != null
+				&& connection.isConnectAtStartup());*/
+		/*stayConnected.setSelected(connection != null
+				&& connection.isStayConnected());*/
 	}
 
 	private void setUserDetails(Connection connection) {
@@ -970,7 +975,7 @@ public class SignIn extends AbstractController implements Listener {
 						if(savedConnectionsIdCache.contains(connection.getId())) {
 							continue;
 						}
-						savedConnectionsIdCache.add(connection.getId());
+						System.out.println("Adding new connection " + connection);
 						addConnection(connection, selectedId.equals(connection.getId()));
 					}
 					boolean busy = (!waitingForUpdatesOrResources.isEmpty()
@@ -993,31 +998,37 @@ public class SignIn extends AbstractController implements Listener {
 						Button disConnect = getButton(ButtonNature.DISCONNECT, conId);
 						Button delete = getButton(ButtonNature.DELETE, conId);
 						Button edit = getButton(ButtonNature.EDIT, conId);
+						ToggleButton reveal = getToggleButton(ButtonNature.REVEAL, conId); 
+						
 						
 						delete.setVisible(sel != null && !selectionConnected
 								&& sel.getId() != null);
 						delete.setDisable(!disconnecting.isEmpty() || busy);
 						
+						edit.setVisible(sel != null && !selectionConnected
+								&& sel.getId() != null);
 						edit.setDisable(!connecting.isEmpty() || !disconnecting.isEmpty() || busy);
+						
+						reveal.setDisable(!connecting.isEmpty() || !disconnecting.isEmpty() || busy);
 						
 						connect.setVisible(!selectionConnected);
 						connect.setDisable(busy);
 						disConnect.setVisible(selectionConnected
-								&& (sel.getId() == null || !saveCredentials
-										.selectedProperty().get()));
+								&& (sel.getId() == null /*|| !saveCredentials
+										.selectedProperty().get()*/));
 						disConnect.setVisible(selectionConnected);
 					}
 					
-					optionsUI.setVisible(disconnecting.isEmpty()
-							&& (promptsAvailable || selectionConnected));
+					/*optionsUI.setVisible(disconnecting.isEmpty()
+							&& (promptsAvailable || selectionConnected));*/
 					promptUI.setVisible(disconnecting.isEmpty()
 							&& promptsAvailable);
 					progressUI.setVisible(busy);
 					/*serverUrls.editorProperty().get().setDisable(busy);
 					serverUrls.setDisable(busy);*/
-					saveConnection.setVisible(selectionConnected);
-					stayConnected.setVisible(selectionConnected);
-					connectOnStartup.setVisible(selectionConnected);
+					/*saveConnection.setVisible(selectionConnected);
+					stayConnected.setVisible(selectionConnected);*/
+					/*connectOnStartup.setVisible(selectionConnected);*/
 					/*delete.setVisible(sel != null && !selectionConnected
 							&& sel.getId() != null);
 					delete.setDisable(!disconnecting.isEmpty() || busy);
@@ -1029,30 +1040,30 @@ public class SignIn extends AbstractController implements Listener {
 					disconnect.setVisible(selectionConnected);
 					serverUrls.setDisable(false);*/
 					login.setDisable(selectionConnected);
-					saveCredentials.setDisable(selectionConnected);
+					/*saveCredentials.setDisable(selectionConnected);
 					saveConnection.setDisable(!selectionConnected);
 					stayConnected.setDisable(!saveCredentials
 							.selectedProperty().get()
 							|| !saveCredentials.selectedProperty().get());
 					connectOnStartup.setDisable(!saveCredentials
 							.selectedProperty().get()
-							|| !saveCredentials.selectedProperty().get());
+							|| !saveCredentials.selectedProperty().get());*/
 
 				} else {
 					/*serverUrls.editorProperty().get().setDisable(false);
 					serverUrls.setDisable(false);*/
 					progressUI.setVisible(false);
 					promptUI.setVisible(false);
-					optionsUI.setVisible(false);
-					stayConnected.setVisible(false);
-					connectOnStartup.setVisible(false);
+					/*optionsUI.setVisible(false);*/
+					/*stayConnected.setVisible(false);*/
+					/*connectOnStartup.setVisible(false);*/
 					/*delete.setVisible(false);
 					disconnect.setVisible(false);
 					serverUrls.setDisable(true);*/
 					login.setDisable(true);
-					saveCredentials.setDisable(false);
-					stayConnected.setDisable(false);
-					connectOnStartup.setDisable(false);
+					/*saveCredentials.setDisable(false);
+					stayConnected.setDisable(false);*/
+					/*connectOnStartup.setDisable(false);*/
 					/*connect.setVisible(true);
 					connect.setDisable(true);*/
 				}
@@ -1069,9 +1080,9 @@ public class SignIn extends AbstractController implements Listener {
 
 	private void rebuildContainer() {
 		container.getChildren().clear();
-		if (optionsUI.isVisible()) {
+		/*if (optionsUI.isVisible()) {
 			container.getChildren().add(optionsUI);
-		}
+		}*/
 		if (credentialsUI.isVisible()) {
 			container.getChildren().add(credentialsUI);
 		}
@@ -1096,7 +1107,7 @@ public class SignIn extends AbstractController implements Listener {
 	 * The following are all events from UI
 	 */
 
-	@FXML
+	/*@FXML
 	private void evtSaveCredentials(ActionEvent evt) throws Exception {
 		saveConnection.selectedProperty().set(true);
 		Connection connection = getConnectionFromButton((Button) evt.getSource());
@@ -1111,16 +1122,16 @@ public class SignIn extends AbstractController implements Listener {
 			saveConnection(c);
 		}
 
-	}
+	}*/
 
-	@FXML
+	/*@FXML
 	private void evtConnectOnStartup(ActionEvent evt) throws Exception {
 		Connection c = getConnectionFromButton((Button) evt.getSource());
 		if (c != null) {
 			c.setConnectAtStartup(connectOnStartup.selectedProperty().get());
 			saveConnection(c);
 		}
-	}
+	}*/
 
 	@SuppressWarnings("unchecked")
 	@FXML
@@ -1175,12 +1186,14 @@ public class SignIn extends AbstractController implements Listener {
 	
 	@FXML
 	private void evtAddConnection(ActionEvent evt) throws IOException {
-		addConnectionContent.setCurrentConnection(null);
 		setUpAddConnectionPopUp();
+		addConnectionContent.setCurrentConnection(null);
 		addConnectionPopUp.popup();
 	}
 	
 	public void addConnection(Connection connection, boolean isConnected) {
+		
+		savedConnectionsIdCache.add(connection.getId());
 
 		Long extractedConnectionId = getConnectionId(connection);
 		
@@ -1200,7 +1213,7 @@ public class SignIn extends AbstractController implements Listener {
 		connectionButtonBox.setSpacing(5);
 		connectionBorderPane.setRight(connectionButtonBox);
 		
-		Button connect = new Button();
+		final Button connect = new Button();
 		connect.setId(String.format("connect_%d", extractedConnectionId));
 		connect.getStyleClass().add("uiButton");
 		connect.getStyleClass().add("iconButton");
@@ -1212,8 +1225,10 @@ public class SignIn extends AbstractController implements Listener {
 			throw new IllegalStateException(e.getMessage(), e);
 		}});
 		connect.setVisible(false);
-		connect.setUserData(connection.getId());
+		connect.setUserData(extractedConnectionId);
 		connectionButtonBox.getChildren().add(connect);
+		adjustTooltip(connect.getTooltip(), connect, 100);
+		UIHelpers.hackTooltipStartTiming(connect.getTooltip());
 		
 		Button disConnect = new Button();
 		disConnect.setId(String.format("disConnect_%d", extractedConnectionId));
@@ -1227,8 +1242,9 @@ public class SignIn extends AbstractController implements Listener {
 			throw new IllegalStateException(e.getMessage(), e);
 		}});
 		disConnect.setVisible(false);
-		disConnect.setUserData(connection.getId());
+		disConnect.setUserData(extractedConnectionId);
 		connectionButtonBox.getChildren().add(disConnect);
+		adjustTooltip(disConnect.getTooltip(), disConnect, 100);
 		
 		if(isConnected) {
 			disConnect.setVisible(true);
@@ -1247,8 +1263,23 @@ public class SignIn extends AbstractController implements Listener {
 		} catch (Exception e) {
 			throw new IllegalStateException(e.getMessage(), e);
 		}});
-		edit.setUserData(connection.getId());
+		edit.setUserData(extractedConnectionId);
 		connectionButtonBox.getChildren().add(edit);
+		adjustTooltip(edit.getTooltip(), edit, 150);
+		
+		ToggleButton reveal = new ToggleButton();
+		reveal.setId(String.format("reveal_%d", extractedConnectionId));
+		reveal.getStyleClass().add("uiButton");
+		reveal.getStyleClass().add("iconButton");
+		reveal.setText(resources.getString("reveal.icon"));
+		reveal.setTooltip(new Tooltip(resources.getString("reveal.tooltip")));
+		reveal.setOnAction(evt -> {try {
+			evtReveal(evt);
+		} catch (Exception e) {
+			throw new IllegalStateException(e.getMessage(), e);
+		}});
+		reveal.setUserData(extractedConnectionId);
+		connectionButtonBox.getChildren().add(reveal);
 		
 		Button delete = new Button();
 		delete.setId(String.format("delete_%d", extractedConnectionId));
@@ -1261,7 +1292,7 @@ public class SignIn extends AbstractController implements Listener {
 		} catch (Exception e) {
 			throw new IllegalStateException(e.getMessage(), e);
 		}});
-		delete.setUserData(connection.getId());
+		delete.setUserData(extractedConnectionId);
 		connectionButtonBox.getChildren().add(delete);
 		
 		//adding empty element to fill space in center, else left and right sides get very close to each other
@@ -1278,6 +1309,8 @@ public class SignIn extends AbstractController implements Listener {
 		 */
 		disConnect.managedProperty().bind(disConnect.visibleProperty());
 		connect.managedProperty().bind(connect.visibleProperty());
+		edit.managedProperty().bind(edit.visibleProperty());
+		reveal.managedProperty().bind(reveal.visibleProperty());
 		delete.managedProperty().bind(delete.visibleProperty());
 		
 		connections.getChildren().add(connectionBorderPane);
@@ -1318,6 +1351,11 @@ public class SignIn extends AbstractController implements Listener {
 		return (Button) connections.lookup(tag);
 	}
 	
+	private ToggleButton getToggleButton(ButtonNature buttonType, Long id) {
+		String tag = String.format("#reveal_%d", id);
+		return (ToggleButton) connections.lookup(tag);
+	}
+	
 	private BorderPane getConnectionBorderPane(Long id) {
 		return (BorderPane) connections.lookup(String.format("#connection_border_pane_%d", id));
 	}
@@ -1347,7 +1385,10 @@ public class SignIn extends AbstractController implements Listener {
 	}
 	
 	private Long getConnectionId(Connection con) {
-		return con.getId() == null ? con.hashCode() : con.getId();
+		if(con.getId() == null) {
+			throw new IllegalStateException("con id cannot be null");
+		}
+		return con.getId();
 	}
 	
 	private void evtConnect(ActionEvent evt) throws Exception {
@@ -1362,6 +1403,23 @@ public class SignIn extends AbstractController implements Listener {
 		Connection sel = getConnectionFromButton((Button) evt.getSource());
 		if (sel != null && sel.getId() != null) {
 			confirmDelete(sel);
+		}
+	}
+	
+	private void evtReveal(ActionEvent evt) throws Exception {
+		ToggleButton toggleButton = (ToggleButton) evt.getSource();
+		Long connectionId = (Long) toggleButton.getUserData();
+		if(connectionId == null) {
+			throw new IllegalStateException("Could not find connection id from button.");
+		}
+		
+		boolean hide = toggleButton.isSelected();
+		if(hide) {
+			toggleButton.setText(resources.getString("reveal.hide.icon"));
+			Dock.getInstance().toggleHideResources(connectionId);
+		} else {
+			toggleButton.setText(resources.getString("reveal.icon"));
+			Dock.getInstance().toggleShowResources(connectionId);
 		}
 	}
 
@@ -1397,5 +1455,14 @@ public class SignIn extends AbstractController implements Listener {
 			
 			addConnectionContent.setPopup(popup);
 		}
+	}
+	
+	private void adjustTooltip(final Tooltip tooltip, final Node node, final int adjustX) {
+		tooltip.setOnShowing(s->{
+		    //Get node current bounds on computer screen
+		    Bounds bounds = node.localToScreen(node.getBoundsInLocal());
+		    tooltip.setX(bounds.getMaxX() - adjustX);
+
+		});
 	}
 }

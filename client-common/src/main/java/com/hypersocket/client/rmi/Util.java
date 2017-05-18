@@ -1,4 +1,4 @@
-package com.hypersocket.client.gui.jfx;
+package com.hypersocket.client.rmi;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -28,5 +28,23 @@ public class Util {
 		}
 		uri += connection.getPath();
 		return uri;
+	}
+	
+	public static void prepareConnectionWithURI(URI uriObj, Connection connection) {
+		if (!uriObj.getScheme().equals("https")) {
+			throw new IllegalArgumentException(
+					"Only HTTPS is supported.");
+		}
+
+		connection.setHostname(uriObj.getHost());
+		connection.setPort(uriObj.getPort() <= 0 ? 443 : uriObj.getPort());
+		connection.setConnectAtStartup(false);
+		String path = uriObj.getPath();
+		if (path.equals("") || path.equals("/")) {
+			path = "/hypersocket";
+		} else if (path.indexOf('/', 1) > -1) {
+			path = path.substring(0, path.indexOf('/', 1));
+		}
+		connection.setPath(path);
 	}
 }

@@ -77,6 +77,7 @@ public class BrowserResourcesPlugin extends AbstractServicePlugin {
 				res.setLaunchable(true);
 				res.setIcon(resource.getLogo());
 				res.setModified(resource.getModifiedDate());
+				res.setConnectionId(serviceClient.getAttachment().getId());
 	
 				if (resource.getType() != null
 						&& (resource.getType().equals("BrowserSSOPlugin")

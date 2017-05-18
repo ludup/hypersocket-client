@@ -125,7 +125,7 @@
 	                     <children>
 	                     	<Button fx:id="cancel" mnemonicParsing="false" onAction="#evtCancel" text="%cancel" />
 	                       	<Button fx:id="add" mnemonicParsing="false" onAction="#evtAdd" text="%add" />
-	                       	<Button fx:id="edit" mnemonicParsing="false" onAction="#evtEdit" text="%edit" />
+	                       	<Button fx:id="edit" mnemonicParsing="false" onAction="#evtEdit" text="%update" />
 	                     </children>
 	                     <padding>
 	                        <Insets bottom="8.0" left="8.0" right="5.0" top="8.0" />
