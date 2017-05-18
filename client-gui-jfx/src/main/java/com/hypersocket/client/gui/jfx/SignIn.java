@@ -21,7 +21,6 @@ import org.controlsfx.control.textfield.CustomTextField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.client.CredentialCache;
 import com.hypersocket.client.Option;
 import com.hypersocket.client.Prompt;
 import com.hypersocket.client.gui.jfx.Bridge.Listener;
@@ -33,11 +32,7 @@ import com.hypersocket.client.rmi.ConnectionStatus;
 import com.hypersocket.client.rmi.GUICallback;
 import com.hypersocket.client.rmi.Util;
 
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -56,8 +51,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
@@ -66,7 +61,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.stage.Window;
-import javafx.util.Duration;
 
 /**
  * Controller for the "Sign In" window, where connections are managed and
@@ -94,26 +88,8 @@ public class SignIn extends AbstractController implements Listener {
 	private BorderPane credentialsUI;
 	@FXML
 	private BorderPane promptUI;
-	//@FXML
-	//private VBox optionsUI;
-	//@FXML
-	//private ComboBox<String> serverUrls;
-	//@FXML
-	//private CheckBox saveConnection;
-	//@FXML
-	//private CheckBox saveCredentials;
-	//@FXML
-	//private CheckBox stayConnected;
-	//@FXML
-	//private CheckBox connectOnStartup;
 	@FXML
 	private Button login;
-	//@FXML
-	//private Button connect;
-	//@FXML
-	//private Button disconnect;
-	//@FXML
-	//private Button delete;
 	@FXML
 	private ProgressIndicator spinner;
 	@FXML
@@ -176,17 +152,6 @@ public class SignIn extends AbstractController implements Listener {
 				foregroundConnection = null;
 			}
 			
-			/*if(node != null && sel != null) {
-				Button button = (Button) node;
-				node.setVisible(false);
-				System.out.println("The button is " + button.getId());
-				Node parent = node.getParent();
-				System.out.println("The parent ....." + parent);
-				Node nodeC = parent.lookup("#disConnect_" + sel.getId());
-				System.out.println("The disconnect is " + nodeC);
-				nodeC.setVisible(true);
-			}*/
-			
 			if (deleteOnDisconnect) {
 				try {
 					doDelete(connection);
@@ -247,29 +212,7 @@ public class SignIn extends AbstractController implements Listener {
 
 				// setMessage(null, null);
 				setAvailable(connection);
-				if (e == null) {
-					/*if (saveCredentials.selectedProperty().get()) {
-						/*
-						 * If we get here this implies save connection as well,
-						 * but we need to have collected the username and
-						 * password
-						 *
-						if (promptedUsername != null
-								&& promptedPassword != null) {
-							try {
-								connection.setUsername(promptedUsername);
-								connection.setPassword(new String(
-										promptedPassword));
-
-								saveConnection(connection);
-							} catch (Exception ex) {
-								log.error("Failed to save credentials.", ex);
-							}
-						} else {
-							log.warn("No username or password save as credentials. Does you scheme have both?");
-						}
-					}*/
-				} else {
+				if (e != null) {
 					abortPrompts(connection);
 					log.error("Failed to connect.", e);
 					Dock.getInstance().notify(e.getMessage(),
@@ -475,84 +418,13 @@ public class SignIn extends AbstractController implements Listener {
 		super.onConfigure();
 		initUi(null);
 
-		/*
-		 * This is DUMB, but i can't see another way. It stops invisible
-		 * components being considered for layout (and so taking up space. You'd
-		 * think this might be part of JavaFX, but no ...
-		 * 
-		 * http://stackoverflow.com/questions/12200195/javafx-hbox-hide-item
-		 */
-		//disconnect.managedProperty().bind(disconnect.visibleProperty());
-		//connect.managedProperty().bind(connect.visibleProperty());
-		//delete.managedProperty().bind(delete.visibleProperty());
-
-		//optionsUI.managedProperty().bind(optionsUI.visibleProperty());
+		
 		promptUI.managedProperty().bind(promptUI.visibleProperty());
 		progressUI.managedProperty().bind(progressUI.visibleProperty());
-		//saveConnection.managedProperty().bind(saveConnection.visibleProperty());
-		//stayConnected.managedProperty().bind(stayConnected.visibleProperty());
-		/*connectOnStartup.managedProperty().bind(
-				connectOnStartup.visibleProperty());*/
 
-		/*serverUrls.getEditor().textProperty()
-				.addListener(new ChangeListener<String>() {
-					@Override
-					public void changed(
-							ObservableValue<? extends String> observable,
-							String oldValue, String newValue) {
-						if (newValue.equals("")
-								&& serverUrls.getEditor().isFocused()) {
-							showUrlPopOver();
-						}
-					}
-				});*/
-
-		/*serverUrls.getEditor().focusedProperty()
-				.addListener(new ChangeListener<Boolean>() {
-
-					@Override
-					public void changed(
-							ObservableValue<? extends Boolean> observable,
-							Boolean oldValue, Boolean newValue) {
-						if (newValue
-								&& (popOver == null || !popOver.isShowing())) {
-							showUrlPopOver();
-						}
-					}
-				});*/
-
-	}
-
-	protected void onSetPopup(Popup popup) {
-
-		popup.showingProperty().addListener(new ChangeListener<Boolean>() {
-			@Override
-			public void changed(ObservableValue<? extends Boolean> observable,
-					Boolean oldValue, Boolean newValue) {
-				/*
-				 * TODO HACK - Wait 500ms before showing the popover, I can't
-				 * find a better way. Using showingProperty() of the popup()
-				 * just makes the popover disappear
-				 */
-				if (newValue) {
-					Timeline timeline = new Timeline(new KeyFrame(Duration
-							.millis(500), ae -> showUrlPopOver()));
-					timeline.play();
-				}
-			}
-		});
 	}
 
 	// Private methods
-
-	private void showUrlPopOver() {
-		/**
-		 * Crashing Still!!!!
-		 */
-		/*if (!serverUrls.isDisabled()
-				&& serverUrls.getEditor().getText().trim().equals(""))
-			showPopOver(resources.getString("serverURL.tooltip"), serverUrls);*/
-	}
 
 	private void focusNextPrompt(Control c) {
 		
@@ -575,59 +447,32 @@ public class SignIn extends AbstractController implements Listener {
 	public void connectionSelected(Connection selectedConnection) {
 		hidePopOver();
 		abortPrompts(selectedConnection);
-		//Decorator.removeAllDecorations(serverUrls.getEditor());
-		//Connection selectedConnection = getChosenConnection();
-		//String uriString = serverUrls.getEditor().getText();
-		//log.info(String.format("Selected URI is %s", uriString));
+		// A connection with the URI already exists, is it our foreground
+		// connection?
 
-		/*if (selectedConnection == null) {
-			log.info("No connection for the selection, creating one");
+		log.info(String.format("Selected connection exists for %s (%s:%d)",
+				selectedConnection.getHostname(), selectedConnection.getHostname(),
+				selectedConnection.getPort()));
 
-			// If no connection for this URI was found, it is new, so add it
+		if (selectedConnection.equals(foregroundConnection)) {
 			try {
-				URI uriObj = Util.getURI(selectedConnection.getHostname());
-				
-				Connection newConnection = context.getBridge()
-						.getConnectionService().createNew(uriObj);
+				if (context.getBridge().getClientService()
+						.isConnected(foregroundConnection)) {
 
-				selectedConnection = foregroundConnection = newConnection;
+					// Already connected, don't do anything
 
-			} catch (URISyntaxException urise) {
-				Dock.getInstance().notify(
-						resources.getString("error.invalidUri"),
-						GUICallback.NOTIFY_ERROR);
-			} catch (Exception e) {
-				log.error("Failed to create new connection.", e);
-				return;
-			}
-		} else*/ {
-			// A connection with the URI already exists, is it our foreground
-			// connection?
-
-			log.info(String.format("Selected connection exists for %s (%s:%d)",
-					selectedConnection.getHostname(), selectedConnection.getHostname(),
-					selectedConnection.getPort()));
-
-			if (selectedConnection.equals(foregroundConnection)) {
-				try {
-					if (context.getBridge().getClientService()
-							.isConnected(foregroundConnection)) {
-
-						// Already connected, don't do anything
-
-						foregroundConnection = selectedConnection;
-						log.info("Already connected, won't try to connect.");
-						return;
-					}
-				} catch (Exception e) {
-					log.warn("Failed to test if already connected.", e);
+					foregroundConnection = selectedConnection;
+					log.info("Already connected, won't try to connect.");
+					return;
 				}
-			} else {
-
-				// The foreground connection is this new connection
-
-				foregroundConnection = selectedConnection;
+			} catch (Exception e) {
+				log.warn("Failed to test if already connected.", e);
 			}
+		} else {
+
+			// The foreground connection is this new connection
+
+			foregroundConnection = selectedConnection;
 		}
 
 		setUserDetails(selectedConnection);
@@ -664,22 +509,6 @@ public class SignIn extends AbstractController implements Listener {
 		promptValues.clear();
 	}
 
-	/*@FXML
-	private void evtSaveConnection(ActionEvent evt) throws Exception {
-		Connection sel = getConnectionFromButton((Button) evt.getSource());
-		if (sel != null
-				&& context.getBridge().getClientService().isConnected(sel)) {
-			if (saveConnection.isSelected() && sel.getId() == null) {
-				saveConnection(sel);
-			} else if (!saveConnection.isSelected() && sel.getId() != null) {
-				if (!confirmDelete(sel)) {
-					saveConnection.setSelected(true);
-				}
-				setAvailable(sel);
-			}
-		}
-	}*/
-
 	private void saveConnection(Connection sel) throws RemoteException {
 		foregroundConnection = context.getBridge().getClientService().save(sel);
 		log.info("Connection saved");
@@ -689,11 +518,8 @@ public class SignIn extends AbstractController implements Listener {
 	private void initUi(Connection connection) {
 		adjusting = true;
 		try {
-			//Decorator.removeAllDecorations(serverUrls.getEditor());
 			log.info("Rebuilding URIs");
-			//String previousUri = serverUrls.getValue();
 
-			//serverUrls.itemsProperty().getValue().clear();
 			Connection selectedConnection = null;
 			String selectedUri = "";
 			ObservableList<String> serverUrlsList = FXCollections
@@ -743,11 +569,6 @@ public class SignIn extends AbstractController implements Listener {
 			if (selectedUri != null && selectedConnection == null
 					&& !serverUrlsList.isEmpty()) {
 				// Finally fall back to the first Uri in the list
-				/*if (previousUri != null && previousUri.length() == 0
-						&& serverUrlsList.contains(previousUri)) {
-					selectedUri = previousUri;
-					selectedConnection = getConnectionForUri(selectedUri);
-				}*/
 				if (selectedConnection == null || selectedUri == null) {
 					selectedUri = serverUrlsList.get(0);
 					selectedConnection = getConnectionForUri(selectedUri);
@@ -756,14 +577,9 @@ public class SignIn extends AbstractController implements Listener {
 
 			// Select initial URI
 			log.info("Selecting " + selectedUri);
-			/*serverUrls.itemsProperty().setValue(serverUrlsList);
-			serverUrls.setValue(selectedUri);
 
-			serverUrls.getEditor().getStyleClass().add("uiText");
-*/
 			// Adjust available actions etc
 			log.info("Rebuilt URIs");
-			populateUserDetails(connection == null ? selectedConnection : connection);
 			setAvailable(connection == null ? selectedConnection : connection);
 		} finally {
 			adjusting = false;
@@ -835,23 +651,6 @@ public class SignIn extends AbstractController implements Listener {
 			throw new IllegalStateException("Already disconnecting " + sel);
 		}
 		disconnecting.add(sel);
-		if (sel.getId() == null) {
-			adjusting = true;
-
-			try {
-				log.info("Disconnected temporary connection, clearing");
-				/*
-				 * If this is a temporary connection being deleted, clear it
-				 * from the URL list too and maybe the URL editor
-				 */
-				/*if (sel.equals(getChosenConnection())) {
-					serverUrls.getEditor().setText("");
-				}
-				serverUrls.itemsProperty().get().remove(getUri(sel));*/
-			} finally {
-				adjusting = false;
-			}
-		}
 
 		setAvailable(sel);
 		new Thread() {
@@ -873,21 +672,7 @@ public class SignIn extends AbstractController implements Listener {
 		}
 	}
 
-	private void populateUserDetails(Connection connection) {
-		
-		/*saveConnection.setSelected(connection != null
-				&& connection.getId() != null);
-		saveCredentials.setSelected(connection != null
-				&& !StringUtils.isBlank(connection.getUsername()));*/
-		/*connectOnStartup.setSelected(connection != null
-				&& connection.isConnectAtStartup());*/
-		/*stayConnected.setSelected(connection != null
-				&& connection.isStayConnected());*/
-	}
-
 	private void setUserDetails(Connection connection) {
-
-		populateUserDetails(connection);
 
 		// These will be collected during prompts and maybe saved
 		promptedUsername = null;
@@ -935,16 +720,6 @@ public class SignIn extends AbstractController implements Listener {
 					+ connection);
 		}
 	}
-
-	/*private Connection getChosenConnection() {
-		String uri = null;//serverUrls.getEditor().getText();
-		return currentConnection;
-	}
-
-	private Connection getSelectedConnection() {
-		//String uri = null;//serverUrls.getValue();
-		return currentConnection;
-	}*/
 
 	private Connection getConnectionForUri(String uri) {
 		if (context.getBridge().isConnected()) {
@@ -1014,58 +789,19 @@ public class SignIn extends AbstractController implements Listener {
 						connect.setVisible(!selectionConnected);
 						connect.setDisable(busy);
 						disConnect.setVisible(selectionConnected
-								&& (sel.getId() == null /*|| !saveCredentials
-										.selectedProperty().get()*/));
+								&& (sel.getId() == null ));
 						disConnect.setVisible(selectionConnected);
 					}
 					
-					/*optionsUI.setVisible(disconnecting.isEmpty()
-							&& (promptsAvailable || selectionConnected));*/
 					promptUI.setVisible(disconnecting.isEmpty()
 							&& promptsAvailable);
 					progressUI.setVisible(busy);
-					/*serverUrls.editorProperty().get().setDisable(busy);
-					serverUrls.setDisable(busy);*/
-					/*saveConnection.setVisible(selectionConnected);
-					stayConnected.setVisible(selectionConnected);*/
-					/*connectOnStartup.setVisible(selectionConnected);*/
-					/*delete.setVisible(sel != null && !selectionConnected
-							&& sel.getId() != null);
-					delete.setDisable(!disconnecting.isEmpty() || busy);
-					connect.setVisible(!selectionConnected);
-					connect.setDisable(busy);
-					disconnect.setVisible(selectionConnected
-							&& (sel.getId() == null || !saveCredentials
-									.selectedProperty().get()));
-					disconnect.setVisible(selectionConnected);
-					serverUrls.setDisable(false);*/
 					login.setDisable(selectionConnected);
-					/*saveCredentials.setDisable(selectionConnected);
-					saveConnection.setDisable(!selectionConnected);
-					stayConnected.setDisable(!saveCredentials
-							.selectedProperty().get()
-							|| !saveCredentials.selectedProperty().get());
-					connectOnStartup.setDisable(!saveCredentials
-							.selectedProperty().get()
-							|| !saveCredentials.selectedProperty().get());*/
 
 				} else {
-					/*serverUrls.editorProperty().get().setDisable(false);
-					serverUrls.setDisable(false);*/
 					progressUI.setVisible(false);
 					promptUI.setVisible(false);
-					/*optionsUI.setVisible(false);*/
-					/*stayConnected.setVisible(false);*/
-					/*connectOnStartup.setVisible(false);*/
-					/*delete.setVisible(false);
-					disconnect.setVisible(false);
-					serverUrls.setDisable(true);*/
 					login.setDisable(true);
-					/*saveCredentials.setDisable(false);
-					stayConnected.setDisable(false);*/
-					/*connectOnStartup.setDisable(false);*/
-					/*connect.setVisible(true);
-					connect.setDisable(true);*/
 				}
 				rebuildContainer();
 				sizeAndPosition();
@@ -1080,9 +816,6 @@ public class SignIn extends AbstractController implements Listener {
 
 	private void rebuildContainer() {
 		container.getChildren().clear();
-		/*if (optionsUI.isVisible()) {
-			container.getChildren().add(optionsUI);
-		}*/
 		if (credentialsUI.isVisible()) {
 			container.getChildren().add(credentialsUI);
 		}
@@ -1106,32 +839,6 @@ public class SignIn extends AbstractController implements Listener {
 	/*
 	 * The following are all events from UI
 	 */
-
-	/*@FXML
-	private void evtSaveCredentials(ActionEvent evt) throws Exception {
-		saveConnection.selectedProperty().set(true);
-		Connection connection = getConnectionFromButton((Button) evt.getSource());
-		setAvailable(connection);
-	}
-
-	@FXML
-	private void evtStayConnected(ActionEvent evt) throws Exception {
-		Connection c = getConnectionFromButton((Button) evt.getSource());
-		if (c != null) {
-			c.setStayConnected(stayConnected.selectedProperty().get());
-			saveConnection(c);
-		}
-
-	}*/
-
-	/*@FXML
-	private void evtConnectOnStartup(ActionEvent evt) throws Exception {
-		Connection c = getConnectionFromButton((Button) evt.getSource());
-		if (c != null) {
-			c.setConnectAtStartup(connectOnStartup.selectedProperty().get());
-			saveConnection(c);
-		}
-	}*/
 
 	@SuppressWarnings("unchecked")
 	@FXML
@@ -1166,17 +873,6 @@ public class SignIn extends AbstractController implements Listener {
 		} catch (Exception e) {
 			log.error("Failed to login.", e);
 		}
-	}
-
-	@FXML
-	private void evtShowTooltipPopover(MouseEvent evt) {
-		/*if (evt.getSource() == connect) {
-			showPopOver(resources.getString("connect.tooltip"), connect);
-		} else if (evt.getSource() == disconnect) {
-			showPopOver(resources.getString("disconnect.tooltip"), disconnect);
-		} else if (evt.getSource() == delete) {
-			showPopOver(resources.getString("delete.tooltip"), delete);
-		}*/
 	}
 
 	@FXML

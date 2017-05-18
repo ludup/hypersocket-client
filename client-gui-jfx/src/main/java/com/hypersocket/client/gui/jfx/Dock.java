@@ -471,7 +471,6 @@ public class Dock extends AbstractController implements Listener {
 
 	@Override
 	public void updateResource(ResourceUpdateType type, Resource resource) {
-		System.out.println("We got a notification of type ---------------------- " + type.toString());
 		switch (type) {
 		case CREATE: {
 				rebuildResourceIcon(resource.getRealm(), resource);
@@ -542,6 +541,7 @@ public class Dock extends AbstractController implements Listener {
 		}
 		
 		DockOnEventDo.refreshResourcesFavouriteLists();
+		showHideResourcesButtonForResourceTypes();
 	}
 
 	@Override
@@ -582,6 +582,23 @@ public class Dock extends AbstractController implements Listener {
 		AnchorPane.setLeftAnchor(flinger, 0d);
 		AnchorPane.setRightAnchor(flinger, 0d);
 
+		networkResources.setVisible(false);
+		ssoResources.setVisible(false);
+		browserResources.setVisible(false);
+		fileResources.setVisible(false);
+		
+		/*
+		 * This is DUMB, but i can't see another way. It stops invisible
+		 * components being considered for layout (and so taking up space. You'd
+		 * think this might be part of JavaFX, but no ...
+		 * 
+		 * http://stackoverflow.com/questions/12200195/javafx-hbox-hide-item
+		 */
+		networkResources.managedProperty().bind(networkResources.visibleProperty());
+		ssoResources.managedProperty().bind(ssoResources.visibleProperty());
+		browserResources.managedProperty().bind(browserResources.visibleProperty());
+		fileResources.managedProperty().bind(fileResources.visibleProperty());
+		
 		networkResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("network.toolTip")));
 		ssoResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("sso.toolTip")));
 		browserResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("web.toolTip")));
@@ -709,6 +726,7 @@ public class Dock extends AbstractController implements Listener {
 		log.info("Rebuilding all launchers");
 		rebuildResources();
 		markFavouritesInIcons();
+		showHideResourcesButtonForResourceTypes();
 		Platform.runLater(new Runnable() {
 			@Override
 			public void run() {
@@ -724,6 +742,26 @@ public class Dock extends AbstractController implements Listener {
 				}
 			}
 		});
+	}
+
+	private void showHideResourcesButtonForResourceTypes() {
+		if (context.getBridge().isConnected() && !context.getBridge().isServiceUpdating()) {
+			Set<Type> avaialbleResourceTypes = new HashSet<>();
+			Set<ResourceGroupKey> resourceGroupKeys = icons.keySet();
+			for (ResourceGroupKey resourceGroupKey : resourceGroupKeys) {
+				ResourceGroupList groupList = icons.get(resourceGroupKey);
+				if(groupList != null) {
+					for (ResourceItem item : groupList.getItems()) {
+						Resource resource = item.getResource();
+						avaialbleResourceTypes.add(resource.getType());
+					}
+				}
+			}
+			ssoResources.setVisible(avaialbleResourceTypes.contains(Type.SSO));
+			fileResources.setVisible(avaialbleResourceTypes.contains(Type.FILE));
+			browserResources.setVisible(avaialbleResourceTypes.contains(Type.BROWSER));
+			networkResources.setVisible(avaialbleResourceTypes.contains(Type.NETWORK));
+		}
 	}
 
 	private void showStatus(Button source) throws IOException {
@@ -830,34 +868,6 @@ public class Dock extends AbstractController implements Listener {
 		// Type lastType = null;
 		for (Map.Entry<ResourceGroupKey, ResourceGroupList> ig : icons.entrySet()) {
 			Type type = ig.getKey().getType();
-			// if (lastType != null && type != lastType) {
-			// shortcuts
-			// .getChildren()
-			// .add(new Separator(
-			// cfg.topProperty().get()
-			// || cfg.bottomProperty().get() ? Orientation.VERTICAL
-			// : Orientation.HORIZONTAL));
-			// }
-			/*switch (type) {
-			case SSO:
-				if (!ssoResources.isSelected())
-					continue;
-				break;
-			case BROWSER:
-				if (!browserResources.isSelected())
-					continue;
-				break;
-			case FILE:
-				if (!fileResources.isSelected())
-					continue;
-				break;
-			case NETWORK:
-				if (!networkResources.isSelected())
-					continue;
-				break;
-			default:
-				break;
-			}*/
 
 			List<ResourceGroupList> groupsAdded = new ArrayList<ResourceGroupList>();
 			for (ResourceItem item : ig.getValue().getItems()) {
