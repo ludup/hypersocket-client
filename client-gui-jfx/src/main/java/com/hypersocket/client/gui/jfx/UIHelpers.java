@@ -117,5 +117,16 @@ public class UIHelpers {
 					(int) (color.getGreen() * 255),
 					(int) (color.getBlue() * 255));
 	}
+	
+	/*
+	 * This is DUMB, but i can't see another way. It stops invisible
+	 * components being considered for layout (and so taking up space. You'd
+	 * think this might be part of JavaFX, but no ...
+	 * 
+	 * http://stackoverflow.com/questions/12200195/javafx-hbox-hide-item
+	 */
+	public static void bindButtonToItsVisibleManagedProperty(ButtonBase button) {
+		button.managedProperty().bind(button.visibleProperty());
+	}
 
 }

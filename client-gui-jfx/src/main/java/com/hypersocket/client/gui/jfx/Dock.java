@@ -587,17 +587,10 @@ public class Dock extends AbstractController implements Listener {
 		browserResources.setVisible(false);
 		fileResources.setVisible(false);
 		
-		/*
-		 * This is DUMB, but i can't see another way. It stops invisible
-		 * components being considered for layout (and so taking up space. You'd
-		 * think this might be part of JavaFX, but no ...
-		 * 
-		 * http://stackoverflow.com/questions/12200195/javafx-hbox-hide-item
-		 */
-		networkResources.managedProperty().bind(networkResources.visibleProperty());
-		ssoResources.managedProperty().bind(ssoResources.visibleProperty());
-		browserResources.managedProperty().bind(browserResources.visibleProperty());
-		fileResources.managedProperty().bind(fileResources.visibleProperty());
+		UIHelpers.bindButtonToItsVisibleManagedProperty(networkResources);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(ssoResources);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(browserResources);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(fileResources);
 		
 		networkResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("network.toolTip")));
 		ssoResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("sso.toolTip")));

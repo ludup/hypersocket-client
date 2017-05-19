@@ -42,6 +42,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -191,21 +192,7 @@ public class SignIn extends AbstractController implements Listener {
 				waitingForUpdatesOrResources.remove(connection);
 			}
 
-			if (connecting.remove(connection)) {
-
-				if (Objects.equals(connection, foregroundConnection)) {
-					if (e != null)
-
-						/*
-						 * If we are connecting the foreground connection and it
-						 * fails, add a decoration to the server URL to indicate
-						 * an error
-						 */
-						/*Decorator.addDecoration(serverUrls.getEditor(),
-								new GraphicDecoration(createErrorImageNode()))*/;
-				}
-			}
-			;
+			connecting.remove(connection);
 
 			if (Objects.equals(connection, foregroundConnection)) {
 				foregroundConnection = null;
@@ -520,23 +507,6 @@ public class SignIn extends AbstractController implements Listener {
 		try {
 			log.info("Rebuilding URIs");
 
-			Connection selectedConnection = null;
-			String selectedUri = "";
-			ObservableList<String> serverUrlsList = FXCollections
-					.observableArrayList();
-
-			/*
-			 * If there is a current foreground connection, make sure that is in
-			 * the list and use it as the actual connection object
-			 */
-			if (foregroundConnection != null) {
-				selectedUri = Util.getUri(foregroundConnection);
-				log.info(String.format("Using foreground connection %s",
-						selectedUri));
-				serverUrlsList.add(selectedUri);
-				selectedConnection = foregroundConnection;
-			}
-
 			if (context.getBridge().isConnected()) {
 				try {
 					List<ConnectionStatus> connections = context.getBridge()
@@ -544,43 +514,13 @@ public class SignIn extends AbstractController implements Listener {
 
 					// Look for new connections
 					for (ConnectionStatus c : connections) {
-
 						Connection conx = c.getConnection();
-						String uri = Util.getUri(conx);
-
-						// We might end up using the first connected Uri
-						if (selectedUri.equals("")
-								&& c.getStatus() == ConnectionStatus.CONNECTED) {
-							log.info(String.format(
-									"Using first connected connection %s", uri));
-							selectedUri = uri;
-							selectedConnection = conx;
-						}
-
-						if (!serverUrlsList.contains(uri)) {
-							serverUrlsList.add(uri);
-						}
+						setAvailable(conx);
 					}
 				} catch (Exception e) {
 					log.error("Failed to load connections.", e);
 				}
 			}
-
-			if (selectedUri != null && selectedConnection == null
-					&& !serverUrlsList.isEmpty()) {
-				// Finally fall back to the first Uri in the list
-				if (selectedConnection == null || selectedUri == null) {
-					selectedUri = serverUrlsList.get(0);
-					selectedConnection = getConnectionForUri(selectedUri);
-				}
-			}
-
-			// Select initial URI
-			log.info("Selecting " + selectedUri);
-
-			// Adjust available actions etc
-			log.info("Rebuilt URIs");
-			setAvailable(connection == null ? selectedConnection : connection);
 		} finally {
 			adjusting = false;
 		}
@@ -743,19 +683,17 @@ public class SignIn extends AbstractController implements Listener {
 		Runnable runnable = new Runnable() {
 			public void run() {
 				if (context.getBridge().isConnected()) {
-					//Connection sel = foregroundConnection;
 					List<Connection> connections = getConnections();
 					Long selectedId = sel == null ? 0 : sel.getId();
 					for (Connection connection : connections) {
 						if(savedConnectionsIdCache.contains(connection.getId())) {
 							continue;
 						}
-						System.out.println("Adding new connection " + connection);
 						addConnection(connection, selectedId.equals(connection.getId()));
 					}
-					boolean busy = (!waitingForUpdatesOrResources.isEmpty()
-							|| !connecting.isEmpty() || !disconnecting
-								.isEmpty()) && !promptsAvailable;
+					
+					boolean showSpinner = (!waitingForUpdatesOrResources.isEmpty()
+							|| !connecting.isEmpty() || !disconnecting.isEmpty()) && !promptsAvailable;;
 					boolean selectionConnected = false;
 					try {
 						selectionConnected = sel != null
@@ -767,35 +705,36 @@ public class SignIn extends AbstractController implements Listener {
 					}
 				
 					if(sel != null) {
+						boolean busy =	waitingForUpdatesOrResources.contains(sel) && !promptsAvailable;
+							
 						Long conId = getConnectionId(sel);
 						
-						Button connect = getButton(ButtonNature.CONNECT, conId);
-						Button disConnect = getButton(ButtonNature.DISCONNECT, conId);
-						Button delete = getButton(ButtonNature.DELETE, conId);
-						Button edit = getButton(ButtonNature.EDIT, conId);
-						ToggleButton reveal = getToggleButton(ButtonNature.REVEAL, conId); 
+						Button connect = (Button) getButton(ButtonNature.CONNECT, conId);
+						Button disConnect = (Button) getButton(ButtonNature.DISCONNECT, conId);
+						Button delete = (Button) getButton(ButtonNature.DELETE, conId);
+						Button edit = (Button) getButton(ButtonNature.EDIT, conId);
+						ToggleButton reveal = (ToggleButton) getButton(ButtonNature.REVEAL, conId); 
 						
 						
 						delete.setVisible(sel != null && !selectionConnected
 								&& sel.getId() != null);
-						delete.setDisable(!disconnecting.isEmpty() || busy);
+						delete.setDisable(disconnecting.contains(sel) || busy);
 						
 						edit.setVisible(sel != null && !selectionConnected
 								&& sel.getId() != null);
-						edit.setDisable(!connecting.isEmpty() || !disconnecting.isEmpty() || busy);
+						edit.setDisable(connecting.contains(sel) || disconnecting.contains(sel) || busy);
 						
-						reveal.setDisable(!connecting.isEmpty() || !disconnecting.isEmpty() || busy);
+						reveal.setVisible(selectionConnected);
+						reveal.setDisable(connecting.contains(sel) || disconnecting.contains(sel) || busy);
 						
 						connect.setVisible(!selectionConnected);
 						connect.setDisable(busy);
-						disConnect.setVisible(selectionConnected
-								&& (sel.getId() == null ));
+						
 						disConnect.setVisible(selectionConnected);
 					}
 					
-					promptUI.setVisible(disconnecting.isEmpty()
-							&& promptsAvailable);
-					progressUI.setVisible(busy);
+					promptUI.setVisible(disconnecting.isEmpty() && promptsAvailable);
+					progressUI.setVisible(showSpinner);
 					login.setDisable(selectionConnected);
 
 				} else {
@@ -901,7 +840,7 @@ public class SignIn extends AbstractController implements Listener {
 		nameLabel.setText(connection.getName());
 		nameLabel.getStyleClass().add("info-lg");
 		nameLabel.setWrapText(true);
-		nameLabel.setPrefWidth(100);
+		nameLabel.setPrefWidth(120);
 		connectionBorderPane.setLeft(nameLabel);
 		
 		HBox connectionButtonBox = new HBox();
@@ -974,6 +913,7 @@ public class SignIn extends AbstractController implements Listener {
 		} catch (Exception e) {
 			throw new IllegalStateException(e.getMessage(), e);
 		}});
+		reveal.setVisible(false);
 		reveal.setUserData(extractedConnectionId);
 		connectionButtonBox.getChildren().add(reveal);
 		
@@ -993,24 +933,16 @@ public class SignIn extends AbstractController implements Listener {
 		
 		//adding empty element to fill space in center, else left and right sides get very close to each other
 		HBox center = new HBox();
-		center.setPrefWidth(75);
+		center.setPrefWidth(55);
 		connectionBorderPane.setCenter(center);
 		
-		/*
-		 * This is DUMB, but i can't see another way. It stops invisible
-		 * components being considered for layout (and so taking up space. You'd
-		 * think this might be part of JavaFX, but no ...
-		 * 
-		 * http://stackoverflow.com/questions/12200195/javafx-hbox-hide-item
-		 */
-		disConnect.managedProperty().bind(disConnect.visibleProperty());
-		connect.managedProperty().bind(connect.visibleProperty());
-		edit.managedProperty().bind(edit.visibleProperty());
-		reveal.managedProperty().bind(reveal.visibleProperty());
-		delete.managedProperty().bind(delete.visibleProperty());
+		UIHelpers.bindButtonToItsVisibleManagedProperty(disConnect);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(connect);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(edit);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(reveal);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(delete);
 		
 		connections.getChildren().add(connectionBorderPane);
-		
 	}
 	
 	public void updateConnectionInList(Connection con) {
@@ -1033,7 +965,7 @@ public class SignIn extends AbstractController implements Listener {
 		}
 	}
 	
-	private Button getButton(ButtonNature buttonType, Long id) {
+	private ButtonBase getButton(ButtonNature buttonType, Long id) {
 		String tag = null;
 		if(ButtonNature.CONNECT.equals(buttonType)) {
 			tag = String.format("#connect_%d", id);
@@ -1043,13 +975,10 @@ public class SignIn extends AbstractController implements Listener {
 			tag = String.format("#delete_%d", id);
 		} else if(ButtonNature.EDIT.equals(buttonType)) {
 			tag = String.format("#edit_%d", id);
+		} else if (ButtonNature.REVEAL.equals(buttonType)) {
+			tag = String.format("#reveal_%d", id);
 		}
-		return (Button) connections.lookup(tag);
-	}
-	
-	private ToggleButton getToggleButton(ButtonNature buttonType, Long id) {
-		String tag = String.format("#reveal_%d", id);
-		return (ToggleButton) connections.lookup(tag);
+		return (ButtonBase) connections.lookup(tag);
 	}
 	
 	private BorderPane getConnectionBorderPane(Long id) {

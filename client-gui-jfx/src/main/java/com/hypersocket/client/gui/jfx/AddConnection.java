@@ -65,21 +65,14 @@ public class AddConnection extends AbstractController {
 		serverInput.setText("");
 		usernameInput.setText("");
 		passwordInput.setText("");
-		saveCredsCBox.setSelected(false);
+		saveCredsCBox.setSelected(true);
 		conOnstartCBox.setSelected(false);
 		edit.setVisible(false);
 		add.setVisible(true);
 		
-		/*
-		 * This is DUMB, but i can't see another way. It stops invisible
-		 * components being considered for layout (and so taking up space. You'd
-		 * think this might be part of JavaFX, but no ...
-		 * 
-		 * http://stackoverflow.com/questions/12200195/javafx-hbox-hide-item
-		 */
-		add.managedProperty().bind(add.visibleProperty());
-		edit.managedProperty().bind(edit.visibleProperty());
-		cancel.managedProperty().bind(cancel.visibleProperty());
+		UIHelpers.bindButtonToItsVisibleManagedProperty(add);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(edit);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(cancel);
 	}
 	
 	public void setUpEditPage() {
@@ -90,7 +83,7 @@ public class AddConnection extends AbstractController {
 		usernameInput.setText(currentConnection.getUsername());
 		passwordInput.setText(currentConnection.getEncryptedPassword());
 		conOnstartCBox.setSelected(currentConnection.isConnectAtStartup());
-		saveCredsCBox.setSelected(false);
+		saveCredsCBox.setSelected(true);
 		edit.setVisible(true);
 		add.setVisible(false);
 	}
