@@ -59,7 +59,7 @@ public class ServiceClient extends HypersocketClient<Connection> {
 			} catch (RemoteException e) {
 				log.error("Failed to show prompts", e);
 				disconnect(true);
-				throw new IOException(e);
+				throw new IOException(e.getMessage(), e);
 			}
 		}
 		return null;

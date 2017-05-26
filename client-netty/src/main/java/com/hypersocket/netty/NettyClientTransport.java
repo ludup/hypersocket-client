@@ -339,7 +339,7 @@ public class NettyClientTransport implements HypersocketClientTransport {
 			return httpClient.createWebsocket(uri, callback);
 
 		} catch (URISyntaxException e) {
-			throw new IOException(e);
+			throw new IOException(e.getMessage(), e);
 		}
 	}
 

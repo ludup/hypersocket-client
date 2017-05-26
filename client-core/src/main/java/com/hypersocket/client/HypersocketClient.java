@@ -156,7 +156,7 @@ public abstract class HypersocketClient<T> {
 			JSONObject jsonResources = (JSONObject) parser.parse(resources);
 			I18N.initialize(jsonResources, currentLocale);
 		} catch (ParseException e) {
-			throw new IOException(e);
+			throw new IOException(e.getMessage(), e);
 		}
 
 	}
