@@ -8,7 +8,7 @@
 
 <StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.BrowserResources">
    <children>
-      <BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="200.0" styleClass="windowContent">
+      <BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="260" styleClass="windowContent">
          <opaqueInsets>
             <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
          </opaqueInsets>
@@ -27,9 +27,9 @@
             </VBox>
          </top>
          <center>
-            <ScrollPane prefHeight="200.0" BorderPane.alignment="CENTER">
+            <ScrollPane minHeight="20" maxHeight="300" vbarPolicy="AS_NEEDED" styleClass="transparent-background" BorderPane.alignment="CENTER">
               <content>
-                <AnchorPane minHeight="200.0" minWidth="0.0" >
+                <AnchorPane minHeight="20">
                      <children>
                         <VBox fx:id="resourceListItems" />
                      </children>

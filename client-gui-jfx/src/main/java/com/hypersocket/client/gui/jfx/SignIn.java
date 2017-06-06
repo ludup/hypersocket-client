@@ -33,11 +33,10 @@ import com.hypersocket.client.rmi.GUICallback;
 import com.hypersocket.client.rmi.Util;
 
 import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Bounds;
+import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
@@ -51,14 +50,17 @@ import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -105,6 +107,14 @@ public class SignIn extends AbstractController implements Listener {
 	private Label messageIcon;
 	@FXML
 	protected VBox connections;
+	@FXML
+	protected AnchorPane connectionsAnchor;
+	@FXML
+	protected ScrollPane connectionsScroll;
+	@FXML
+	protected Label connectionsMessage;
+	@FXML
+	protected StackPane connectionsStackPane;
 	
 	private Connection foregroundConnection;
 	private Semaphore promptSemaphore = new Semaphore(1);
@@ -112,16 +122,58 @@ public class SignIn extends AbstractController implements Listener {
 	private boolean promptsAvailable;
 	private String promptedUsername;
 	private char[] promptedPassword;
-	private Map<Prompt, Control> promptNodes = new LinkedHashMap<Prompt, Control>();
-	private final Map<String, String> promptValues = new LinkedHashMap<String, String>();
+	private Map<Prompt, Control> promptNodes = new LinkedHashMap<>();
+	private final Map<String, String> promptValues = new LinkedHashMap<>();
 	private List<Connection> disconnecting = new ArrayList<>();
 	private List<Connection> connecting = new ArrayList<>();
 	private List<Connection> waitingForUpdatesOrResources = new ArrayList<>();
-	private boolean adjusting;
 	private boolean deleteOnDisconnect;
 	private Popup addConnectionPopUp;
 	private AddConnection addConnectionContent;
 	private Set<Long> savedConnectionsIdCache = new HashSet<>();
+	
+	/*@Override
+	protected void onInitialize() {
+		super.onInitialize();
+		connectionsAnchor.heightProperty().addListener(new ChangeListener<Number>() {
+
+			@Override
+			public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
+				
+				System.out.println("in change old " + oldValue);
+				System.out.println("in change new " + newValue);
+				
+				if(newValue.doubleValue() >= 200.0) {
+					connectionsScroll.setPrefHeight(200);
+					System.out.println("pref set.............");
+				}
+				
+				//increase in height
+				if(newValue.doubleValue() - oldValue.doubleValue() > 0 && newValue.doubleValue() <= 140.0) {
+					connectionsScroll.setMinHeight(newValue.doubleValue() + 20.0);
+					System.out.println("increasing.............");
+				}
+				
+				//decresing in height
+				if(newValue.doubleValue() - oldValue.doubleValue() < 0 &&  newValue.doubleValue() >= 20 && newValue.doubleValue() <= 140) {
+					connectionsScroll.setMinHeight(newValue.doubleValue() - 20.0 - Client.DROP_SHADOW_SIZE);
+					connectionsScroll.setPrefHeight(connectionsScroll.getPrefHeight() - 20.0);
+					System.out.println("decreasing.............");
+				}
+				
+				
+				 * Absolute no idea why this runLater() is required, but without it
+				 * sizeToScene calculates an incorrect height.
+				 
+				Platform.runLater(new Runnable() {
+					@Override
+					public void run() {
+						instance.getPopup().sizeToScene();
+					}
+				});
+			}
+		});
+	}*/
 	
 	/*
 	 * Class methods
@@ -174,7 +226,6 @@ public class SignIn extends AbstractController implements Listener {
 			log.info("Started " + connection);
 			waitingForUpdatesOrResources.remove(connection);
 			initUi(connection);
-			// setAvailable();
 		});
 	}
 
@@ -262,7 +313,7 @@ public class SignIn extends AbstractController implements Listener {
 								break;
 							case SELECT:
 								addLabel(vbox, p);
-								ComboBox<String> cb = new ComboBox<String>();
+								ComboBox<String> cb = new ComboBox<>();
 								for (Option o : p.getOptions()) {
 									cb.itemsProperty().get().add(o.getName());
 								}
@@ -408,6 +459,8 @@ public class SignIn extends AbstractController implements Listener {
 		
 		promptUI.managedProperty().bind(promptUI.visibleProperty());
 		progressUI.managedProperty().bind(progressUI.visibleProperty());
+		
+		setAvailable(null);
 
 	}
 
@@ -496,14 +549,7 @@ public class SignIn extends AbstractController implements Listener {
 		promptValues.clear();
 	}
 
-	private void saveConnection(Connection sel) throws RemoteException {
-		foregroundConnection = context.getBridge().getClientService().save(sel);
-		log.info("Connection saved");
-		setAvailable(sel);
-	}
-
 	private void initUi(Connection connection) {
-		adjusting = true;
 		try {
 			log.info("Rebuilding URIs");
 
@@ -522,7 +568,6 @@ public class SignIn extends AbstractController implements Listener {
 				}
 			}
 		} finally {
-			adjusting = false;
 		}
 	}
 
@@ -541,14 +586,10 @@ public class SignIn extends AbstractController implements Listener {
 						abortPrompts(sel);
 					}
 
-					// Remove from list now
-					adjusting = true;
 					if (sel.equals(foregroundConnection)) {
 						foregroundConnection = null;
 					}
-					String uri = Util.getUri(sel);
-					adjusting = false;
-
+					Util.getUri(sel);
 					if (context.getBridge().getClientService().isConnected(sel)) {
 						log.info("Disconnecting deleted connection.");
 						deleteOnDisconnect = true;
@@ -573,14 +614,12 @@ public class SignIn extends AbstractController implements Listener {
 		log.info(String.format("Deleting connection %s", sel));
 		context.getBridge().getConnectionService().delete(sel);
 		context.getBridge().getConnectionService().removeCredentials(sel.getHostname());
-		String uri = Util.getUri(sel);
-		adjusting = true;
+		Util.getUri(sel);
 		try {
 			removeBorderPaneFromConnectionList(sel);
 			DockOnEventDo.refreshResourcesFavouriteLists();
 			setAvailable(sel);
 		} finally {
-			adjusting = false;
 			log.info("Connection deleted");
 		}
 	}
@@ -594,6 +633,7 @@ public class SignIn extends AbstractController implements Listener {
 
 		setAvailable(sel);
 		new Thread() {
+			@Override
 			public void run() {
 				try {
 					context.getBridge().disconnect(sel);
@@ -630,6 +670,7 @@ public class SignIn extends AbstractController implements Listener {
 			waitingForUpdatesOrResources.add(connection);
 			setAvailable(connection);
 			new Thread() {
+				@Override
 				public void run() {
 					try {
 						context.getBridge().connect(connection);
@@ -661,26 +702,10 @@ public class SignIn extends AbstractController implements Listener {
 		}
 	}
 
-	private Connection getConnectionForUri(String uri) {
-		if (context.getBridge().isConnected()) {
-			try {
-				List<ConnectionStatus> connections = context.getBridge()
-						.getClientService().getStatus();
-				for (ConnectionStatus c : connections) {
-					if (Util.getUri(c.getConnection()).equals(uri)) {
-						return c.getConnection();
-					}
-				}
-			} catch (Exception e) {
-				log.error("Could not find connection for URI.", e);
-			}
-		}
-		return null;
-	}
-
 	private void setAvailable(final Connection sel) {
 
 		Runnable runnable = new Runnable() {
+			@Override
 			public void run() {
 				if (context.getBridge().isConnected()) {
 					List<Connection> connections = getConnections();
@@ -691,6 +716,8 @@ public class SignIn extends AbstractController implements Listener {
 						}
 						addConnection(connection, selectedId.equals(connection.getId()));
 					}
+					
+					connectionsMessage.setVisible(connections.isEmpty());
 					
 					boolean showSpinner = (!waitingForUpdatesOrResources.isEmpty()
 							|| !connecting.isEmpty() || !disconnecting.isEmpty()) && !promptsAvailable;;
@@ -758,9 +785,9 @@ public class SignIn extends AbstractController implements Listener {
 		if (credentialsUI.isVisible()) {
 			container.getChildren().add(credentialsUI);
 		}
-		if (progressUI.isVisible()) {
+		/*if (progressUI.isVisible()) {
 			container.getChildren().add(progressUI);
-		}
+		}*/
 		if (promptUI.isVisible()) {
 			container.getChildren().add(promptUI);
 		}
@@ -834,6 +861,7 @@ public class SignIn extends AbstractController implements Listener {
 		
 		BorderPane connectionBorderPane = new BorderPane();
 		connectionBorderPane.setId(String.format("connection_border_pane_%d",  extractedConnectionId));
+		connectionBorderPane.setPadding(new Insets(1, 0, 1, 0));
 		
 		Label nameLabel = new Label();
 		nameLabel.setId(String.format("label_%d", extractedConnectionId));
@@ -850,8 +878,7 @@ public class SignIn extends AbstractController implements Listener {
 		
 		final Button connect = new Button();
 		connect.setId(String.format("connect_%d", extractedConnectionId));
-		connect.getStyleClass().add("uiButton");
-		connect.getStyleClass().add("iconButton");
+		connect.getStyleClass().add("connection-button");
 		connect.setText(resources.getString("connect.icon"));
 		connect.setTooltip(new Tooltip(resources.getString("connect.tooltip")));
 		connect.setOnAction(evt -> {try {
@@ -867,8 +894,7 @@ public class SignIn extends AbstractController implements Listener {
 		
 		Button disConnect = new Button();
 		disConnect.setId(String.format("disConnect_%d", extractedConnectionId));
-		disConnect.getStyleClass().add("uiButton");
-		disConnect.getStyleClass().add("iconButton");
+		disConnect.getStyleClass().add("connection-button");
 		disConnect.setText(resources.getString("disconnect.icon"));
 		disConnect.setTooltip(new Tooltip(resources.getString("disconnect.tooltip")));
 		disConnect.setOnAction(evt -> {try {
@@ -889,8 +915,7 @@ public class SignIn extends AbstractController implements Listener {
 		
 		Button edit = new Button();
 		edit.setId(String.format("edit_%d", extractedConnectionId));
-		edit.getStyleClass().add("uiButton");
-		edit.getStyleClass().add("iconButton");
+		edit.getStyleClass().add("connection-button");
 		edit.setText(resources.getString("edit.icon"));
 		edit.setTooltip(new Tooltip(resources.getString("edit.tooltip")));
 		edit.setOnAction(evt -> {try {
@@ -904,8 +929,7 @@ public class SignIn extends AbstractController implements Listener {
 		
 		ToggleButton reveal = new ToggleButton();
 		reveal.setId(String.format("reveal_%d", extractedConnectionId));
-		reveal.getStyleClass().add("uiButton");
-		reveal.getStyleClass().add("iconButton");
+		reveal.getStyleClass().add("connection-button");
 		reveal.setText(resources.getString("reveal.icon"));
 		reveal.setTooltip(new Tooltip(resources.getString("reveal.tooltip")));
 		reveal.setOnAction(evt -> {try {
@@ -919,8 +943,7 @@ public class SignIn extends AbstractController implements Listener {
 		
 		Button delete = new Button();
 		delete.setId(String.format("delete_%d", extractedConnectionId));
-		delete.getStyleClass().add("uiButton");
-		delete.getStyleClass().add("iconButton");
+		delete.getStyleClass().add("connection-button");
 		delete.setText(resources.getString("delete.icon"));
 		delete.setTooltip(new Tooltip(resources.getString("delete.tooltip")));
 		delete.setOnAction(evt -> {try {
@@ -933,7 +956,7 @@ public class SignIn extends AbstractController implements Listener {
 		
 		//adding empty element to fill space in center, else left and right sides get very close to each other
 		HBox center = new HBox();
-		center.setPrefWidth(55);
+		center.setPrefWidth(70);
 		connectionBorderPane.setCenter(center);
 		
 		UIHelpers.bindButtonToItsVisibleManagedProperty(disConnect);
@@ -943,6 +966,9 @@ public class SignIn extends AbstractController implements Listener {
 		UIHelpers.bindButtonToItsVisibleManagedProperty(delete);
 		
 		connections.getChildren().add(connectionBorderPane);
+		
+		//remove no connections message
+		connectionsMessage.setVisible(false);
 	}
 	
 	public void updateConnectionInList(Connection con) {
@@ -1028,6 +1054,12 @@ public class SignIn extends AbstractController implements Listener {
 		Connection sel = getConnectionFromButton((Button) evt.getSource());
 		if (sel != null && sel.getId() != null) {
 			confirmDelete(sel);
+			Platform.runLater(new Runnable() {
+				@Override
+				public void run() {
+					instance.getPopup().sizeToScene();
+				}
+			});
 		}
 	}
 	
@@ -1066,7 +1098,7 @@ public class SignIn extends AbstractController implements Listener {
 		Window parent = Dock.getInstance().getScene().getWindow();
 		if (addConnectionPopUp == null) {
 			addConnectionContent = (AddConnection) context.openScene(AddConnection.class);
-			addConnectionPopUp = new Popup(parent, addConnectionContent.getScene(), false, PositionType.CENTER) {
+			addConnectionPopUp = new Popup(parent, addConnectionContent.getScene(), false, PositionType.DOCKED) {
 				@Override
 				public void popup() {
 					if(addConnectionContent.getCurrentConnection() != null) {
@@ -1090,4 +1122,6 @@ public class SignIn extends AbstractController implements Listener {
 
 		});
 	}
+	
+	
 }

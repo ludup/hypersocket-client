@@ -61,7 +61,11 @@ public class FavouriteItemServiceImpl implements FavouriteItemService {
 		Transaction transaction = null;
 		try{
 			transaction = session.beginTransaction();
-			session.saveOrUpdate(favouriteItem);
+			if(favouriteItem.getId() != null) {
+				session.merge(favouriteItem);
+			} else {
+				session.save(favouriteItem);
+			}
 			session.flush();
 			transaction.commit();
 		} catch (Exception e) {

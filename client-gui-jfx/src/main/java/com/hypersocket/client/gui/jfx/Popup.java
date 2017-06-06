@@ -1,20 +1,20 @@
 package com.hypersocket.client.gui.jfx;
 
+import org.controlsfx.control.PopOver;
+
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.beans.property.Property;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.paint.Color;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.util.Duration;
-import javafx.geometry.Rectangle2D;
-import javafx.stage.Screen;
-
-import org.controlsfx.control.PopOver;
 
 public class Popup extends Stage {
 
@@ -216,6 +216,7 @@ public class Popup extends Stage {
 		}
 	}
 
+	@Override
 	public void sizeToScene() {
 		super.sizeToScene();
 		Configuration cfg = Configuration.getDefault();
@@ -314,5 +315,10 @@ public class Popup extends Stage {
 		setX((screenBounds.getWidth() - width) / 2); 
 		//100, adding a kind of padding, exact center makes user focus a lot, with 100 padding looks nice and easy to focus. 
 		setY(((screenBounds.getHeight() - height) / 2) - 100);  
+	}
+	
+	public void sizeToSceneCenter(double x, double y) {
+		setX(x); 
+		setY(y);  
 	}
 }

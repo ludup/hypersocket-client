@@ -13,7 +13,7 @@ public interface ConnectionService extends Remote {
 	
 	public Connection createNew(URI uri) throws RemoteException;
 	
-	public void update(URI uri, Connection connection) throws RemoteException;
+	public Connection update(URI uri, Connection connection) throws RemoteException;
 	
 	public Connection save(Connection connection) throws RemoteException;
 	

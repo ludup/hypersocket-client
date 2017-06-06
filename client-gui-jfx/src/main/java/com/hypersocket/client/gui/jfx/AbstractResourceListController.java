@@ -18,9 +18,12 @@ import com.hypersocket.client.rmi.Resource.Type;
 import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
@@ -62,9 +65,11 @@ public abstract class AbstractResourceListController extends AbstractController 
 					continue;
 				}
 				
-				HBox hb = new HBox();
-				hb.getStyleClass().add("item");
-
+				BorderPane resourceListBorderPane = new BorderPane();
+				resourceListBorderPane.setPadding(new Insets(1, 0, 1, 0));
+				
+				HBox favHb = new HBox();
+				
 				// Icon
 				ToggleButton favourite = new ToggleButton();
 				favourite.setText(resources.getString("favourite.checked.icon"));
@@ -74,7 +79,19 @@ public abstract class AbstractResourceListController extends AbstractController 
 				if(item.getResource().getFavourite()) {
 					favourite.setSelected(true);
 				}
-				hb.getChildren().add(favourite);
+				favHb.getChildren().add(favourite);
+				
+				// Text
+				Label name = new Label();
+				name.setText(item.getResource().getName());
+				name.setTooltip(new Tooltip(item.getResource().getName()));
+				name.getStyleClass().add("item");
+				name.setWrapText(true);
+				name.setPrefWidth(140);
+				favHb.getChildren().add(name);
+				
+				
+				resourceListBorderPane.setLeft(favHb);
 				
 				favourite.setOnMousePressed(new EventHandler<Event>() {
 
@@ -106,18 +123,24 @@ public abstract class AbstractResourceListController extends AbstractController 
 					}
 				});
 				 
-				// Text
-				Label name = new Label();
-				name.setText(item.getResource().getName());
-				name.setTooltip(new Tooltip(item.getResource().getName()));
-				hb.getChildren().add(name);
+				HBox hb = new HBox();
 				
 				//Icon
-				IconButton icon = new IconButton(resources, item, context, groupList);
+				IconButton icon = new IconButton(resources, item, context, groupList, 21, 21);
 				hb.getChildren().add(icon);
+				hb.setAlignment(Pos.CENTER_RIGHT);
+				
+				resourceListBorderPane.setRight(hb);
+				
+				
+				//adding empty element to fill space in center, else left and right sides get very close to each other
+				HBox center = new HBox();
+				center.setPrefWidth(50);
+				resourceListBorderPane.setCenter(center);
+				
 				
 				resourceUidCache.add(item.getResource().getUid());
-				resourceListItems.getChildren().add(hb);
+				resourceListItems.getChildren().add(resourceListBorderPane);
 				
 			}
 		}

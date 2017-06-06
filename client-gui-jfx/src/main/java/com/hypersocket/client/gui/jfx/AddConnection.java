@@ -12,7 +12,6 @@ import org.controlsfx.control.textfield.CustomTextField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.client.CredentialCache;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.ConnectionStatus;
@@ -28,6 +27,9 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.StackPane;
+
+
 
 public class AddConnection extends AbstractController {
 
@@ -55,6 +57,9 @@ public class AddConnection extends AbstractController {
 	private CheckBox saveCredsCBox;
 	@FXML
 	private CheckBox conOnstartCBox;
+	@FXML
+	private StackPane addConnectionStackPane;
+	
 	private Connection currentConnection;
 	
 	@Override
@@ -104,7 +109,7 @@ public class AddConnection extends AbstractController {
 			String username = usernameInput.getText();
 			String password = passwordInput.getText();
 			
-			if(checkEmptyFields(name, server, username, password)) {
+			if(checkEmptyFields(name, server, username)) {
 				return;
 			}
 			
@@ -151,7 +156,7 @@ public class AddConnection extends AbstractController {
 			closePopUp();
 			
 			SignIn.getInstance().addConnection(connectionSaved, false);	
-		}catch (Exception e) {e.printStackTrace();
+		}catch (Exception e) {
 			Dock.getInstance().notify(resources.getString("connection.add.failure"), GUICallback.NOTIFY_ERROR);
 			log.error("Problem in adding connection.", e);
 		}
@@ -166,12 +171,12 @@ public class AddConnection extends AbstractController {
 			String username = usernameInput.getText();
 			String password = passwordInput.getText();
 			
-			if(checkEmptyFields(name, server, username, password)) {
+			if(checkEmptyFields(name, server, username)) {
 				return;
 			}
 			
 			ConnectionService connectionService = context.getBridge().getConnectionService();
-			if(sameNameCheck(currentConnection.getId(), (conId) -> {
+			if (sameNameCheck(currentConnection.getId(), (conId) -> {
 				try {
 					return connectionService.getConnectionByNameWhereIdIsNot(name, currentConnection.getId()) != null;
 				} catch (RemoteException e) {
@@ -183,8 +188,8 @@ public class AddConnection extends AbstractController {
 					
 			URI uriObj = Util.getUri(server);
 			
-			Connection connection = context.getBridge().getConnectionService().getConnection(currentConnection.getId());
-			context.getBridge().getConnectionService().update(uriObj, connection);
+			Connection connectionFromSource = context.getBridge().getConnectionService().getConnection(currentConnection.getId());
+			Connection connection = context.getBridge().getConnectionService().update(uriObj, connectionFromSource);
 			
 			if(sameHostPortPathCheck(currentConnection.getId(), (conId) -> {
 				try {
@@ -250,8 +255,9 @@ public class AddConnection extends AbstractController {
 		return imageView;
 	}
 	
-	private boolean checkEmptyFields(String name, String server, String username, String password) {
-		if(StringUtils.isBlank(name) || StringUtils.isBlank(server) || StringUtils.isBlank(username) || StringUtils.isBlank(password)) {
+	private boolean checkEmptyFields(String name, String server, String username) {
+		if(StringUtils.isBlank(name) || StringUtils.isBlank(server) 
+				|| StringUtils.isBlank(username)) {
 			//show error message 
 			messageLbl.setText(resources.getString("all.fields.required"));
 			checkDecoration();

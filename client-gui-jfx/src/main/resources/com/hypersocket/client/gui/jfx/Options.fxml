@@ -64,12 +64,19 @@
                                     <CheckBox fx:id="avoidReserved" mnemonicParsing="false" onMouseEntered="#evtShowTooltipPopover" onMouseExited="#evtHideTooltipPopover" text="%avoidReserved">
                                        <VBox.margin>
                                           <Insets top="8.0" />
-                                       </VBox.margin></CheckBox>
+                                       </VBox.margin>
+                                    </CheckBox>
                                     <CheckBox fx:id="autoHide" mnemonicParsing="false" text="%autohide">
                                        <VBox.margin>
                                           <Insets top="8.0" />
-                                       </VBox.margin></CheckBox>
+                                       </VBox.margin>
+                                    </CheckBox>
                                     <CheckBox fx:id="alwaysOnTop" mnemonicParsing="false" text="%alwaysOnTop">
+                                       <VBox.margin>
+                                          <Insets top="8.0" />
+                                       </VBox.margin>
+                                    </CheckBox>
+                                    <CheckBox fx:id="hoverToReveal" mnemonicParsing="false" text="%hoverToReveal">
                                        <VBox.margin>
                                           <Insets top="8.0" />
                                        </VBox.margin>

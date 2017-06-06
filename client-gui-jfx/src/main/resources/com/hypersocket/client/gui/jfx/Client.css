@@ -83,8 +83,8 @@
 }
 
 .item {
-    -fx-font-family: Monospaced;
-	-fx-font-size: 14;
+    -fx-font-size: 12;
+	-fx-padding : 8 0 0 0;
 }
 
 .item .icon {
@@ -94,10 +94,8 @@
 
 
 /* Progress */
-
-.spinner {
-	-fx-font-size: 40;
-	-fx-padding: 0;
+.busy {
+	-fx-progress-color : red;
 }
 
 /* Info messages */
@@ -157,6 +155,7 @@
 	-fx-padding: 4 4 4 4;
 	-fx-text-fill: #FFA500;
     -fx-background-color: inherit;
+    -fx-font-size: 18;
 }
 
 .favourite:selected {
@@ -166,3 +165,28 @@
 .italics {
 	-fx-font-style: italic;
 }
+
+.connection-button {    
+	-fx-padding: 4;
+	-fx-font-family: FontAwesome;
+    -fx-font-size: 14px;
+    -fx-background-color: inherit;
+}
+
+.resource-list-button {	
+    -fx-font-size: 10px;
+}
+
+.transparent-background {
+	-fx-background-color : transparent;
+}
+
+.add-connection {
+	-fx-font-size: 16px;
+	-fx-background-color : transparent;
+}
+
+.no-border {
+	-fx-border: none;
+}
+

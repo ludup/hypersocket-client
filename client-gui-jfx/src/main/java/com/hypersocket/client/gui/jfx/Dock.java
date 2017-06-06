@@ -57,7 +57,6 @@ import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.ToggleButton;
 import javafx.scene.effect.Glow;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -442,7 +441,7 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 			};
-			((ResourceGroup) resourceGroup).setPopup(resourceGroupPopup);
+			resourceGroup.setPopup(resourceGroupPopup);
 		}
 		positionResourceGroupPopup(source);
 		resourceGroup.setResources(group);
@@ -767,7 +766,7 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 			};
-			((Status) statusContent).setPopup(statusPopup);
+			statusContent.setPopup(statusPopup);
 		}
 		statusContent.setResources(serviceResources);
 		statusPopup.popup();
@@ -783,7 +782,7 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 			};
-			((SignIn) signInScene).setPopup(signInPopup);
+			signInScene.setPopup(signInPopup);
 		}
 		signInPopup.popup();
 	}
@@ -860,9 +859,9 @@ public class Dock extends AbstractController implements Listener {
 
 		// Type lastType = null;
 		for (Map.Entry<ResourceGroupKey, ResourceGroupList> ig : icons.entrySet()) {
-			Type type = ig.getKey().getType();
+			ig.getKey().getType();
 
-			List<ResourceGroupList> groupsAdded = new ArrayList<ResourceGroupList>();
+			List<ResourceGroupList> groupsAdded = new ArrayList<>();
 			for (ResourceItem item : ig.getValue().getItems()) {
 				if(!item.getResource().getFavourite() || toggleResourcesForConnection.contains(item.getResource().getConnectionId())) {
 					continue;
@@ -994,18 +993,18 @@ public class Dock extends AbstractController implements Listener {
 		float fac = Math.min(1f, 1f - ((float) (yEnd - now) / (float) AUTOHIDE_DURATION));
 
 		// The amount of movement so far
-		float amt = fac * (float) value;
+		float amt = fac * value;
 
 		// The amount to shrink the width (or height when vertical) of the
 		// visible 'bar'
-		float barSize = (float) boundsSize * fac;
+		float barSize = boundsSize * fac;
 
 		// If showing, reverse
 		final boolean fhidden = hidden;
 
 		if (!hidden) {
 			amt = value - amt;
-			barSize = (float) boundsSize - barSize;
+			barSize = boundsSize - barSize;
 			if (!pull.isVisible())
 				pull.setVisible(true);
 		}
@@ -1163,21 +1162,32 @@ public class Dock extends AbstractController implements Listener {
 		}
 		signIn.setEffect(null);
 	}
+	
+	@FXML
+	private void evtMouseEnter(MouseEvent evt) throws Exception {
+		if (cfg.autoHideProperty().get() && cfg.hoverToRevealProperty().get()) {
+			hideDock(false);
+			evt.consume();
+		}
+	}
+
+	@FXML
+	private void evtMouseExit(MouseEvent evt) throws Exception {
+		stopDockRevealerTimer();
+		if (cfg.autoHideProperty().get() && cfg.hoverToRevealProperty().get() 
+				&& !arePopupsOpen() && (contextMenu == null || !contextMenu.isShowing())) {
+			maybeHideDock();
+			evt.consume();
+		}
+	}
 
 	@FXML
 	private void evtMouseClick(MouseEvent evt) throws Exception {
-		if (evt.getButton() == MouseButton.PRIMARY) {
+		if (evt.getButton() == MouseButton.PRIMARY && !cfg.hoverToRevealProperty().get()) {
 			if(hidden) {
-				if (cfg.autoHideProperty().get()) {
-					hideDock(false);
-					evt.consume();
-				}
+				evtMouseEnter(evt);
 			} else {
-				stopDockRevealerTimer();
-				if (cfg.autoHideProperty().get() && !arePopupsOpen() && (contextMenu == null || !contextMenu.isShowing())) {
-					maybeHideDock();
-					evt.consume();
-				}
+				evtMouseExit(evt);
 			}
 			if (contextMenu != null) {
 				contextMenu.hide();
@@ -1284,6 +1294,7 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 
+				@Override
 				protected boolean isChildFocussed() {
 					// HACK!
 					//

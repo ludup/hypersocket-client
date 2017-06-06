@@ -43,12 +43,13 @@ public class ConnectionServiceImpl implements ConnectionService {
 	}
 	
 	@Override
-	public void update(URI uriObj, Connection connection) throws RemoteException {
+	public Connection update(URI uriObj, Connection connection) throws RemoteException {
 		Util.prepareConnectionWithURI(uriObj, connection);
 		// Prompt for authentication
 		connection.setUsername(connection.getUsername());
 		connection.setPassword(connection.getEncryptedPassword());
 		connection.setRealm(connection.getRealm());
+		return connection;
 	}
 	
 
@@ -56,6 +57,7 @@ public class ConnectionServiceImpl implements ConnectionService {
 	public Connection save(Connection connection) {
 	
 		Transaction trans = session.beginTransaction();
+		Connection connectionSaved = null;
 		
 		try {
 			if(StringUtils.isNotBlank(connection.getEncryptedPassword())) {
@@ -63,12 +65,12 @@ public class ConnectionServiceImpl implements ConnectionService {
 					connection.setPassword("!ENC!" + RsaEncryptionProvider.getInstance().encrypt(connection.getEncryptedPassword()));
 				}
 			}
-			if(connection.getId()!=null) {
+			if(connection.getId() != null) {
 				log.info("Updating existing connection " + connection);
-				session.merge(connection);
+				connectionSaved = (Connection) session.merge(connection);
 			} else {
 				log.info("Saving new connection " + connection);
-				session.save(connection);
+				connectionSaved = (Connection) session.save(connection);
 			}
 			session.flush();
 			trans.commit();
@@ -77,7 +79,7 @@ public class ConnectionServiceImpl implements ConnectionService {
 			throw new IllegalStateException(e.getMessage(), e);
 		}
 			
-		return connection;
+		return connectionSaved;
 	}
 	
 	@Override
@@ -109,7 +111,7 @@ public class ConnectionServiceImpl implements ConnectionService {
 	public List<Connection> getConnections() throws RemoteException {
 		
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
-		return (List<Connection>) crit.list();
+		return crit.list();
 	}
 
 	@Override
