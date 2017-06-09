@@ -5,7 +5,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,6 +126,11 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	protected void onUpdateComplete(long totalBytesTransfered, int totalUpdates) {
 		gui.onUpdateComplete(extensionPlace.getApp(), totalBytesTransfered);
+	}
+
+	@Override
+	public Set<String> getNewFeatures() {
+		return Collections.<String>emptySet();
 	}
 
 }
