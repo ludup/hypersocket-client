@@ -35,7 +35,6 @@ import com.hypersocket.client.rmi.Util;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
@@ -50,14 +49,12 @@ import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -108,13 +105,11 @@ public class SignIn extends AbstractController implements Listener {
 	@FXML
 	protected VBox connections;
 	@FXML
-	protected AnchorPane connectionsAnchor;
-	@FXML
-	protected ScrollPane connectionsScroll;
-	@FXML
 	protected Label connectionsMessage;
 	@FXML
-	protected StackPane connectionsStackPane;
+	private Button addConnection;
+	@FXML
+	private StackPane connectionsStackPane;
 	
 	private Connection foregroundConnection;
 	private Semaphore promptSemaphore = new Semaphore(1);
@@ -131,49 +126,6 @@ public class SignIn extends AbstractController implements Listener {
 	private Popup addConnectionPopUp;
 	private AddConnection addConnectionContent;
 	private Set<Long> savedConnectionsIdCache = new HashSet<>();
-	
-	/*@Override
-	protected void onInitialize() {
-		super.onInitialize();
-		connectionsAnchor.heightProperty().addListener(new ChangeListener<Number>() {
-
-			@Override
-			public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-				
-				System.out.println("in change old " + oldValue);
-				System.out.println("in change new " + newValue);
-				
-				if(newValue.doubleValue() >= 200.0) {
-					connectionsScroll.setPrefHeight(200);
-					System.out.println("pref set.............");
-				}
-				
-				//increase in height
-				if(newValue.doubleValue() - oldValue.doubleValue() > 0 && newValue.doubleValue() <= 140.0) {
-					connectionsScroll.setMinHeight(newValue.doubleValue() + 20.0);
-					System.out.println("increasing.............");
-				}
-				
-				//decresing in height
-				if(newValue.doubleValue() - oldValue.doubleValue() < 0 &&  newValue.doubleValue() >= 20 && newValue.doubleValue() <= 140) {
-					connectionsScroll.setMinHeight(newValue.doubleValue() - 20.0 - Client.DROP_SHADOW_SIZE);
-					connectionsScroll.setPrefHeight(connectionsScroll.getPrefHeight() - 20.0);
-					System.out.println("decreasing.............");
-				}
-				
-				
-				 * Absolute no idea why this runLater() is required, but without it
-				 * sizeToScene calculates an incorrect height.
-				 
-				Platform.runLater(new Runnable() {
-					@Override
-					public void run() {
-						instance.getPopup().sizeToScene();
-					}
-				});
-			}
-		});
-	}*/
 	
 	/*
 	 * Class methods
@@ -257,9 +209,10 @@ public class SignIn extends AbstractController implements Listener {
 							GUICallback.NOTIFY_ERROR);
 				}
 			}
+			
+			DockOnEventDo.refreshResourcesFavouriteLists();
 		});
 		super.finishedConnecting(connection, e);
-		DockOnEventDo.refreshResourcesFavouriteLists();
 	}
 
 	@Override
@@ -362,6 +315,7 @@ public class SignIn extends AbstractController implements Listener {
 						}
 						idx++;
 					}
+					
 					credentialsUI.setCenter(vbox);
 					promptsAvailable = true;
 					setAvailable(connection);
@@ -451,6 +405,12 @@ public class SignIn extends AbstractController implements Listener {
 
 	// Overrides
 
+	
+	@Override
+	protected void onInitialize() {
+		installTooltip(addConnection, new Tooltip(resources.getString("addConnection.icon.tooltip")));
+	}
+	
 	@Override
 	protected void onConfigure() {
 		super.onConfigure();
@@ -674,6 +634,8 @@ public class SignIn extends AbstractController implements Listener {
 				public void run() {
 					try {
 						context.getBridge().connect(connection);
+						log.info(String.format("Connected to %s",
+								Util.getUri(connection)));
 					} catch (Exception e) {
 						foregroundConnection = null;
 						log.error("Failed to connect.", e);
@@ -685,8 +647,6 @@ public class SignIn extends AbstractController implements Listener {
 							}
 						});
 					} finally {
-						log.info(String.format("Connected to %s",
-								Util.getUri(connection)));
 						Platform.runLater(new Runnable() {
 							@Override
 							public void run() {
@@ -809,7 +769,6 @@ public class SignIn extends AbstractController implements Listener {
 	@SuppressWarnings("unchecked")
 	@FXML
 	private void evtLogin(ActionEvent evt) {
-		Connection connection = getConnectionFromButton((Button) evt.getSource());
 		try {
 			for (Map.Entry<Prompt, Control> en : promptNodes.entrySet()) {
 				if (en.getValue() instanceof TextField) {
@@ -834,7 +793,6 @@ public class SignIn extends AbstractController implements Listener {
 			}
 			credentialsUI.getChildren().clear();
 			promptsAvailable = false;
-			setAvailable(connection);
 			promptSemaphore.release();
 		} catch (Exception e) {
 			log.error("Failed to login.", e);
@@ -850,7 +808,10 @@ public class SignIn extends AbstractController implements Listener {
 	private void evtAddConnection(ActionEvent evt) throws IOException {
 		setUpAddConnectionPopUp();
 		addConnectionContent.setCurrentConnection(null);
+		addConnectionPopUp.setX(300);
+		addConnectionPopUp.setY(300);
 		addConnectionPopUp.popup();
+		
 	}
 	
 	public void addConnection(Connection connection, boolean isConnected) {
@@ -880,7 +841,7 @@ public class SignIn extends AbstractController implements Listener {
 		connect.setId(String.format("connect_%d", extractedConnectionId));
 		connect.getStyleClass().add("connection-button");
 		connect.setText(resources.getString("connect.icon"));
-		connect.setTooltip(new Tooltip(resources.getString("connect.tooltip")));
+		installTooltip(connect, new Tooltip(resources.getString("connect.tooltip")));
 		connect.setOnAction(evt -> {try {
 			evtConnect(evt);
 		} catch (Exception e) {
@@ -889,14 +850,14 @@ public class SignIn extends AbstractController implements Listener {
 		connect.setVisible(false);
 		connect.setUserData(extractedConnectionId);
 		connectionButtonBox.getChildren().add(connect);
-		adjustTooltip(connect.getTooltip(), connect, 100);
-		UIHelpers.hackTooltipStartTiming(connect.getTooltip());
+		
+		
 		
 		Button disConnect = new Button();
 		disConnect.setId(String.format("disConnect_%d", extractedConnectionId));
 		disConnect.getStyleClass().add("connection-button");
 		disConnect.setText(resources.getString("disconnect.icon"));
-		disConnect.setTooltip(new Tooltip(resources.getString("disconnect.tooltip")));
+		installTooltip(disConnect, new Tooltip(resources.getString("disconnect.tooltip")));
 		disConnect.setOnAction(evt -> {try {
 			evtDisconnect(evt);
 		} catch (Exception e) {
@@ -905,7 +866,6 @@ public class SignIn extends AbstractController implements Listener {
 		disConnect.setVisible(false);
 		disConnect.setUserData(extractedConnectionId);
 		connectionButtonBox.getChildren().add(disConnect);
-		adjustTooltip(disConnect.getTooltip(), disConnect, 100);
 		
 		if(isConnected) {
 			disConnect.setVisible(true);
@@ -917,7 +877,7 @@ public class SignIn extends AbstractController implements Listener {
 		edit.setId(String.format("edit_%d", extractedConnectionId));
 		edit.getStyleClass().add("connection-button");
 		edit.setText(resources.getString("edit.icon"));
-		edit.setTooltip(new Tooltip(resources.getString("edit.tooltip")));
+		installTooltip(edit, new Tooltip(resources.getString("edit.tooltip")));
 		edit.setOnAction(evt -> {try {
 			evtEdit(evt);
 		} catch (Exception e) {
@@ -925,13 +885,12 @@ public class SignIn extends AbstractController implements Listener {
 		}});
 		edit.setUserData(extractedConnectionId);
 		connectionButtonBox.getChildren().add(edit);
-		adjustTooltip(edit.getTooltip(), edit, 150);
 		
 		ToggleButton reveal = new ToggleButton();
 		reveal.setId(String.format("reveal_%d", extractedConnectionId));
 		reveal.getStyleClass().add("connection-button");
 		reveal.setText(resources.getString("reveal.icon"));
-		reveal.setTooltip(new Tooltip(resources.getString("reveal.tooltip")));
+		installTooltip(reveal, new Tooltip(resources.getString("reveal.tooltip")));
 		reveal.setOnAction(evt -> {try {
 			evtReveal(evt);
 		} catch (Exception e) {
@@ -945,7 +904,7 @@ public class SignIn extends AbstractController implements Listener {
 		delete.setId(String.format("delete_%d", extractedConnectionId));
 		delete.getStyleClass().add("connection-button");
 		delete.setText(resources.getString("delete.icon"));
-		delete.setTooltip(new Tooltip(resources.getString("delete.tooltip")));
+		installTooltip(delete, new Tooltip(resources.getString("delete.tooltip")));
 		delete.setOnAction(evt -> {try {
 			evtDelete(evt);
 		} catch (Exception e) {
@@ -981,6 +940,19 @@ public class SignIn extends AbstractController implements Listener {
 		savedConnectionsIdCache.clear();
 		connections.getChildren().clear();
 		setAvailable(null);
+	}
+	
+	public AddConnection getAddConnectionContent() {
+		return addConnectionContent;
+	}
+	
+	private void installTooltip(ButtonBase button, Tooltip tooltip) {
+		button.setOnMouseEntered(evt -> {
+			tooltip.show(button, evt.getScreenX() + 10, evt.getScreenY() + 10);
+		});
+		button.setOnMouseExited(evt -> {
+			tooltip.hide();
+		});
 	}
 
 	private List<Connection> getConnections() {
@@ -1098,7 +1070,7 @@ public class SignIn extends AbstractController implements Listener {
 		Window parent = Dock.getInstance().getScene().getWindow();
 		if (addConnectionPopUp == null) {
 			addConnectionContent = (AddConnection) context.openScene(AddConnection.class);
-			addConnectionPopUp = new Popup(parent, addConnectionContent.getScene(), false, PositionType.DOCKED) {
+			addConnectionPopUp = new Popup(parent, addConnectionContent.getScene(), false, PositionType.CENTER) {
 				@Override
 				public void popup() {
 					if(addConnectionContent.getCurrentConnection() != null) {
@@ -1113,15 +1085,5 @@ public class SignIn extends AbstractController implements Listener {
 			addConnectionContent.setPopup(popup);
 		}
 	}
-	
-	private void adjustTooltip(final Tooltip tooltip, final Node node, final int adjustX) {
-		tooltip.setOnShowing(s->{
-		    //Get node current bounds on computer screen
-		    Bounds bounds = node.localToScreen(node.getBoundsInLocal());
-		    tooltip.setX(bounds.getMaxX() - adjustX);
-
-		});
-	}
-	
 	
 }

@@ -70,7 +70,8 @@ public class ConnectionServiceImpl implements ConnectionService {
 				connectionSaved = (Connection) session.merge(connection);
 			} else {
 				log.info("Saving new connection " + connection);
-				connectionSaved = (Connection) session.save(connection);
+				session.save(connection);
+				connectionSaved = connection;
 			}
 			session.flush();
 			trans.commit();

@@ -44,7 +44,7 @@
                 <AnchorPane fx:id="connectionsAnchor" minHeight="20.0" styleClass="no-border">
                      <children>
             			<VBox fx:id="connections"  styleClass="no-border"/>
-            			 <Label fx:id="connectionsMessage" text="%no.con" styleClass="info-lg" textOverrun="CLIP" />
+            			<Label fx:id="connectionsMessage" text="%no.con" styleClass="info-lg" textOverrun="CLIP" />
             		 </children>
                   </AnchorPane>
               </content>

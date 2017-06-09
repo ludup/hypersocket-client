@@ -86,8 +86,8 @@ public class Popup extends Stage {
 					Boolean oldValue, Boolean newValue) {
 				if (dismiss) {
 
-					/*
-					 * NOTE - This may look crazy, but this seems to work-around
+					
+					 /* NOTE - This may look crazy, but this seems to work-around
 					 * a bug in JavaFX / Mac OS X (1.8.0_51) that occurs when
 					 * trying to hide a stage whilst processing a focus event.
 					 * By placing both operations on the event queue the problem
@@ -101,8 +101,8 @@ public class Popup extends Stage {
 								Platform.runLater(new Runnable() {
 									@Override
 									public void run() {
-										if (!parent.focusedProperty().get()
-												&& !Dock.getInstance()
+										if (!AmIOnDockSensor.INSTANCE.isOnDock() && 
+												 !Dock.getInstance()
 														.arePopupsOpen()
 												&& Configuration.getDefault()
 														.autoHideProperty()
@@ -152,10 +152,10 @@ public class Popup extends Stage {
 			}
 		});
 		Client.setColors(scene);
-
+		
 		sizeToScene();
 	}
-
+	
 	public boolean isDismissOnFocusLost() {
 		return dismiss;
 	}
@@ -240,7 +240,7 @@ public class Popup extends Stage {
 				setX(getOwner().getX() + getOwner().getWidth()  - getWidth());
 			}
 		} else if (cfg.bottomProperty().get()) {
-			setY(getOwner().getY() - getHeight());
+			setY(getOwner().getY() - getHeight() + Client.DROP_SHADOW_SIZE);
 			switch (positionType) {
 			case POSITIONED:
 				if (position + getWidth() > getOwner().getWidth() - getWidth())
@@ -317,8 +317,4 @@ public class Popup extends Stage {
 		setY(((screenBounds.getHeight() - height) / 2) - 100);  
 	}
 	
-	public void sizeToSceneCenter(double x, double y) {
-		setX(x); 
-		setY(y);  
-	}
 }

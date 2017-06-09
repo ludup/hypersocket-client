@@ -22,9 +22,9 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 public abstract class AbstractResourceListController extends AbstractController {
@@ -33,6 +33,9 @@ public abstract class AbstractResourceListController extends AbstractController 
 	
 	@FXML
 	protected VBox resourceListItems;
+	
+	@FXML
+	protected StackPane resourceListStackPane;
 
 	protected Set<String> resourceUidCache = new HashSet<>();
 	
@@ -84,7 +87,6 @@ public abstract class AbstractResourceListController extends AbstractController 
 				// Text
 				Label name = new Label();
 				name.setText(item.getResource().getName());
-				name.setTooltip(new Tooltip(item.getResource().getName()));
 				name.getStyleClass().add("item");
 				name.setWrapText(true);
 				name.setPrefWidth(140);

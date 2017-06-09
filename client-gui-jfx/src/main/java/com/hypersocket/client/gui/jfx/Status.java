@@ -11,6 +11,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 public class Status extends AbstractController {
@@ -18,6 +19,9 @@ public class Status extends AbstractController {
 
 	@FXML
 	private VBox statusItems;
+	
+	@FXML
+	private StackPane statusStackPane;
 
 	@Override
 	protected void onInitialize() {

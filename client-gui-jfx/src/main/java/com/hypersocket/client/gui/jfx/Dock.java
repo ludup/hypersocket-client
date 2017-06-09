@@ -206,7 +206,7 @@ public class Dock extends AbstractController implements Listener {
 	public static Dock getInstance() {
 		return instance;
 	}
-
+	
 	/*
 	 * Class methods
 	 */
@@ -653,6 +653,7 @@ public class Dock extends AbstractController implements Listener {
 		configurePull();
 		if (cfg.autoHideProperty().get())
 			maybeHideDock(INITIAL_AUTOHIDE_HIDE_TIME);
+		
 	}
 
 	private void configurePull() {
@@ -783,6 +784,7 @@ public class Dock extends AbstractController implements Listener {
 				}
 			};
 			signInScene.setPopup(signInPopup);
+			
 		}
 		signInPopup.popup();
 	}
@@ -1163,21 +1165,33 @@ public class Dock extends AbstractController implements Listener {
 		signIn.setEffect(null);
 	}
 	
+	private void mouseMovementShow(MouseEvent evt) {
+		hideDock(false);
+		evt.consume();
+	}
+	
+	private void mouseMovementHide(MouseEvent evt) {
+		maybeHideDock();
+		evt.consume();
+	}
+	
 	@FXML
 	private void evtMouseEnter(MouseEvent evt) throws Exception {
+		AmIOnDockSensor.INSTANCE.setSensor(true);
+		//request focus is required, in some cases launch icons tooltips do not show, if focus is not correct
+		requestFocus();
 		if (cfg.autoHideProperty().get() && cfg.hoverToRevealProperty().get()) {
-			hideDock(false);
-			evt.consume();
+			mouseMovementShow(evt);
 		}
 	}
 
 	@FXML
 	private void evtMouseExit(MouseEvent evt) throws Exception {
+		AmIOnDockSensor.INSTANCE.setSensor(false);
 		stopDockRevealerTimer();
 		if (cfg.autoHideProperty().get() && cfg.hoverToRevealProperty().get() 
 				&& !arePopupsOpen() && (contextMenu == null || !contextMenu.isShowing())) {
-			maybeHideDock();
-			evt.consume();
+			mouseMovementHide(evt);
 		}
 	}
 
@@ -1185,9 +1199,10 @@ public class Dock extends AbstractController implements Listener {
 	private void evtMouseClick(MouseEvent evt) throws Exception {
 		if (evt.getButton() == MouseButton.PRIMARY && !cfg.hoverToRevealProperty().get()) {
 			if(hidden) {
-				evtMouseEnter(evt);
+				mouseMovementShow(evt);
 			} else {
-				evtMouseExit(evt);
+				stopDockRevealerTimer();
+				mouseMovementHide(evt);
 			}
 			if (contextMenu != null) {
 				contextMenu.hide();
@@ -1347,6 +1362,19 @@ public class Dock extends AbstractController implements Listener {
 			}catch (RemoteException e) {
 				throw new IllegalStateException(e.getMessage(), e);
 			}
+		}
+	}
+	
+	public void requestFocus() {
+		final Stage stage = getStage();
+		if(!stage.isFocused()){
+			// Defer this as events may still be coming in
+			Platform.runLater(new Runnable() {
+				@Override
+				public void run() {
+					stage.requestFocus();
+				}
+			});
 		}
 	}
 	

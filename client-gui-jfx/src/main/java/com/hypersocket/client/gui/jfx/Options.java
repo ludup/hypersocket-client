@@ -27,6 +27,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Screen;
@@ -82,13 +83,11 @@ public class Options extends AbstractController {
 	private Label version;
 	@FXML
 	private ImageView logo;
+	@FXML
+	private VBox optionsVBox;
 
 	private Configuration cfg;
 	private FileChooser fileChooser;
-
-	@Override
-	protected void onInitialize() {
-	}
 
 	@Override
 	protected void onConfigure() {

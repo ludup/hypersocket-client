@@ -20,13 +20,16 @@ import com.hypersocket.client.rmi.Util;
 
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
+import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.StackPane;
 
 
@@ -78,7 +81,10 @@ public class AddConnection extends AbstractController {
 		UIHelpers.bindButtonToItsVisibleManagedProperty(add);
 		UIHelpers.bindButtonToItsVisibleManagedProperty(edit);
 		UIHelpers.bindButtonToItsVisibleManagedProperty(cancel);
+		
+		setUpDrag();
 	}
+
 	
 	public void setUpEditPage() {
 		messageLbl.setText("");
@@ -226,8 +232,8 @@ public class AddConnection extends AbstractController {
 			SignIn.getInstance().updateConnectionInList(connectionSaved);
 			
 		}catch (Exception e) {
-			Dock.getInstance().notify(resources.getString("connection.add.failure"), GUICallback.NOTIFY_ERROR);
-			log.error("Problem in adding connection.", e);
+			Dock.getInstance().notify(resources.getString("connection.edit.failure"), GUICallback.NOTIFY_ERROR);
+			log.error("Problem in editing connection.", e);
 		}
 	}
 	
@@ -292,4 +298,50 @@ public class AddConnection extends AbstractController {
 				new GraphicDecoration(createErrorImageNode()));
 		}
 	}
+	
+	public void setUpDrag() {
+		// allow the clock background to be used to drag the clock around.
+	    final Delta dragDelta = new Delta();
+	    
+	    addConnectionStackPane.setOnMousePressed(new EventHandler<MouseEvent>() {
+	      @Override public void handle(MouseEvent mouseEvent) {
+	        // record a delta distance for the drag and drop operation.
+	        dragDelta.x = getStage().getX() - mouseEvent.getScreenX();
+	        dragDelta.y = getStage().getY() - mouseEvent.getScreenY(); 
+	        scene.setCursor(Cursor.MOVE);
+	      }
+	    });
+	    
+	    addConnectionStackPane.setOnMouseReleased(new EventHandler<MouseEvent>() {
+	      @Override public void handle(MouseEvent mouseEvent) {
+	        scene.setCursor(Cursor.HAND);
+	      }
+	    });
+	    
+	    addConnectionStackPane.setOnMouseDragged(new EventHandler<MouseEvent>() {
+	      @Override public void handle(MouseEvent mouseEvent) {
+	    	  getStage().setX(mouseEvent.getScreenX() + dragDelta.x);
+	    	  getStage().setY(mouseEvent.getScreenY() + dragDelta.y);
+	      }
+	    });
+	    
+	    addConnectionStackPane.setOnMouseEntered(new EventHandler<MouseEvent>() {
+	      @Override public void handle(MouseEvent mouseEvent) {
+	        if (!mouseEvent.isPrimaryButtonDown()) {
+	          scene.setCursor(Cursor.HAND);
+	        }
+	      }
+	    });
+	    
+	    addConnectionStackPane.setOnMouseExited(new EventHandler<MouseEvent>() {
+	      @Override public void handle(MouseEvent mouseEvent) {
+	        if (!mouseEvent.isPrimaryButtonDown()) {
+	          scene.setCursor(Cursor.DEFAULT);
+	        }
+	      }
+	    });
+	}
+	
+	// records relative x and y co-ordinates.
+	private class Delta { double x, y; } 
 }
