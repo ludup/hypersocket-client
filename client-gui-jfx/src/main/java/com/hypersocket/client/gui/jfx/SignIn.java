@@ -199,15 +199,14 @@ public class SignIn extends AbstractController implements Listener {
 
 			if (Objects.equals(connection, foregroundConnection)) {
 				foregroundConnection = null;
-
-				// setMessage(null, null);
-				setAvailable(connection);
-				if (e != null) {
-					abortPrompts(connection);
-					log.error("Failed to connect.", e);
-					Dock.getInstance().notify(e.getMessage(),
-							GUICallback.NOTIFY_ERROR);
-				}
+			}
+			
+			setAvailable(connection);
+			if (e != null) {
+				abortPrompts(connection);
+				log.error("Failed to connect.", e);
+				Dock.getInstance().notify(e.getMessage(),
+						GUICallback.NOTIFY_ERROR);
 			}
 			
 			DockOnEventDo.refreshResourcesFavouriteLists();
@@ -574,7 +573,6 @@ public class SignIn extends AbstractController implements Listener {
 		log.info(String.format("Deleting connection %s", sel));
 		context.getBridge().getConnectionService().delete(sel);
 		context.getBridge().getConnectionService().removeCredentials(sel.getHostname());
-		Util.getUri(sel);
 		try {
 			removeBorderPaneFromConnectionList(sel);
 			DockOnEventDo.refreshResourcesFavouriteLists();
@@ -608,7 +606,7 @@ public class SignIn extends AbstractController implements Listener {
 		Stage stage = getStage();
 		if (stage != null) {
 			stage.sizeToScene();
-			popup.sizeToScene();
+			adjustPopUISize();
 		}
 	}
 
@@ -794,6 +792,7 @@ public class SignIn extends AbstractController implements Listener {
 			credentialsUI.getChildren().clear();
 			promptsAvailable = false;
 			promptSemaphore.release();
+			adjustPopUISize();
 		} catch (Exception e) {
 			log.error("Failed to login.", e);
 		}
@@ -1026,12 +1025,7 @@ public class SignIn extends AbstractController implements Listener {
 		Connection sel = getConnectionFromButton((Button) evt.getSource());
 		if (sel != null && sel.getId() != null) {
 			confirmDelete(sel);
-			Platform.runLater(new Runnable() {
-				@Override
-				public void run() {
-					instance.getPopup().sizeToScene();
-				}
-			});
+			adjustPopUISize();
 		}
 	}
 	
@@ -1084,6 +1078,15 @@ public class SignIn extends AbstractController implements Listener {
 			
 			addConnectionContent.setPopup(popup);
 		}
+	}
+	
+	private void adjustPopUISize() {
+		Platform.runLater(new Runnable() {
+			@Override
+			public void run() {
+				popup.sizeToScene();
+			}
+		});
 	}
 	
 }
