@@ -1178,8 +1178,6 @@ public class Dock extends AbstractController implements Listener {
 	@FXML
 	private void evtMouseEnter(MouseEvent evt) throws Exception {
 		AmIOnDockSensor.INSTANCE.setSensor(true);
-		//request focus is required, in some cases launch icons tooltips do not show, if focus is not correct
-		requestFocus();
 		if (cfg.autoHideProperty().get() && cfg.hoverToRevealProperty().get()) {
 			mouseMovementShow(evt);
 		}
