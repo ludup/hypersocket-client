@@ -850,7 +850,7 @@ public class Dock extends AbstractController implements Listener {
 		rebuildIcons();
 	}
 
-	void rebuildIcons() {
+	synchronized void rebuildIcons() {
 
 		if (mode != Mode.LAUNCHERS) {
 			return;

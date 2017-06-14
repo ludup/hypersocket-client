@@ -10,7 +10,6 @@ import javafx.beans.value.ObservableValue;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.paint.Color;
-import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.Window;
@@ -307,7 +306,7 @@ public class Popup extends Stage {
 	}
 	
 	protected void sizeToSceneCenter() {
-		Rectangle2D screenBounds = Screen.getPrimary().getVisualBounds();
+		Rectangle2D screenBounds = Client.getConfiguredBounds();
 		
 		double height = Double.isNaN(this.getHeight()) ? 0 : this.getHeight();
 		double width = Double.isNaN(this.getWidth()) ? 0 : this.getWidth();

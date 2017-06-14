@@ -27,7 +27,7 @@
             </VBox>
          </top>
          <center>
-            <ScrollPane minHeight="20" maxHeight="300" vbarPolicy="AS_NEEDED" styleClass="transparent-background" BorderPane.alignment="CENTER">
+            <ScrollPane minHeight="20" maxHeight="300" vbarPolicy="AS_NEEDED" styleClass="transparent" BorderPane.alignment="CENTER">
               <content>
                 <AnchorPane minHeight="20">
                      <children>

@@ -9,7 +9,7 @@
 
 <StackPane fx:id="addConnectionStackPane" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.AddConnection">
    <children>
-   		<VBox fx:id="root" alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="350.0" styleClass="windowContent">
+   		<VBox fx:id="root" alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="380" styleClass="windowContent">
    			<children>
    				<BorderPane fx:id="titleBp">
                 	<left>
@@ -41,7 +41,7 @@
                 	<left>
                     	 <Label fx:id="nameLbl" alignment="CENTER" styleClass="info-lg" text="%name" textOverrun="CLIP">
                            <padding>
-                              <Insets bottom="4.0" left="0" right="4.0" top="4.0" />
+                              <Insets bottom="12.0" left="0" right="4.0" top="4.0" />
                            </padding>
                         </Label>
                     </left>
@@ -53,7 +53,7 @@
                 	<left>
                     	 <Label fx:id="serverLbl" alignment="CENTER" styleClass="info-lg" text="%server" textOverrun="CLIP">
                            <padding>
-                              <Insets bottom="4.0" left="0" right="4.0" top="4.0" />
+                              <Insets bottom="12.0" left="0" right="4.0" top="4.0" />
                            </padding>
                         </Label>
                     </left>
@@ -65,7 +65,7 @@
                 	<left>
                     	 <Label fx:id="usernameLbl" alignment="CENTER" styleClass="info-lg" text="%username" textOverrun="CLIP">
                            <padding>
-                              <Insets bottom="4.0" left="0" right="4.0" top="4.0" />
+                              <Insets bottom="12.0" left="0" right="4.0" top="4.0" />
                            </padding>
                         </Label>
                     </left>
@@ -77,7 +77,7 @@
                 	<left>
                     	 <Label fx:id="passwordLbl" alignment="CENTER" styleClass="info-lg" text="%password" textOverrun="CLIP">
                            <padding>
-                              <Insets bottom="4.0" left="0" right="4.0" top="4.0" />
+                              <Insets bottom="12.0" left="0" right="4.0" top="4.0" />
                            </padding>
                         </Label>
                     </left>
@@ -91,7 +91,7 @@
 	                     <children>
 	                     	<Label fx:id="saveCredsLbl" alignment="CENTER" styleClass="info" text="%saveCred" textOverrun="CLIP">
                            <padding>
-                              <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
+                              <Insets bottom="12.0" left="4.0" right="4.0" top="4.0" />
                            </padding>
                         </Label>
 	                        <CheckBox fx:id="saveCredsCBox" mnemonicParsing="false" />

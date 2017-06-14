@@ -177,10 +177,6 @@
     -fx-font-size: 10px;
 }
 
-.transparent-background {
-	-fx-background-color : transparent;
-}
-
 .add-connection {
 	-fx-font-size: 16px;
 	-fx-background-color : transparent;
@@ -188,5 +184,9 @@
 
 .no-border {
 	-fx-border: none;
+}
+
+.scroll-pane .viewport {
+       -fx-background-color: transparent;
 }
 

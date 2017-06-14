@@ -39,7 +39,7 @@
                   <BorderPane fx:id="credentialsUI" VBox.vgrow="SOMETIMES" />
                </children>
             </VBox>
-            <ScrollPane fx:id="connectionsScroll" minHeight="20" maxHeight="300" styleClass="transparent-background" vbarPolicy="AS_NEEDED" hbarPolicy="NEVER">
+            <ScrollPane fx:id="connectionsScroll" minHeight="20" maxHeight="300" styleClass="transparent" vbarPolicy="AS_NEEDED" hbarPolicy="NEVER">
               <content>
                 <AnchorPane fx:id="connectionsAnchor" minHeight="20.0" styleClass="no-border">
                      <children>
