@@ -91,7 +91,6 @@ public class ClientServiceImpl implements ClientService {
 		workerExecutor = Executors.newCachedThreadPool();
 
 		timer = new Timer(true);
-
 	}
 
 	@Override
@@ -169,9 +168,18 @@ public class ClientServiceImpl implements ClientService {
 
 		ConnectionJob task = createJob(c);
 		connectingClients.put(c, task);
-		timer.schedule(task, 500);
+		schedule(task, 500);
 	}
 
+	private void schedule(TimerTask task, int delay) {
+		try {
+			timer.schedule(task, delay);
+		} catch (Throwable e) {
+			timer = new Timer(true);
+			timer.schedule(task, delay);
+		}
+	}
+	
 	private void checkValidConnect(Connection c) throws RemoteException {
 		if (connectingClients.containsKey(c)) {
 			throw new RemoteException("Already connecting.");
@@ -196,7 +204,7 @@ public class ClientServiceImpl implements ClientService {
 		if (connection == null) {
 			log.warn("Ignoring a scheduled connection that no longer exists, probably deleted.");
 		} else {
-			timer.schedule(createJob(c), reconnectSeconds * 1000);
+			schedule(createJob(c), reconnectSeconds * 1000);
 		}
 
 	}
@@ -214,8 +222,6 @@ public class ClientServiceImpl implements ClientService {
 
 	public void stopService() throws RemoteException {
 
-		
-		
 		for (HypersocketClient<?> client : activeClients.values()) {
 			if(log.isInfoEnabled()) {
 				log.info(String.format("%s service is stopping", client.getHost()));
