@@ -160,6 +160,10 @@ public class AbstractController implements FramedController, Listener {
 		this.popup = popup;
 		onSetPopup(popup);
 	}
+	
+	public Popup getPopup() {
+		return this.popup;
+	}
 
 	protected void onSetPopup(Popup popup) {
 

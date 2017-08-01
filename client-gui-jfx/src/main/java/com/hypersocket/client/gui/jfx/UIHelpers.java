@@ -82,24 +82,29 @@ public class UIHelpers {
 		
 		return tt;
 	}
-
-	public static void sizeToImage(ButtonBase button) {
-		int sz = Configuration.getDefault().sizeProperty().get();
+	
+	public static void sizeToImage(ButtonBase button, double width, double height) {
+		int sz = (int) width;
 		int df = sz / 8;
 		sz -= df;
 		if (button.getGraphic() != null) {
 			ImageView iv = ((ImageView) button.getGraphic());
-			iv.setFitWidth(sz - df);
-			iv.setFitHeight(sz - df);
+			iv.setFitWidth(width - df);
+			iv.setFitHeight(height - df);
 			iv.setSmooth(true);
 		} else {
-			int fs = (int) ((float) sz * 0.6f);
+			int fs = (int) (sz * 0.6f);
 			button.setStyle("-fx-font-size: " + fs + "px;");
 		}
-		button.setMinSize(sz, sz);
-		button.setMaxSize(sz, sz);
-		button.setPrefSize(sz, sz);
+		button.setMinSize(width, height);
+		button.setMaxSize(width, height);
+		button.setPrefSize(width, height);
 		button.layout();
+	}
+
+	public static void sizeToImage(ButtonBase button) {
+		double sz = Configuration.getDefault().sizeProperty().get();
+		sizeToImage(button, sz, sz);
 	}
 
 	public static String toHex(Color color, boolean opacity) {
@@ -116,6 +121,17 @@ public class UIHelpers {
 			return String.format("#%02x%02x%02x", (int) (color.getRed() * 255),
 					(int) (color.getGreen() * 255),
 					(int) (color.getBlue() * 255));
+	}
+	
+	/*
+	 * This is DUMB, but i can't see another way. It stops invisible
+	 * components being considered for layout (and so taking up space. You'd
+	 * think this might be part of JavaFX, but no ...
+	 * 
+	 * http://stackoverflow.com/questions/12200195/javafx-hbox-hide-item
+	 */
+	public static void bindButtonToItsVisibleManagedProperty(ButtonBase button) {
+		button.managedProperty().bind(button.visibleProperty());
 	}
 
 }

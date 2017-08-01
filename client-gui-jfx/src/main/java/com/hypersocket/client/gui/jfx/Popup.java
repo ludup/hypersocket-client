@@ -1,10 +1,13 @@
 package com.hypersocket.client.gui.jfx;
 
+import org.controlsfx.control.PopOver;
+
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.beans.property.Property;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
@@ -12,18 +15,16 @@ import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
-import org.controlsfx.control.PopOver;
-
 public class Popup extends Stage {
 
 	private boolean sizeObtained;
-	private double position;
+	private double position = 100.0;
 	private PositionType positionType;
 	private boolean dismiss;
 	private PopOver popOver;
 
 	public enum PositionType {
-		POSITIONED, DOCKED
+		POSITIONED, DOCKED, DOCKED_OPPOSITE, CENTER
 	}
 
 	public Popup(Window parent, Scene scene) {
@@ -84,8 +85,8 @@ public class Popup extends Stage {
 					Boolean oldValue, Boolean newValue) {
 				if (dismiss) {
 
-					/*
-					 * NOTE - This may look crazy, but this seems to work-around
+					
+					 /* NOTE - This may look crazy, but this seems to work-around
 					 * a bug in JavaFX / Mac OS X (1.8.0_51) that occurs when
 					 * trying to hide a stage whilst processing a focus event.
 					 * By placing both operations on the event queue the problem
@@ -99,8 +100,8 @@ public class Popup extends Stage {
 								Platform.runLater(new Runnable() {
 									@Override
 									public void run() {
-										if (!parent.focusedProperty().get()
-												&& !Dock.getInstance()
+										if (!AmIOnDockSensor.INSTANCE.isOnDock() && 
+												 !Dock.getInstance()
 														.arePopupsOpen()
 												&& Configuration.getDefault()
 														.autoHideProperty()
@@ -150,10 +151,10 @@ public class Popup extends Stage {
 			}
 		});
 		Client.setColors(scene);
-
+		
 		sizeToScene();
 	}
-
+	
 	public boolean isDismissOnFocusLost() {
 		return dismiss;
 	}
@@ -214,6 +215,7 @@ public class Popup extends Stage {
 		}
 	}
 
+	@Override
 	public void sizeToScene() {
 		super.sizeToScene();
 		Configuration cfg = Configuration.getDefault();
@@ -227,17 +229,29 @@ public class Popup extends Stage {
 				else
 					setX(position);
 				break;
+			case DOCKED_OPPOSITE:
+				setX(getOwner().getX());
+				break;
+			case CENTER:
+				sizeToSceneCenter();
+				break;
 			default:
-				setX(getOwner().getX() + getOwner().getWidth() - getWidth());
+				setX(getOwner().getX() + getOwner().getWidth()  - getWidth());
 			}
 		} else if (cfg.bottomProperty().get()) {
-			setY(getOwner().getY() - getHeight());
+			setY(getOwner().getY() - getHeight() + Client.DROP_SHADOW_SIZE);
 			switch (positionType) {
 			case POSITIONED:
 				if (position + getWidth() > getOwner().getWidth() - getWidth())
 					setX(getOwner().getWidth() - getWidth());
 				else
 					setX(position);
+				break;
+			case DOCKED_OPPOSITE:
+				setX(getOwner().getX());
+				break;
+			case CENTER:
+				sizeToSceneCenter();
 				break;
 			default:
 				setX(getOwner().getX() + getOwner().getWidth() - getWidth());
@@ -252,6 +266,12 @@ public class Popup extends Stage {
 				else
 					setY(position);
 				break;
+			case DOCKED_OPPOSITE:
+				setY(getOwner().getY() + getOwner().getHeight() - getHeight());
+				break;
+			case CENTER:
+				sizeToSceneCenter();
+				break;
 			default:
 				setY(getOwner().getY());
 			}
@@ -264,6 +284,12 @@ public class Popup extends Stage {
 					setY(getOwner().getHeight() - getHeight());
 				else
 					setY(position);
+				break;
+			case DOCKED_OPPOSITE:
+				setY(getOwner().getY() + getOwner().getHeight() - getHeight());
+				break;
+			case CENTER:
+				sizeToSceneCenter();
 				break;
 			default:
 				setY(getOwner().getY());
@@ -278,4 +304,16 @@ public class Popup extends Stage {
 	protected boolean isChildFocussed() {
 		return false;
 	}
+	
+	protected void sizeToSceneCenter() {
+		Rectangle2D screenBounds = Client.getConfiguredBounds();
+		
+		double height = Double.isNaN(this.getHeight()) ? 0 : this.getHeight();
+		double width = Double.isNaN(this.getWidth()) ? 0 : this.getWidth();
+		
+		setX((screenBounds.getWidth() - width) / 2); 
+		//100, adding a kind of padding, exact center makes user focus a lot, with 100 padding looks nice and easy to focus. 
+		setY(((screenBounds.getHeight() - height) / 2) - 100);  
+	}
+	
 }

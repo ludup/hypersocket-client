@@ -7,7 +7,7 @@
 <?import java.lang.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.Options">
+<VBox fx:id="optionsVBox" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.Options">
    <children>
       <TabPane styleClass="windowContent" tabClosingPolicy="UNAVAILABLE">
         <tabs>
@@ -64,12 +64,19 @@
                                     <CheckBox fx:id="avoidReserved" mnemonicParsing="false" onMouseEntered="#evtShowTooltipPopover" onMouseExited="#evtHideTooltipPopover" text="%avoidReserved">
                                        <VBox.margin>
                                           <Insets top="8.0" />
-                                       </VBox.margin></CheckBox>
+                                       </VBox.margin>
+                                    </CheckBox>
                                     <CheckBox fx:id="autoHide" mnemonicParsing="false" text="%autohide">
                                        <VBox.margin>
                                           <Insets top="8.0" />
-                                       </VBox.margin></CheckBox>
+                                       </VBox.margin>
+                                    </CheckBox>
                                     <CheckBox fx:id="alwaysOnTop" mnemonicParsing="false" text="%alwaysOnTop">
+                                       <VBox.margin>
+                                          <Insets top="8.0" />
+                                       </VBox.margin>
+                                    </CheckBox>
+                                    <CheckBox fx:id="hoverToReveal" mnemonicParsing="false" text="%hoverToReveal">
                                        <VBox.margin>
                                           <Insets top="8.0" />
                                        </VBox.margin>

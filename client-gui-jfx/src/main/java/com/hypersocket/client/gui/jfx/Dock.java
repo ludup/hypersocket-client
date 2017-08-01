@@ -1,11 +1,15 @@
 package com.hypersocket.client.gui.jfx;
 
 import java.io.IOException;
+import java.rmi.RemoteException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 
@@ -21,6 +25,8 @@ import com.hypersocket.client.gui.jfx.Flinger.Direction;
 import com.hypersocket.client.gui.jfx.Popup.PositionType;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionStatus;
+import com.hypersocket.client.rmi.FavouriteItem;
+import com.hypersocket.client.rmi.FavouriteItemService;
 import com.hypersocket.client.rmi.GUICallback;
 import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
 import com.hypersocket.client.rmi.Resource;
@@ -51,7 +57,6 @@ import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.ToggleButton;
 import javafx.scene.effect.Glow;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -142,13 +147,13 @@ public class Dock extends AbstractController implements Listener {
 	@FXML
 	private Flinger flinger;
 	@FXML
-	private ToggleButton fileResources;
+	private Button fileResources;
 	@FXML
-	private ToggleButton browserResources;
+	private Button browserResources;
 	@FXML
-	private ToggleButton networkResources;
+	private Button networkResources;
 	@FXML
-	private ToggleButton ssoResources;
+	private Button ssoResources;
 	@FXML
 	private BorderPane dockContent;
 	@FXML
@@ -174,7 +179,15 @@ public class Dock extends AbstractController implements Listener {
 	private List<ServiceResource> serviceResources = new ArrayList<>();
 	// private ResourceGroup resourceGroup;
 	private Popup statusPopup;
+	private Popup ssoResourcesPopup;
+	private Popup browserResourcesPopup;
+	private Popup fileResourcesPopup;
+	private Popup networkResourcesPopup;
 	private Status statusContent;
+	private SsoResources ssoResourcesContent;
+	private BrowserResources browserResourcesContent;
+	private FileResources fileResourcesContent;
+	private NetworkResources networkResourcesContent;
 
 	private ChangeListener<Number> sizeChangeListener;
 	private ChangeListener<Color> colorChangeListener;
@@ -184,6 +197,7 @@ public class Dock extends AbstractController implements Listener {
 	private int appsToUpdate;
 	private Update updateScene;
 	private ResourceGroup resourceGroup;
+	private Set<Long> toggleResourcesForConnection = new HashSet<>();
 
 	public Dock() {
 		instance = this;
@@ -192,7 +206,7 @@ public class Dock extends AbstractController implements Listener {
 	public static Dock getInstance() {
 		return instance;
 	}
-
+	
 	/*
 	 * Class methods
 	 */
@@ -269,6 +283,10 @@ public class Dock extends AbstractController implements Listener {
 					// Starting an update, so hide the all other windows
 					hideIfShowing(signInPopup);
 					hideIfShowing(optionsPopup);
+					hideIfShowing(ssoResourcesPopup);
+					hideIfShowing(browserResourcesPopup);
+					hideIfShowing(networkResourcesPopup);
+					hideIfShowing(fileResourcesPopup);
 					hideIfShowing(resourceGroupPopup);
 					setAvailable();
 					updateScene = (Update) context.openScene(Update.class,
@@ -320,6 +338,10 @@ public class Dock extends AbstractController implements Listener {
 	public boolean arePopupsOpen() {
 		return context.isWaitingForExitChoice() || (signInPopup != null && signInPopup.isShowing())
 				|| (optionsPopup != null && optionsPopup.isShowing())
+				|| (ssoResourcesPopup != null && ssoResourcesPopup.isShowing())
+				|| (browserResourcesPopup != null && browserResourcesPopup.isShowing())
+				|| (networkResourcesPopup != null && networkResourcesPopup.isShowing())
+				|| (fileResourcesPopup != null && fileResourcesPopup.isShowing())
 				|| (statusPopup != null && statusPopup.isShowing())
 				|| (resourceGroupPopup != null && resourceGroupPopup.isShowing());
 	}
@@ -419,7 +441,7 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 			};
-			((ResourceGroup) resourceGroup).setPopup(resourceGroupPopup);
+			resourceGroup.setPopup(resourceGroupPopup);
 		}
 		positionResourceGroupPopup(source);
 		resourceGroup.setResources(group);
@@ -450,71 +472,75 @@ public class Dock extends AbstractController implements Listener {
 	public void updateResource(ResourceUpdateType type, Resource resource) {
 		switch (type) {
 		case CREATE: {
-			rebuildResourceIcon(resource.getRealm(), resource);
-			rebuildIcons();
-
-			Action[] actions = new Action[0];
-
-			// Find the button so we can launch on clicking the notify
-			ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
-			ResourceGroupList list = icons.get(key);
-			if (list != null) {
-				ResourceItem rit = list.getItemForResource(resource);
-				if (rit != null) {
-					LauncherButton lb = getButtonForResourceItem(rit);
-					if (lb != null) {
-						actions = new Action[] {
-								new Action(resources.getString("resources.launch"), new Consumer<ActionEvent>() {
-									@Override
-									public void accept(ActionEvent t) {
-										lb.launch();
-									}
-								}) };
+				rebuildResourceIcon(resource.getRealm(), resource);
+				rebuildIcons();
+	
+				Action[] actions = new Action[0];
+	
+				// Find the button so we can launch on clicking the notify
+				ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
+				ResourceGroupList list = icons.get(key);
+				if (list != null) {
+					ResourceItem rit = list.getItemForResource(resource);
+					if (rit != null) {
+						LauncherButton lb = getButtonForResourceItem(rit);
+						if (lb != null) {
+							actions = new Action[] {
+									new Action(resources.getString("resources.launch"), new Consumer<ActionEvent>() {
+										@Override
+										public void accept(ActionEvent t) {
+											lb.launch();
+										}
+									}) };
+						}
 					}
 				}
+	
+				notify(MessageFormat.format(resources.getString("resources.created"), resource.getName()),
+						GUICallback.NOTIFY_INFO, actions);
+				break;
 			}
-
-			notify(MessageFormat.format(resources.getString("resources.created"), resource.getName()),
-					GUICallback.NOTIFY_INFO, actions);
-			break;
-		}
 		case DELETE: {
-			ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getIcon());
-			ResourceGroupList list = icons.get(key);
-			if (list != null) {
-				ResourceItem rit = list.getItemForResource(resource);
-				if (rit != null) {
-					list.getItems().remove(rit);
-					rebuildIcons();
-					notify(MessageFormat.format(resources.getString("resources.deleted"), resource.getName()),
-							GUICallback.NOTIFY_INFO);
-					break;
+				ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
+				ResourceGroupList list = icons.get(key);
+				if (list != null) {
+					ResourceItem rit = list.getItemForResource(resource);
+					if (rit != null) {
+						list.getItems().remove(rit);
+						rebuildIcons();
+						deleteLinkedFavouriteItem(resource);
+						notify(MessageFormat.format(resources.getString("resources.deleted"), resource.getName()),
+								GUICallback.NOTIFY_INFO);
+						break;
+					}
 				}
+				break;
 			}
-			break;
-		}
 		default: {
-			ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
-			ResourceGroupList list = icons.get(key);
-			if (list != null) {
-				ResourceItem rit = list.getItemForResource(resource);
-				if (rit != null) {
-					rit.setResource(resource);
-					rebuildIcons();
-					notify(MessageFormat.format(resources.getString("resources.updated"), resource.getName()),
-							GUICallback.NOTIFY_INFO);
-					break;
+				ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
+				ResourceGroupList list = icons.get(key);
+				if (list != null) {
+					ResourceItem rit = list.getItemForResource(resource);
+					if (rit != null) {
+						rit.setResource(resource);
+						rebuildIcons();
+						notify(MessageFormat.format(resources.getString("resources.updated"), resource.getName()),
+								GUICallback.NOTIFY_INFO);
+						break;
+					} else {
+						log.warn(String.format("Could not find icon in icon group for resource %s (%s)", resource.getUid(),
+								resource.getName()));
+					}
 				} else {
-					log.warn(String.format("Could not find icon in icon group for resource %s (%s)", resource.getUid(),
+					log.warn(String.format("Could not find icon group for resource %s (%s)", resource.getUid(),
 							resource.getName()));
 				}
-			} else {
-				log.warn(String.format("Could not find icon group for resource %s (%s)", resource.getUid(),
-						resource.getName()));
+				break;
 			}
-			break;
 		}
-		}
+		
+		DockOnEventDo.refreshResourcesFavouriteLists();
+		showHideResourcesButtonForResourceTypes();
 	}
 
 	@Override
@@ -555,23 +581,26 @@ public class Dock extends AbstractController implements Listener {
 		AnchorPane.setLeftAnchor(flinger, 0d);
 		AnchorPane.setRightAnchor(flinger, 0d);
 
+		networkResources.setVisible(false);
+		ssoResources.setVisible(false);
+		browserResources.setVisible(false);
+		fileResources.setVisible(false);
+		
+		UIHelpers.bindButtonToItsVisibleManagedProperty(networkResources);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(ssoResources);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(browserResources);
+		UIHelpers.bindButtonToItsVisibleManagedProperty(fileResources);
+		
 		networkResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("network.toolTip")));
-		networkResources.selectedProperty().bindBidirectional(cfg.showNetworkProperty());
-
 		ssoResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("sso.toolTip")));
-		ssoResources.selectedProperty().bindBidirectional(cfg.showSSOProperty());
-
 		browserResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("web.toolTip")));
-		browserResources.selectedProperty().bindBidirectional(cfg.showWebProperty());
-
+		fileResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("files.toolTip")));
+		
 		status.setTooltip(UIHelpers.createDockButtonToolTip(status.getTooltip().getText()));
 		exit.setTooltip(UIHelpers.createDockButtonToolTip(exit.getTooltip().getText()));
 		signIn.setTooltip(UIHelpers.createDockButtonToolTip(signIn.getTooltip().getText()));
 		options.setTooltip(UIHelpers.createDockButtonToolTip(options.getTooltip().getText()));
-
-		fileResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("files.toolTip")));
-		fileResources.selectedProperty().bindBidirectional(cfg.showFilesProperty());
-
+		
 		// Button size changes
 		sizeChangeListener = new ChangeListener<Number>() {
 			@Override
@@ -624,6 +653,7 @@ public class Dock extends AbstractController implements Listener {
 		configurePull();
 		if (cfg.autoHideProperty().get())
 			maybeHideDock(INITIAL_AUTOHIDE_HIDE_TIME);
+		
 	}
 
 	private void configurePull() {
@@ -688,6 +718,8 @@ public class Dock extends AbstractController implements Listener {
 	private void rebuildAllLaunchers() {
 		log.info("Rebuilding all launchers");
 		rebuildResources();
+		markFavouritesInIcons();
+		showHideResourcesButtonForResourceTypes();
 		Platform.runLater(new Runnable() {
 			@Override
 			public void run() {
@@ -696,12 +728,33 @@ public class Dock extends AbstractController implements Listener {
 				} else if (icons.size() == 0 && mode == Mode.LAUNCHERS) {
 					setMode(Mode.IDLE);
 				} else {
-					if (mode == Mode.LAUNCHERS)
+					if (mode == Mode.LAUNCHERS) {
 						rebuildIcons();
+					}
 					setAvailable();
 				}
 			}
 		});
+	}
+
+	private void showHideResourcesButtonForResourceTypes() {
+		if (context.getBridge().isConnected() && !context.getBridge().isServiceUpdating()) {
+			Set<Type> avaialbleResourceTypes = new HashSet<>();
+			Set<ResourceGroupKey> resourceGroupKeys = icons.keySet();
+			for (ResourceGroupKey resourceGroupKey : resourceGroupKeys) {
+				ResourceGroupList groupList = icons.get(resourceGroupKey);
+				if(groupList != null) {
+					for (ResourceItem item : groupList.getItems()) {
+						Resource resource = item.getResource();
+						avaialbleResourceTypes.add(resource.getType());
+					}
+				}
+			}
+			ssoResources.setVisible(avaialbleResourceTypes.contains(Type.SSO));
+			fileResources.setVisible(avaialbleResourceTypes.contains(Type.FILE));
+			browserResources.setVisible(avaialbleResourceTypes.contains(Type.BROWSER));
+			networkResources.setVisible(avaialbleResourceTypes.contains(Type.NETWORK));
+		}
 	}
 
 	private void showStatus(Button source) throws IOException {
@@ -714,7 +767,7 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 			};
-			((Status) statusContent).setPopup(statusPopup);
+			statusContent.setPopup(statusPopup);
 		}
 		statusContent.setResources(serviceResources);
 		statusPopup.popup();
@@ -730,7 +783,8 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 			};
-			((SignIn) signInScene).setPopup(signInPopup);
+			signInScene.setPopup(signInPopup);
+			
 		}
 		signInPopup.popup();
 	}
@@ -785,8 +839,18 @@ public class Dock extends AbstractController implements Listener {
 		}
 		return null;
 	}
+	
+	public void toggleHideResources(Long connectionId) {
+		toggleResourcesForConnection.add(connectionId);
+		rebuildIcons();
+	}
+	
+	public void toggleShowResources(Long connectionId) {
+		toggleResourcesForConnection.remove(connectionId);
+		rebuildIcons();
+	}
 
-	private void rebuildIcons() {
+	synchronized void rebuildIcons() {
 
 		if (mode != Mode.LAUNCHERS) {
 			return;
@@ -797,38 +861,13 @@ public class Dock extends AbstractController implements Listener {
 
 		// Type lastType = null;
 		for (Map.Entry<ResourceGroupKey, ResourceGroupList> ig : icons.entrySet()) {
-			Type type = ig.getKey().getType();
-			// if (lastType != null && type != lastType) {
-			// shortcuts
-			// .getChildren()
-			// .add(new Separator(
-			// cfg.topProperty().get()
-			// || cfg.bottomProperty().get() ? Orientation.VERTICAL
-			// : Orientation.HORIZONTAL));
-			// }
-			switch (type) {
-			case SSO:
-				if (!ssoResources.isSelected())
-					continue;
-				break;
-			case BROWSER:
-				if (!browserResources.isSelected())
-					continue;
-				break;
-			case FILE:
-				if (!fileResources.isSelected())
-					continue;
-				break;
-			case NETWORK:
-				if (!networkResources.isSelected())
-					continue;
-				break;
-			default:
-				break;
-			}
+			ig.getKey().getType();
 
-			List<ResourceGroupList> groupsAdded = new ArrayList<ResourceGroupList>();
+			List<ResourceGroupList> groupsAdded = new ArrayList<>();
 			for (ResourceItem item : ig.getValue().getItems()) {
+				if(!item.getResource().getFavourite() || toggleResourcesForConnection.contains(item.getResource().getConnectionId())) {
+					continue;
+				}
 				ResourceGroupKey gk = new ResourceGroupKey(item.getResource().getType(), item.getResource().getGroup());
 				ResourceGroupList groups = icons.get(gk);
 				if (groups == null || groups.getItems().size() < 2) {
@@ -956,18 +995,18 @@ public class Dock extends AbstractController implements Listener {
 		float fac = Math.min(1f, 1f - ((float) (yEnd - now) / (float) AUTOHIDE_DURATION));
 
 		// The amount of movement so far
-		float amt = fac * (float) value;
+		float amt = fac * value;
 
 		// The amount to shrink the width (or height when vertical) of the
 		// visible 'bar'
-		float barSize = (float) boundsSize * fac;
+		float barSize = boundsSize * fac;
 
 		// If showing, reverse
 		final boolean fhidden = hidden;
 
 		if (!hidden) {
 			amt = value - amt;
-			barSize = (float) boundsSize - barSize;
+			barSize = boundsSize - barSize;
 			if (!pull.isVisible())
 				pull.setVisible(true);
 		}
@@ -1125,31 +1164,50 @@ public class Dock extends AbstractController implements Listener {
 		}
 		signIn.setEffect(null);
 	}
-
+	
+	private void mouseMovementShow(MouseEvent evt) {
+		hideDock(false);
+		evt.consume();
+	}
+	
+	private void mouseMovementHide(MouseEvent evt) {
+		maybeHideDock();
+		evt.consume();
+	}
+	
 	@FXML
 	private void evtMouseEnter(MouseEvent evt) throws Exception {
-		if (cfg.autoHideProperty().get()) {
-			hideDock(false);
-			evt.consume();
+		AmIOnDockSensor.INSTANCE.setSensor(true);
+		if (cfg.autoHideProperty().get() && cfg.hoverToRevealProperty().get()) {
+			mouseMovementShow(evt);
 		}
 	}
 
 	@FXML
 	private void evtMouseExit(MouseEvent evt) throws Exception {
+		AmIOnDockSensor.INSTANCE.setSensor(false);
 		stopDockRevealerTimer();
-		if (cfg.autoHideProperty().get() && !arePopupsOpen() && (contextMenu == null || !contextMenu.isShowing())) {
-			maybeHideDock();
-			evt.consume();
+		if (cfg.autoHideProperty().get() && cfg.hoverToRevealProperty().get() 
+				&& !arePopupsOpen() && (contextMenu == null || !contextMenu.isShowing())) {
+			mouseMovementHide(evt);
 		}
 	}
 
 	@FXML
 	private void evtMouseClick(MouseEvent evt) throws Exception {
-		if (evt.getButton() == MouseButton.SECONDARY) {
+		if (evt.getButton() == MouseButton.PRIMARY && !cfg.hoverToRevealProperty().get()) {
+			if(hidden) {
+				mouseMovementShow(evt);
+			} else {
+				stopDockRevealerTimer();
+				mouseMovementHide(evt);
+			}
+			if (contextMenu != null) {
+				contextMenu.hide();
+			}
+		} else if (evt.getButton() == MouseButton.SECONDARY) {
 			showContextMenu(evt.getX(), evt.getY());
 			evt.consume();
-		} else if (contextMenu != null) {
-			contextMenu.hide();
 		}
 	}
 
@@ -1174,6 +1232,54 @@ public class Dock extends AbstractController implements Listener {
 		rebuildIcons();
 	}
 
+	@FXML
+	private void evtRefilterListSso(ActionEvent evt) throws IOException {
+		Object[] values = evtRefilterList(evt, SsoResources.class, ssoResourcesContent, ssoResourcesPopup);
+		ssoResourcesContent = (SsoResources) values[0];
+		ssoResourcesPopup = (Popup) values[1];
+	}
+	
+	@FXML
+	private void evtRefilterListBrowser(ActionEvent evt) throws IOException {
+		Object[] values = evtRefilterList(evt, BrowserResources.class, browserResourcesContent, browserResourcesPopup);
+		browserResourcesContent = (BrowserResources) values[0];
+		browserResourcesPopup = (Popup) values[1];
+	}
+	
+	@FXML
+	private void evtRefilterListNetwork(ActionEvent evt) throws IOException {
+		Object[] values = evtRefilterList(evt, NetworkResources.class, networkResourcesContent, networkResourcesPopup);
+		networkResourcesContent = (NetworkResources) values[0];
+		networkResourcesPopup = (Popup) values[1];
+	}
+	
+	@FXML
+	private void evtRefilterListFile(ActionEvent evt) throws IOException {
+		Object[] values = evtRefilterList(evt, FileResources.class, fileResourcesContent, fileResourcesPopup);
+		fileResourcesContent = (FileResources) values[0];
+		fileResourcesPopup = (Popup) values[1];
+	}
+	
+	private Object[] evtRefilterList(ActionEvent evt, Class<? extends AbstractResourceListController> clazz, AbstractResourceListController listController, Popup popup) throws IOException {
+		Window parent = this.scene.getWindow();
+		if (popup == null) {
+			listController = (AbstractResourceListController) context.openScene(clazz);
+			popup = new Popup(parent, listController.getScene(), true, PositionType.DOCKED_OPPOSITE) {
+				@Override
+				protected void hideParent(Window parent) {
+					hideDock(true);
+				}
+			};
+			listController.setPopup(popup);
+		}
+		
+		if (context.getBridge().isConnected() && !context.getBridge().isServiceUpdating()) {
+			listController.setResources(icons);
+		}
+		popup.popup();
+		return new Object[] {listController, popup};
+	}
+	
 	@FXML
 	private void evtShowPopup(MouseEvent evt) {
 		changeHidden(false);
@@ -1201,6 +1307,7 @@ public class Dock extends AbstractController implements Listener {
 					hideDock(true);
 				}
 
+				@Override
 				protected boolean isChildFocussed() {
 					// HACK!
 					//
@@ -1220,6 +1327,82 @@ public class Dock extends AbstractController implements Listener {
 			((Options) optionsScene).setPopup(optionsPopup);
 		}
 		optionsPopup.popup();
+	}
+	
+	private void markFavouritesInIcons() {
+		if (context.getBridge().isConnected() && !context.getBridge().isServiceUpdating()) {
+			try{
+				FavouriteItemService favouriteItemService = context.getBridge().getFavouriteItemService();
+				List<FavouriteItem> favouriteItems = favouriteItemService.getFavouriteItems();
+				
+				if(favouriteItems != null) {
+					Map<String, FavouriteItem> favouriteItemsMap = new HashMap<>();
+					
+					for (FavouriteItem favouriteItem : favouriteItems) {
+						favouriteItemsMap.put(favouriteItem.getUid(), favouriteItem);
+					}
+					
+					Set<ResourceGroupKey> resourceGroupKeys = icons.keySet();
+					for (ResourceGroupKey resourceGroupKey : resourceGroupKeys) {
+						ResourceGroupList groupList = icons.get(resourceGroupKey);
+						if(groupList != null) {
+							for (ResourceItem item : groupList.getItems()) {
+								Resource resource = item.getResource();
+								FavouriteItem favouriteItem = favouriteItemsMap.get(resource.getUid());
+								if(favouriteItem != null) {
+									resource.setFavourite(favouriteItem.getFavourite());
+								}
+							}
+						}
+					}
+							
+				}
+			}catch (RemoteException e) {
+				throw new IllegalStateException(e.getMessage(), e);
+			}
+		}
+	}
+	
+	public void requestFocus() {
+		final Stage stage = getStage();
+		if(!stage.isFocused()){
+			// Defer this as events may still be coming in
+			Platform.runLater(new Runnable() {
+				@Override
+				public void run() {
+					stage.requestFocus();
+				}
+			});
+		}
+	}
+	
+	private void deleteLinkedFavouriteItem(Resource resource) {
+		try{
+			FavouriteItemService favouriteItemService = context.getBridge().getFavouriteItemService();
+			FavouriteItem favouriteItem = favouriteItemService.getFavouriteItem(resource.getUid());
+			if(favouriteItem != null) {
+				favouriteItemService.delete(favouriteItem.getId());
+			}
+		} catch (RemoteException e) {
+			throw new IllegalStateException(e.getMessage(), e);
+		}
+	}
+	
+	public static class DockOnEventDo {
+		
+		/**
+		 * We need null check at times this code might be called when favourite lists are not initialized.
+		 */
+		public static void refreshResourcesFavouriteLists() {
+			if(SsoResources.getInstance() != null)
+				SsoResources.getInstance().clearList();
+			if(BrowserResources.getInstance() != null)
+				BrowserResources.getInstance().clearList();
+			if(NetworkResources.getInstance() != null)
+				NetworkResources.getInstance().clearList();
+			if(FileResources.getInstance() != null)
+				FileResources.getInstance().clearList();
+		}
 	}
 
 }

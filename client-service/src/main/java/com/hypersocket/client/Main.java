@@ -27,11 +27,13 @@ import com.hypersocket.client.rmi.ClientService;
 import com.hypersocket.client.rmi.ConfigurationService;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionService;
+import com.hypersocket.client.rmi.FavouriteItemService;
 import com.hypersocket.client.rmi.ResourceService;
 import com.hypersocket.client.rmi.VPNService;
 import com.hypersocket.client.service.ClientServiceImpl;
 import com.hypersocket.client.service.ConfigurationServiceImpl;
 import com.hypersocket.client.service.ConnectionServiceImpl;
+import com.hypersocket.client.service.FavouriteItemServiceImpl;
 import com.hypersocket.client.service.GUIRegistryImpl;
 import com.hypersocket.client.service.ResourceServiceImpl;
 import com.hypersocket.client.service.vpn.VPNServiceImpl;
@@ -45,6 +47,7 @@ public class Main {
 	ResourceService resourceService;
 	VPNServiceImpl vpnService;
 	ClientServiceImpl clientService;
+	FavouriteItemService favouriteItemService;
 	Properties properties = new Properties();
 	Registry registry;
 	int port;
@@ -197,6 +200,12 @@ public class Main {
 		
 		clientService = new ClientServiceImpl(connectionService,
 				configurationService, resourceService, restartCallback, new GUIRegistryImpl(), vpnService);
+		
+		if (log.isInfoEnabled()) {
+			log.info("Creating FavouriteItemService");
+		}
+		
+		favouriteItemService = new FavouriteItemServiceImpl();
 
 		return true;
 	
@@ -289,6 +298,11 @@ public class Main {
 		}
 		
 		try {
+			registry.unbind("favouriteItemService");
+		} catch (Exception e) {
+		}
+		
+		try {
 			UnicastRemoteObject.unexportObject(registry, true);
 		} catch (NoSuchObjectException e) {
 		}
@@ -302,6 +316,7 @@ public class Main {
 			publishService(ResourceService.class, resourceService);
 			publishService(ClientService.class, clientService);
 			publishService(VPNService.class, vpnService);
+			publishService(FavouriteItemService.class, favouriteItemService);
 			return true;
 		} catch (Exception e) {
 			log.error("Failed to publish service", e);

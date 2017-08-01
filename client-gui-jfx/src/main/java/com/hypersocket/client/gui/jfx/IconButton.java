@@ -8,16 +8,16 @@ import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 import java.util.WeakHashMap;
 
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.util.Duration;
-
-import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class IconButton extends LauncherButton {
 
@@ -33,6 +33,10 @@ public class IconButton extends LauncherButton {
 
 	public IconButton(ResourceBundle resources, ResourceItem resourceItem,
 			Client context, ResourceGroupList group) {
+		this(resources, resourceItem, context, group, -1, -1);
+	}
+	public IconButton(ResourceBundle resources, ResourceItem resourceItem,
+			Client context, ResourceGroupList group, double width, double height) {
 		super(resources, resourceItem, context);
 		getStyleClass().add("iconButton");
 		setTooltipText(resourceItem.getResource().getName());
@@ -91,7 +95,12 @@ public class IconButton extends LauncherButton {
 
 						@Override
 						protected void onImageLoaded() {
-							sizeToImage();
+							if(width < 0 && height < 0) {
+								sizeToImage();
+							} else {
+								sizeToImage(width, height);
+							}
+							
 						}
 						
 					});
@@ -100,7 +109,12 @@ public class IconButton extends LauncherButton {
 		} catch (MissingResourceException mre) {
 			setText("%" + typeName);
 		}
-		sizeToImage();
+		
+		if(width < 0 && height < 0) {
+			sizeToImage();
+		} else {
+			sizeToImage(width, height);
+		}
 
 		// Bouncer for click events
 		double bounceSpeed = 50;
@@ -134,11 +148,13 @@ public class IconButton extends LauncherButton {
 			shrinker.play();
 		});
 	}
+	@Override
 	protected void onInitiateLaunch() {
 		launching = true;
 		bouncer.play();
 	}
 	
+	@Override
 	protected void onFinishLaunch() {
 		launching = false;
 	}
@@ -151,10 +167,10 @@ public class IconButton extends LauncherButton {
 	}
 
 	private void configureButton(final ImageView imageView) {
-		imageView.setFitHeight(32);
+		/*imageView.setFitHeight(32);
 		imageView.setFitWidth(32);
 		imageView.setPreserveRatio(true);
 		imageView.setSmooth(true);
-		imageView.getStyleClass().add("launcherIcon");
+		imageView.getStyleClass().add("launcherIcon");*/
 	}
 }

@@ -29,13 +29,14 @@ public class Configuration {
 	private BooleanProperty left = new SimpleBooleanProperty();
 	private BooleanProperty right = new SimpleBooleanProperty();
 	private BooleanProperty autoHide = new SimpleBooleanProperty();
+	private BooleanProperty hoverToReveal = new SimpleBooleanProperty();
 	private BooleanProperty alwaysOnTop = new SimpleBooleanProperty();
 	private BooleanProperty avoidReserved = new SimpleBooleanProperty();
 	private StringProperty browserCommand = new SimpleStringProperty();
 	private IntegerProperty size = new SimpleIntegerProperty();
 	private IntegerProperty monitor = new SimpleIntegerProperty();
-	private Property<Color> color = new SimpleObjectProperty<Color>();
-	private Property<BrowserType> browserType = new SimpleObjectProperty<BrowserType>();
+	private Property<Color> color = new SimpleObjectProperty<>();
+	private Property<BrowserType> browserType = new SimpleObjectProperty<>();
 	private StringProperty temporaryOnStartConnection = new SimpleStringProperty();
 
 	//
@@ -156,6 +157,10 @@ public class Configuration {
 		autoHide.addListener(new BooleanPreferenceUpdateChangeListener(node,
 				"autoHide"));
 		
+		hoverToReveal.set(node.getBoolean("hoverToReveal", true));
+		hoverToReveal.addListener(new BooleanPreferenceUpdateChangeListener(node,
+				"hoverToReveal"));
+		
 		temporaryOnStartConnection.set(node.get("temporaryOnStartConnection", ""));
 		temporaryOnStartConnection.addListener(new StringPreferenceUpdateChangeListener(node, "temporaryOnStartConnection"));
 
@@ -248,7 +253,11 @@ public class Configuration {
 	public BooleanProperty autoHideProperty() {
 		return autoHide;
 	}
-
+	
+	public BooleanProperty hoverToRevealProperty() {
+		return hoverToReveal;
+	}
+	
 	public BooleanProperty alwaysOnTopProperty() {
 		return alwaysOnTop;
 	}

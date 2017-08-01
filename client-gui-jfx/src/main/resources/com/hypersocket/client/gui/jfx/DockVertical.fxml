@@ -35,10 +35,10 @@
          <bottom>
             <VBox alignment="BOTTOM_CENTER" styleClass="background">
                <children>
-                  <ToggleButton fx:id="ssoResources" mnemonicParsing="false" onAction="#evtRefilter" styleClass="iconButton" text="%sso" />
-                  <ToggleButton fx:id="browserResources" mnemonicParsing="false" onAction="#evtRefilter" prefHeight="56.0" prefWidth="56.0" styleClass="iconButton" text="%web" />
-                  <ToggleButton fx:id="networkResources" mnemonicParsing="false" onAction="#evtRefilter" prefHeight="56.0" prefWidth="56.0" styleClass="iconButton" text="%network" textOverrun="CLIP" />
-                  <ToggleButton fx:id="fileResources" mnemonicParsing="false" onAction="#evtRefilter" styleClass="iconButton" text="%files" textOverrun="CLIP" />
+                  <Button fx:id="ssoResources" mnemonicParsing="false" onAction="#evtRefilterListSso" styleClass="iconButton" text="%sso" />
+                  <Button fx:id="browserResources" mnemonicParsing="false" onAction="#evtRefilterListBrowser" prefHeight="56.0" prefWidth="56.0" styleClass="iconButton" text="%web" />
+                  <Button fx:id="networkResources" mnemonicParsing="false" onAction="#evtRefilterListNetwork" prefHeight="56.0" prefWidth="56.0" styleClass="iconButton" text="%network" textOverrun="CLIP" />
+                  <Button fx:id="fileResources" mnemonicParsing="false" onAction="#evtRefilterListFile" styleClass="iconButton" text="%files" textOverrun="CLIP" />
                   <Separator orientation="HORIZONTAL" />
                </children>
             </VBox>

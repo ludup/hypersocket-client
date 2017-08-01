@@ -24,6 +24,7 @@ import com.hypersocket.client.rmi.ConfigurationService;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.ConnectionStatus;
+import com.hypersocket.client.rmi.FavouriteItemService;
 import com.hypersocket.client.rmi.GUICallback;
 import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.ResourceService;
@@ -41,6 +42,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 	private ResourceService resourceService;
 	private ClientService clientService;
 	private ConfigurationService configurationService;
+	private FavouriteItemService favouriteItemService;
 	private boolean connected;
 	private List<Listener> listeners = new ArrayList<>();
 
@@ -127,6 +129,10 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 	public ConfigurationService getConfigurationService() {
 		return configurationService;
 	}
+	
+	public FavouriteItemService getFavouriteItemService() {
+		return favouriteItemService;
+	}
 
 	public boolean isConnected() {
 		return connected;
@@ -165,6 +171,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 			if (log.isDebugEnabled()) {
 				log.debug("Connecting to local service on port " + port);
 			}
+			
 			Registry registry = LocateRegistry.getRegistry(port);
 
 			connectionService = (ConnectionService) registry
@@ -177,6 +184,8 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 					.lookup("resourceService");
 
 			clientService = (ClientService) registry.lookup("clientService");
+			
+			favouriteItemService = (FavouriteItemService) registry.lookup("favouriteItemService");
 
 			clientService.registerGUI(this);
 			failedConnectionAttempts = 0;

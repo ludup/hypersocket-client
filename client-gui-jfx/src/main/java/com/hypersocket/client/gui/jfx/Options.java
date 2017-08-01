@@ -4,6 +4,11 @@ import java.io.File;
 import java.text.MessageFormat;
 import java.util.Calendar;
 
+import com.hypersocket.HypersocketVersion;
+import com.hypersocket.client.gui.jfx.Configuration.BrowserType;
+import com.sun.javafx.scene.control.skin.ColorPalette;
+import com.sun.javafx.scene.control.skin.ColorPickerSkin;
+
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
@@ -22,14 +27,10 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Screen;
-
-import com.hypersocket.HypersocketVersion;
-import com.hypersocket.client.gui.jfx.Configuration.BrowserType;
-import com.sun.javafx.scene.control.skin.ColorPalette;
-import com.sun.javafx.scene.control.skin.ColorPickerSkin;
 
 /*
  * The class uses a nasty hack using restricted API to try and determine if the custom colour picker is 
@@ -39,6 +40,10 @@ public class Options extends AbstractController {
 
 	@FXML
 	private CheckBox autoHide;
+	
+	@FXML
+	private CheckBox hoverToReveal;
+	
 	@FXML
 	private CheckBox alwaysOnTop;
 
@@ -78,13 +83,11 @@ public class Options extends AbstractController {
 	private Label version;
 	@FXML
 	private ImageView logo;
+	@FXML
+	private VBox optionsVBox;
 
 	private Configuration cfg;
 	private FileChooser fileChooser;
-
-	@Override
-	protected void onInitialize() {
-	}
 
 	@Override
 	protected void onConfigure() {
@@ -93,6 +96,7 @@ public class Options extends AbstractController {
 		alwaysOnTop.selectedProperty().bindBidirectional(
 				cfg.alwaysOnTopProperty());
 		autoHide.selectedProperty().bindBidirectional(cfg.autoHideProperty());
+		hoverToReveal.selectedProperty().bindBidirectional(cfg.hoverToRevealProperty());
 		avoidReserved.selectedProperty().bindBidirectional(
 				cfg.avoidReservedProperty());
 		top.selectedProperty().bindBidirectional(cfg.topProperty());

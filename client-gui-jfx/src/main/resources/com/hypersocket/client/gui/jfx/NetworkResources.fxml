@@ -6,9 +6,9 @@
 <?import java.lang.*?>
 <?import javafx.scene.layout.*?>
 
-<StackPane fx:id="statusStackPane" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.Status">
+<StackPane fx:id="resourceListStackPane" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.NetworkResources">
    <children>
-      <BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="200.0" styleClass="windowContent">
+      <BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="260" styleClass="windowContent">
          <opaqueInsets>
             <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
          </opaqueInsets>
@@ -18,12 +18,7 @@
          <top>
             <VBox BorderPane.alignment="CENTER">
                <children>
-                  <Label styleClass="title" text="%status.title">
-                     <padding>
-                        <Insets bottom="8.0" />
-                     </padding>
-                  </Label>
-                  <Label styleClass="description" text="%status.description" wrapText="true">
+                  <Label styleClass="title" text="%networkResources.title">
                      <padding>
                         <Insets bottom="8.0" />
                      </padding>
@@ -32,11 +27,11 @@
             </VBox>
          </top>
          <center>
-            <ScrollPane prefHeight="200.0" prefWidth="200.0" styleClass="transparent" BorderPane.alignment="CENTER">
+            <ScrollPane minHeight="20" maxHeight="300" vbarPolicy="AS_NEEDED" styleClass="transparent" BorderPane.alignment="CENTER">
               <content>
-                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="200.0" prefWidth="200.0">
+                <AnchorPane minHeight="20">
                      <children>
-                        <VBox fx:id="statusItems" />
+                        <VBox fx:id="resourceListItems" />
                      </children>
                   </AnchorPane>
               </content>

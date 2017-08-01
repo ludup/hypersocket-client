@@ -24,6 +24,9 @@ public class ConnectionImpl implements Connection, Serializable {
 	@GeneratedValue(strategy=GenerationType.TABLE)
 	Long id;
 	
+	@Column(unique=true)
+	String name;
+	
 	@Column(nullable=false)
 	String hostname;
 	
@@ -60,6 +63,16 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Override
 	public Long getId() {
 		return id;
+	}
+	
+	@Override
+	public String getName() {
+		return name;
+	}
+	
+	@Override
+	public void setName(String name) {
+		this.name = name;
 	}
 
 	@Override
@@ -107,6 +120,9 @@ public class ConnectionImpl implements Connection, Serializable {
 	
 	@Override
 	public String getEncryptedPassword() {
+		if(encryptedPassword == null) {
+			return null;
+		}
 		return new String(encryptedPassword);
 	}
 	
