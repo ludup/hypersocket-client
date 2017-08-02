@@ -115,8 +115,8 @@ public class SignIn extends AbstractController implements Listener {
 	private Semaphore promptSemaphore = new Semaphore(1);
 	private boolean abortPrompt;
 	private boolean promptsAvailable;
-	private String promptedUsername;
-	private char[] promptedPassword;
+//	private String promptedUsername;
+//	private char[] promptedPassword;
 	private Map<Prompt, Control> promptNodes = new LinkedHashMap<>();
 	private final Map<String, String> promptValues = new LinkedHashMap<>();
 	private List<Connection> disconnecting = new ArrayList<>();
@@ -352,10 +352,10 @@ public class SignIn extends AbstractController implements Listener {
 			log.info("Returning nothing from prompt, was aborted.");
 			return null;
 		} else {
-			if (promptValues.containsKey("username"))
-				promptedUsername = promptValues.get("username");
-			if (promptValues.containsKey("password"))
-				promptedPassword = promptValues.get("password").toCharArray();
+//			if (promptValues.containsKey("username"))
+//				promptedUsername = promptValues.get("username");
+//			if (promptValues.containsKey("password"))
+//				promptedPassword = promptValues.get("password").toCharArray();
 
 			return promptValues;
 		}
@@ -613,8 +613,8 @@ public class SignIn extends AbstractController implements Listener {
 	private void setUserDetails(Connection connection) {
 
 		// These will be collected during prompts and maybe saved
-		promptedUsername = null;
-		promptedPassword = null;
+//		promptedUsername = null;
+//		promptedPassword = null;
 
 		int status;
 		try {
