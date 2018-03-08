@@ -30,8 +30,6 @@ public class Main {
 			PropertyConfigurator.configure("conf" + File.separator + "log4j-cli.properties");
 
 		} catch (Exception e) {
-			e.printStackTrace();
-			BasicConfigurator.configure();
 		}
 	}
 

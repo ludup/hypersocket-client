@@ -59,11 +59,10 @@ public class Create implements Command {
 			}
 		}
 		
-		System.out.println(String.format("Creating new connection for %s", uri.getHost()));
-
 		cli.getClientService().connect(connection);
 		cli.getConnectionService().save(connection);
 
+		System.out.println(String.format("Created %s", uri.toASCIIString()));
 	}
 
 	@Override

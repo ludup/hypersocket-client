@@ -13,20 +13,20 @@ public class Disconnect extends AbstractConnectionCommand {
 	@Override
 	public void run(CLI cli) throws Exception {
 			String pattern = getPattern(cli);
+			
+		cli.exitWhenDone();
+		
 		for (Connection c : getConnectionsMatching(pattern, cli)) {
 			if (cli.getClientService().isConnected(c)) {
 				cli.getClientService().disconnect(c);
 				System.out.println(String.format("Disconnected %s", getConnectionURI(c)));
 			} else {
-				System.out.println(String.format("%s is not connected.", getConnectionURI(c)));
-
+				System.err.println(String.format("%s is not connected.", getConnectionURI(c)));
 			}
 			if (cli.getCommandLine().hasOption('d')) {
 				cli.getConnectionService().delete(c);
 				System.out.println(String.format("Deleted %s", getConnectionURI(c)));
 			}
-			printConnection(c);
-			System.out.println();
 		}
 	}
 

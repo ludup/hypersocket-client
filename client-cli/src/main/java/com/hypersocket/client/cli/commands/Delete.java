@@ -50,6 +50,8 @@ public class Delete implements Command {
 		
 		cli.getConnectionService().delete(connection);
 		
+		System.out.println(String.format("Deleted %s", uri.toASCIIString()));
+		
 	}
 
 	@Override

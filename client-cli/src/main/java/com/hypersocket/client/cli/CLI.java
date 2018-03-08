@@ -90,10 +90,14 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 			}
 		}
 		
-		CommandLineParser pp = new DefaultParser();
-		cli = pp.parse(opts, args);
+		try {
+			CommandLineParser pp = new DefaultParser();
+			cli = pp.parse(opts, args);
 
-		connectToService();
+			connectToService();
+		} catch (Exception e) {
+			System.err.println(e.getMessage());
+		}
 
 	}
 
@@ -114,14 +118,14 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	public void registered() {
 		registrations++;
 		setOnlineState(true);
-		showPopupMessage("Connected to local Hypersocket service", "Hypersocket Client");
+		log.info("Connected to local service");
 	}
 
 	@Override
 	public void unregistered() {
 		registrations--;
 		setOnlineState(false);
-		showPopupMessage("Disconnected from local Hypersocket service", "Hypersocket Client");
+		log.info("Disconnected from local service");
 		System.exit(0);
 	}
 
@@ -132,22 +136,9 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	}
 
 	public void notify(String msg, int type) {
-
-		switch (type) {
-		case NOTIFY_CONNECT:
-		case NOTIFY_DISCONNECT:
-
-			// rebuildLaunchMenu();
-
-			break;
-		default:
-			break;
+		if (log.isInfoEnabled()) {
+			log.info(msg);
 		}
-		showPopupMessage(msg, "Hypersocket Client");
-	}
-
-	private void showPopupMessage(final String message, final String title) {
-		System.out.println("** " + title + "** " + message);
 	}
 
 	private void connectToService() throws Exception {
@@ -192,7 +183,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 				// Print help
 			}
 		} finally {
-			if (!exitWhenDone)
+			if (exitWhenDone)
 				exitCli();
 		}
 	}
@@ -256,27 +247,37 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void disconnected(Connection connection, String errorMessage) throws RemoteException {
-		System.out.println(String.format("Disconnected: %s", getUri(connection)));
+		if (log.isInfoEnabled()) {
+			log.info(String.format("Disconnected: %s", getUri(connection)));
+		}
 	}
 
 	@Override
 	public void failedToConnect(Connection connection, String errorMessage) throws RemoteException {
-		System.err.println(String.format("Connection failed: %s", errorMessage));
+		if (log.isInfoEnabled()) {
+			log.info(String.format("Connection failed: %s", errorMessage));
+		}
 	}
 
 	@Override
 	public void transportConnected(Connection connection) throws RemoteException {
-		System.out.println(String.format("Connected: %s", getUri(connection)));
+		if (log.isInfoEnabled()) {
+			log.info(String.format("Connected: %s", getUri(connection)));
+		}
 	}
 
 	@Override
 	public void loadResources(Connection connection) throws RemoteException {
-		System.out.println(String.format("Loading resources for %s", getUri(connection)));
+		if (log.isInfoEnabled()) {
+			log.info(String.format("Loading resources for %s", getUri(connection)));
+		}
 	}
 
 	@Override
 	public void ready(Connection connection) throws RemoteException {
-		System.out.println(String.format("Ready: %s", getUri(connection)));
+		if (log.isInfoEnabled()) {
+			log.info(String.format("Ready: %s", getUri(connection)));
+		}
 	}
 
 	@Override
@@ -418,7 +419,6 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	}
 
 	private void exitCli() {
-		System.out.println("Exiting");
 		new Thread() {
 			public void run() {
 
