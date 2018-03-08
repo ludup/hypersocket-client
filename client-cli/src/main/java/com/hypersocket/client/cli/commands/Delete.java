@@ -19,6 +19,7 @@ public class Delete implements Command {
 	public void run(CLI cli) throws Exception {
 		
 		cli.exitWhenDone();
+		
 		String realUri = cli.getCommandLine().getArgs()[1];
 		if (!realUri.startsWith("https://")) {
 			if (realUri.indexOf("://") != -1) {

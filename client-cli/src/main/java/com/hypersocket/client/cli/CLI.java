@@ -21,12 +21,10 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.code.jgntp.GntpClient;
-import com.google.code.jgntp.GntpNotificationInfo;
-import com.google.common.io.Closeables;
 import com.hypersocket.client.Prompt;
 import com.hypersocket.client.i18n.I18N;
 import com.hypersocket.client.rmi.ApplicationLauncherTemplate;
@@ -50,8 +48,6 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	final static int DEFAULT_TIMEOUT = 10000;
 
 	int timeout = DEFAULT_TIMEOUT;
-	GntpClient client;
-	GntpNotificationInfo notif1;
 	int registrations = 0;
 
 	ConnectionService connectionService;
@@ -219,7 +215,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 		try {
 			return ImageIO.read(is);
 		} finally {
-			Closeables.closeQuietly(is);
+			IOUtils.closeQuietly(is);
 		}
 	}
 
