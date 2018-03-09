@@ -172,7 +172,13 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 		configurationService = (ConfigurationService) registry.lookup("configurationService");
 		resourceService = (ResourceService) registry.lookup("resourceService");
 		clientService = (ClientService) registry.lookup("clientService");
-		clientService.registerGUI(this);
+		try {
+			clientService.registerGUI(this);
+		} catch (Throwable e) {
+			System.err.println(e.getMessage());
+			log.error("Could not register with service", e);
+			return;
+		}
 		
 		try {
 			if(cli.getArgs().length > 0) {

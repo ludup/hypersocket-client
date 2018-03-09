@@ -36,6 +36,7 @@ public class Disconnect extends AbstractConnectionCommand {
 		options.addOption("d", "delete", false, "Permanently delete this connection as well.");
 	}
 
+	@SuppressWarnings("unused")
 	private void printConnection(Connection connection) {
 		System.out.println(String.format("Connection: %d", connection.getId()));
 		System.out.println(String.format("Host: %s", connection.getHostname()));
