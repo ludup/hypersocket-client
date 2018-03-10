@@ -43,7 +43,7 @@ public class Main {
 		}
 
 		try {
-			File dir = new File(System.getProperty("user.home"), ".hypersocket");
+			File dir = new File(System.getProperty("user.home"), ".logonbox");
 			dir.mkdirs();
 
 			PropertyConfigurator.configure("conf" + File.separator

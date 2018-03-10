@@ -9,6 +9,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,27 +79,77 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 			console = new BufferedDevice();
 		}
 		
-		Options opts = new Options();
-
-		if(args.length > 0) {
-			try {
-				Command command = createCommand(args[0]);
-				command.buildOptions(opts);
-			}
-			catch(Exception e) {
-				// Ignore, will get caught later
-			}
-		}
-		
 		try {
-			CommandLineParser pp = new DefaultParser();
-			cli = pp.parse(opts, args);
-
-			connectToService();
-		} catch (Exception e) {
+			/**
+			 * Don't act as a CLI if we pass a command through in arguments
+			 */
+			if(args.length > 0) {
+				exitWhenDone();
+				runCommand(args);
+			} else {
+				runInteractive();
+			}
+		} catch (Throwable e) {
 			System.err.println(e.getMessage());
+			System.exit(1);
+		} finally {
+			exitCli();
 		}
 
+	}
+
+	private void runCommand(String[] args) throws Exception {
+		
+		connectToService();
+		CommandLineParser pp = new DefaultParser();
+		Options opts = new Options();
+		
+		Command command = createCommand(args[0]);
+		command.buildOptions(opts);
+		
+		cli = pp.parse(opts, args);
+		command.run(this);
+		
+	}
+
+	private void runInteractive() throws Exception {
+		
+		connectToService();
+		
+		CommandLineParser pp = new DefaultParser();
+
+		try {
+			
+			do {
+				
+				try {
+					
+					String cmd = console.readLine("LogonBox> ");
+					List<String> newargs = Arrays.asList(cmd.split("\"?( |$)(?=(([^\"]*\"){2})*[^\"]*$)\"?"));
+					newargs.removeIf(item -> item == null || "".equals(item));
+					
+					String [] args = newargs.toArray(new String[0]);
+					
+					if(args.length > 0) {
+						
+						Options opts = new Options();
+						
+						Command command = createCommand(args[0]);
+						command.buildOptions(opts);
+						
+						cli = pp.parse(opts, args);
+						command.run(this);
+					} 
+				
+				}
+				catch(Throwable e) {
+					System.err.println(String.format("Error: %s", e.getMessage()));
+				}
+			
+			} while(!exitWhenDone);
+		} finally {
+			exitCli();
+		}
 	}
 
 	private static final long serialVersionUID = 4078585204004591626L;
@@ -147,7 +198,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 		FileInputStream in;
 		try {
 			if (Boolean.getBoolean("hypersocket.development")) {
-				in = new FileInputStream(System.getProperty("user.home") + File.separator + ".hypersocket"
+				in = new FileInputStream(System.getProperty("user.home") + File.separator + ".logonbox"
 						+ File.separator + "conf" + File.separator + "rmi.properties");
 			} else {
 				in = new FileInputStream("conf" + File.separator + "rmi.properties");
@@ -172,39 +223,25 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 		configurationService = (ConfigurationService) registry.lookup("configurationService");
 		resourceService = (ResourceService) registry.lookup("resourceService");
 		clientService = (ClientService) registry.lookup("clientService");
-		try {
-			clientService.registerGUI(this);
-		} catch (Throwable e) {
-			System.err.println(e.getMessage());
-			log.error("Could not register with service", e);
-			return;
-		}
 		
-		try {
-			if(cli.getArgs().length > 0) {
-				String cmd = cli.getArgs()[0];
-				Command command = createCommand(cmd);
-				command.run(this);
-			} else {
-				// Print help
-			}
-		} finally {
-			if (exitWhenDone)
-				exitCli();
-		}
+		clientService.registerGUI(this);
+		
 	}
 
-	private Command createCommand(String cmd)
-			throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+	private Command createCommand(String cmd) {
 		ClassLoader cl = Thread.currentThread().getContextClassLoader();
 		if (cl == null) {
 			cl = getClass().getClassLoader();
 		}
-		@SuppressWarnings("unchecked")
-		Class<Command> cmdClass = (Class<Command>) Class.forName(CLI.class.getPackage().getName() + ".commands."
-				+ (cmd.substring(0, 1).toUpperCase() + cmd.substring(1)), true, cl);
-		Command command = cmdClass.newInstance();
-		return command;
+		try {
+			@SuppressWarnings("unchecked")
+			Class<Command> cmdClass = (Class<Command>) Class.forName(CLI.class.getPackage().getName() + ".commands."
+					+ (cmd.substring(0, 1).toUpperCase() + cmd.substring(1)), true, cl);
+			Command command = cmdClass.newInstance();
+			return command;
+		} catch (Exception e) {
+			throw new IllegalStateException(String.format("%s not found", cmd));
+		}
 	}
 
 	protected RenderedImage getImage(String name) throws IOException {
@@ -385,10 +422,6 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void started(Connection connection) throws RemoteException {
-		System.out.println(String.format("%s is ready", getUri(connection)));
-		if (exitWhenDone) {
-			exitCli();
-		}
 
 	}
 

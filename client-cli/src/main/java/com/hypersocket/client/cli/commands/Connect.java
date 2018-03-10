@@ -8,49 +8,56 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.cli.CLI;
-import com.hypersocket.client.cli.Command;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionStatus;
 
-public class Connect implements Command {
+public class Connect extends AbstractConnectionCommand {
 	static Logger log = LoggerFactory.getLogger(CLI.class);
 
 	@Override
 	public void run(CLI cli) throws Exception {
 		
-		String realUri = cli.getCommandLine().getArgs()[1];
-		if (!realUri.startsWith("https://")) {
-			if (realUri.indexOf("://") != -1) {
+		Connection connection= null;
+		
+		if(cli.getCommandLine().getArgs().length > 1) {
+			String realUri = cli.getCommandLine().getArgs()[1];
+			if (!realUri.startsWith("https://")) {
+				if (realUri.indexOf("://") != -1) {
+					throw new IllegalArgumentException("Only HTTPS is supported.");
+				}
+				realUri = "https://" + realUri;
+			}
+			URI uri = new URI(realUri);
+			if (!uri.getScheme().equals("https")) {
 				throw new IllegalArgumentException("Only HTTPS is supported.");
 			}
-			realUri = "https://" + realUri;
-		}
-		URI uri = new URI(realUri);
-		if (!uri.getScheme().equals("https")) {
-			throw new IllegalArgumentException("Only HTTPS is supported.");
-		}
-
-		Connection connection = cli.getConnectionService().getConnection(uri.getHost());
-		
-		if(connection==null) {
-			connection = cli.getConnectionService().createNew();
-			connection.setHostname(uri.getHost());
-			connection.setPort(uri.getPort() <= 0 ? 443 : uri.getPort());
-			connection.setConnectAtStartup(false);
-			String path = uri.getPath();
-			if (path.equals("") || path.equals("/")) {
-				path = "/hypersocket";
-			} else if (path.indexOf('/', 1) > -1) {
-				path = path.substring(0, path.indexOf('/', 1));
-			}
-			connection.setPath(path);
-
-			// Prompt for authentication
-			connection.setUsername("");
-			connection.setPassword("");
-			connection.setRealm("");
+	
+			connection = cli.getConnectionService().getConnection(uri.getHost());
 			
-			System.out.println(String.format("Created new connection for %s", uri.getHost()));
+			if(connection==null) {
+				connection = cli.getConnectionService().createNew();
+				connection.setHostname(uri.getHost());
+				connection.setPort(uri.getPort() <= 0 ? 443 : uri.getPort());
+				connection.setConnectAtStartup(false);
+				String path = uri.getPath();
+				if (path.equals("") || path.equals("/")) {
+					path = "/hypersocket";
+				} else if (path.indexOf('/', 1) > -1) {
+					path = path.substring(0, path.indexOf('/', 1));
+				}
+				connection.setPath(path);
+
+				// Prompt for authentication
+				connection.setUsername("");
+				connection.setPassword("");
+				connection.setRealm("");
+				
+				System.out.println(String.format("Created new connection for %s", uri.getHost()));
+			}
+		} else if(isSingleConnection(cli)) {
+			connection = cli.getConnectionService().getConnections().iterator().next();
+		} else {
+			throw new IllegalStateException ("Connection information is required");
 		}
 
 		int status;
@@ -61,15 +68,25 @@ public class Connect implements Command {
 		}
 		if (status == ConnectionStatus.DISCONNECTED) {
 			cli.getClientService().connect(connection);
-			System.out.println(String.format("Connected to: %s", CLI.getUri(connection)));
-//			if(cli.getCommandLine().hasOption('s')) {
-				cli.getConnectionService().save(connection);
-//				System.out.println(String.format("Saved: %s", CLI.getUri(connection)));
-//			}
-			cli.exitWhenDone();
+			System.out.println(String.format("Connecting to: %s", CLI.getUri(connection)));
+			
+			while(cli.getClientService().getStatus(connection)==ConnectionStatus.CONNECTING) {
+				Thread.sleep(500);
+			}
+			
+			status = cli.getClientService().getStatus(connection);
+			
+			if(status == ConnectionStatus.CONNECTED) {
+				System.out.println("Connected");
+				if(cli.getCommandLine().hasOption('s')) {
+					cli.getConnectionService().save(connection);
+				}
+			} else {
+				cli.getConsole().writer().println(String.format("Failed to connect to %s", CLI.getUri(connection)));
+			}
 		} else {
 			System.err.println("Request to connect an already connected or connecting connection "
-					+ connection);
+					+ CLI.getUri(connection));
 		}
 	}
 

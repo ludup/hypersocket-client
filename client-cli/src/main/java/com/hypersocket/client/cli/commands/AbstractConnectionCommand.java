@@ -33,6 +33,10 @@ public abstract class AbstractConnectionCommand implements Command {
 		return pattern;
 	}
 	
+	protected boolean isSingleConnection(CLI cli) throws RemoteException {
+		return cli.getConnectionService().getConnections().size() == 1;
+	}
+	
 	protected List<Connection> getConnectionsMatching(String pattern, CLI cli) throws RemoteException {
 		List<Connection> l = new ArrayList<Connection>();
 		try {

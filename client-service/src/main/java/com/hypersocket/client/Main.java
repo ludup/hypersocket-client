@@ -70,7 +70,7 @@ public class Main {
 		File rmiPropertiesFile;
 		if (Boolean.getBoolean("hypersocket.development")) {
 			rmiPropertiesFile = new File(System.getProperty("user.home")
-					+ File.separator + ".hypersocket" + File.separator
+					+ File.separator + ".logonbox" + File.separator
 					+ "conf" + File.separator + "rmi.properties");
 		} else {
 			rmiPropertiesFile = new File("conf" + File.separator

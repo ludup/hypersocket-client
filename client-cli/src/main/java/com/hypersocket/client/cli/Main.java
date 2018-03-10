@@ -23,7 +23,7 @@ public class Main {
 		this.shutdownCallback = shutdownCallback;
 
 		try {
-			File dir = new File(System.getProperty("user.home"), ".hypersocket");
+			File dir = new File(System.getProperty("user.home"), ".logonbox");
 			dir.mkdirs();
 
 			PropertyConfigurator.configure("conf" + File.separator + "log4j-cli.properties");

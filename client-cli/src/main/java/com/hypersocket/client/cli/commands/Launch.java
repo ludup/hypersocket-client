@@ -18,37 +18,47 @@ public class Launch implements Command {
 	@Override
 	public void run(CLI cli) throws Exception {
 		ConsoleProvider console = cli.getConsole();
-		if (cli.getCommandLine().getArgs().length == 1) {
-			ResourceService resourceService = cli.getResourceService();
-			int i = 0;
-			try {
-				Map<Integer, Resource> m = new HashMap<>();
-				for (ResourceRealm resourceRealm : resourceService.getResourceRealms()) {
-					for (Resource r : resourceRealm.getResources()) {
-						if (r.getType() != Type.ENDPOINT && r.isLaunchable()) {
+		
+		ResourceService resourceService = cli.getResourceService();
+		
+		String answer = null;
+		if(cli.getCommandLine().getArgList().size() > 1) {
+			answer = cli.getCommandLine().getArgs()[1];
+		}
+		
+		int i = 0;
+		try {
+			Map<Integer, Resource> m = new HashMap<>();
+			for (ResourceRealm resourceRealm : resourceService.getResourceRealms()) {
+				for (Resource r : resourceRealm.getResources()) {
+					if (r.getType() != Type.ENDPOINT && r.isLaunchable()) {
+						if(answer==null) {
 							System.out.println(String.format("%s - %s", i, r.getName()));
-							m.put(++i, r);
 						}
+						m.put(++i, r);
 					}
 				}
-				String answer = console.readLine("Resource (or RETURN to exit): ");
-				if (!answer.isEmpty()) {
-					Resource r = m.get(Integer.parseInt(answer));
-					r.getResourceLauncher().launch();
-				}
-			} catch (Exception e) {
-				System.err.println("Failed to get resources.");
-				e.printStackTrace();
 			}
-
+			
+			if(answer==null) {
+				answer = console.readLine("Resource (or RETURN to exit): ");
+			}
+			if (answer!=null && !answer.isEmpty()) {
+				Resource r = m.get(Integer.parseInt(answer));
+				r.getResourceLauncher().launch();
+			}
+		} catch (Exception e) {
+			System.err.println(String.format("Error: %s", e.getMessage()));
 		}
-		// TODO Auto-generated method stub
+
+		
+		
+
 
 	}
 
 	@Override
 	public void buildOptions(Options options) {
-		// TODO Auto-generated method stub
 		
 	}
 

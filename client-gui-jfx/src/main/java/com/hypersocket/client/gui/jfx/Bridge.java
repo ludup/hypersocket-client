@@ -146,7 +146,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 			String path;
 			if (Boolean.getBoolean("hypersocket.development")) {
 				path = System.getProperty("user.home")
-						+ File.separator + ".hypersocket" + File.separator
+						+ File.separator + ".logonbox" + File.separator
 						+ "conf" + File.separator
 						+ "rmi.properties";
 			} else {

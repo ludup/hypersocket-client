@@ -283,7 +283,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 		try {
 			if (Boolean.getBoolean("hypersocket.development")) {
 				in = new FileInputStream(System.getProperty("user.home")
-						+ File.separator + ".hypersocket" + File.separator
+						+ File.separator + ".logonbox" + File.separator
 						+ "conf" + File.separator + "rmi.properties");
 			} else {
 				in = new FileInputStream("conf" + File.separator

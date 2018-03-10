@@ -1,5 +1,7 @@
 package com.hypersocket.client.cli.commands;
 
+import java.rmi.RemoteException;
+
 import org.apache.commons.cli.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,22 +14,33 @@ public class Disconnect extends AbstractConnectionCommand {
 
 	@Override
 	public void run(CLI cli) throws Exception {
-			String pattern = getPattern(cli);
-			
-		cli.exitWhenDone();
+		String pattern = getPattern(cli);
 		
-		for (Connection c : getConnectionsMatching(pattern, cli)) {
-			if (cli.getClientService().isConnected(c)) {
-				cli.getClientService().disconnect(c);
-				System.out.println(String.format("Disconnected %s", getConnectionURI(c)));
-			} else {
-				System.err.println(String.format("%s is not connected.", getConnectionURI(c)));
-			}
-			if (cli.getCommandLine().hasOption('d')) {
-				cli.getConnectionService().delete(c);
-				System.out.println(String.format("Deleted %s", getConnectionURI(c)));
+		if(cli.getCommandLine().getArgs().length == 1 && isSingleConnection(cli)) {
+			disconnect(cli.getConnectionService().getConnections().iterator().next(), cli);
+		} else {
+			for (Connection c : getConnectionsMatching(pattern, cli)) {
+				if (cli.getClientService().isConnected(c)) {
+					disconnect(c, cli);
+				} else {
+					System.err.println(String.format("%s is not connected.", getConnectionURI(c)));
+				}
+				
+				if (cli.getCommandLine().hasOption('d')) {
+					cli.getConnectionService().delete(c);
+					System.out.println(String.format("Deleted %s", getConnectionURI(c)));
+				}
 			}
 		}
+	}
+
+	private void disconnect(Connection c, CLI cli) throws RemoteException, InterruptedException {
+		System.out.println(String.format("Disconnecting from %s", getConnectionURI(c)));
+		cli.getClientService().disconnect(c);
+		while(cli.getClientService().isConnected(c)) {
+			Thread.sleep(500);
+		}
+		System.out.println("Disconnected");
 	}
 
 	@Override
