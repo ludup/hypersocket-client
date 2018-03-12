@@ -13,14 +13,18 @@ public class All implements Command {
 
 	@Override
 	public void run(CLI cli) throws Exception {
-		System.out.println(String.format("%10s %5s %5s %5s %s", "ID", "Stay", "Start", "Status", "URL"));
+		System.out.println(String.format("%10s %5s %7s %9s %s", "ID", "Stay", "Startup", "Connected", "URL"));
 		System.out.println("=============================================================================");
 		for (Connection connection : cli.getConnectionService().getConnections()) {
-			System.out.println(String.format("%10d %5s %5s %5s %s:%d%s", connection.getId(),
-					connection.isStayConnected(), connection.isConnectAtStartup(),
-					cli.getClientService().isConnected(connection), 
+			System.out.println(String.format("%10d %5s %7s %9s %s:%d%s", connection.getId(),
+					getBooleanDisplay(connection.isStayConnected()), getBooleanDisplay(connection.isConnectAtStartup()),
+					getBooleanDisplay(cli.getClientService().isConnected(connection)), 
 					connection.getHostname(), connection.getPort(), connection.getPath()));
 		}
+	}
+
+	private String getBooleanDisplay(boolean connected) {
+		return connected ? "Yes" : "No";
 	}
 
 	@Override

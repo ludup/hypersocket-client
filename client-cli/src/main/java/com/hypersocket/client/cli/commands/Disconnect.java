@@ -14,28 +14,28 @@ public class Disconnect extends AbstractConnectionCommand {
 
 	@Override
 	public void run(CLI cli) throws Exception {
-		String pattern = getPattern(cli);
 		
-		if(cli.getCommandLine().getArgs().length == 0 && isSingleConnection(cli)) {
+		if(cli.getCommandLine().getArgs().length == 1 && isSingleConnection(cli)) {
 			disconnect(cli.getConnectionService().getConnections().iterator().next(), cli);
 		} else {
+			String pattern = getPattern(cli);
 			for (Connection c : getConnectionsMatching(pattern, cli)) {
 				if (cli.getClientService().isConnected(c)) {
 					disconnect(c, cli);
 				} else {
-					System.err.println(String.format("%s is not connected.", getConnectionURI(c)));
+					System.out.println(String.format("%s is not connected.", c.getHostname()));
 				}
 				
 				if (cli.getCommandLine().hasOption('d')) {
 					cli.getConnectionService().delete(c);
-					System.out.println(String.format("Deleted %s", getConnectionURI(c)));
+					System.out.println(String.format("Deleted %s", c.getHostname()));
 				}
 			}
 		}
 	}
 
 	private void disconnect(Connection c, CLI cli) throws RemoteException, InterruptedException {
-		System.out.println(String.format("Disconnecting from %s", getConnectionURI(c)));
+		System.out.println(String.format("Disconnecting from %s", c.getHostname()));
 		cli.getClientService().disconnect(c);
 		while(cli.getClientService().isConnected(c)) {
 			Thread.sleep(500);

@@ -10,14 +10,18 @@ import org.slf4j.LoggerFactory;
 import com.hypersocket.client.cli.CLI;
 import com.hypersocket.client.cli.Command;
 import com.hypersocket.client.rmi.Connection;
+import com.hypersocket.client.rmi.ConnectionStatus;
 
 public class Create implements Command {
 	static Logger log = LoggerFactory.getLogger(CLI.class);
 
 	@Override
 	public void run(CLI cli) throws Exception {
-		
-//		cli.exitWhenDone();
+			
+		if(cli.getCommandLine().getArgList().size() <= 1) {
+			System.err.println("Error: You must provide at least a URL for the connection!");
+			return;
+		}
 		
 		String realUri = cli.getCommandLine().getArgs()[1];
 		if (!realUri.startsWith("https://")) {
@@ -59,10 +63,21 @@ public class Create implements Command {
 			}
 		}
 		
-		cli.getClientService().connect(connection);
-		cli.getConnectionService().save(connection);
-
-		System.out.println(String.format("Created %s", uri.toASCIIString()));
+		cli.getClientService().connect(cli.getConnectionService().save(connection));
+		
+		int status;
+		do {
+			Thread.sleep(500);
+			status = cli.getClientService().getStatus(connection);
+		} while(status==ConnectionStatus.CONNECTING);
+		
+		if(status==ConnectionStatus.DISCONNECTED) {
+			System.out.println(String.format("Error: Failed to authenticate to %s", connection.getHostname()));
+			cli.getConnectionService().delete(connection);
+		} else {
+			System.out.println(String.format("Created %s", connection.getHostname()));
+			cli.getClientService().disconnect(connection);
+		}
 	}
 
 	@Override

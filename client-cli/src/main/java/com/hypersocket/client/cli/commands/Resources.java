@@ -31,7 +31,7 @@ public class Resources extends AbstractConnectionCommand {
 				}
 			}
 		} catch (Exception e) {
-			System.err.println(String.format("Error: %s", e.getMessage()));
+			System.out.println(String.format("Error: %s", e.getMessage()));
 			log.error("Failed to get resources", e);
 		}
 

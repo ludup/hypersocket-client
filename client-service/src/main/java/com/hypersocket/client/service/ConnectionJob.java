@@ -99,8 +99,9 @@ public class ConnectionJob extends TimerTask {
 			if (log.isInfoEnabled()) {
 				log.info("Connected to " + url);
 			}
+			
 			guiRegistry.transportConnected(connection);
-
+			
 			log.info("Awaiting authentication for " + url);
 			if (StringUtils.isBlank(connection.getUsername())
 					|| !connectionService.hasEncryptedPassword(connection)) {
@@ -115,6 +116,7 @@ public class ConnectionJob extends TimerTask {
 			} else {
 				attemptLoginToServer(client, connection, connection.getUsername(),new String(connectionService.getDecryptedPassword(connection)));
 			}
+			
 			log.info("Received authentication for " + url);
 
 			// Now get the current version and check against ours.

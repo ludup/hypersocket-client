@@ -68,7 +68,7 @@ public class Connect extends AbstractConnectionCommand {
 		}
 		if (status == ConnectionStatus.DISCONNECTED) {
 			cli.getClientService().connect(connection);
-			System.out.println(String.format("Connecting to: %s", CLI.getUri(connection)));
+			System.out.println(String.format("Connecting to: %s", connection.getHostname()));
 			
 			while(cli.getClientService().getStatus(connection)==ConnectionStatus.CONNECTING) {
 				Thread.sleep(500);
@@ -82,11 +82,10 @@ public class Connect extends AbstractConnectionCommand {
 					cli.getConnectionService().save(connection);
 				}
 			} else {
-				cli.getConsole().writer().println(String.format("Failed to connect to %s", CLI.getUri(connection)));
+				cli.getConsole().writer().println(String.format("Failed to connect to %s", connection.getHostname()));
 			}
 		} else {
-			System.err.println("Request to connect an already connected or connecting connection "
-					+ CLI.getUri(connection));
+			System.out.println("Error: Request to connect an already connected or connecting connection " + connection.getHostname());
 		}
 	}
 

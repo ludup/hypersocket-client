@@ -23,6 +23,7 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,7 +85,6 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 			 * Don't act as a CLI if we pass a command through in arguments
 			 */
 			if(args.length > 0) {
-				exitWhenDone();
 				runCommand(args);
 			} else {
 				runInteractive();
@@ -125,21 +125,23 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 				try {
 					
 					String cmd = console.readLine("LogonBox> ");
-					List<String> newargs = Arrays.asList(cmd.split("\"?( |$)(?=(([^\"]*\"){2})*[^\"]*$)\"?"));
-					newargs.removeIf(item -> item == null || "".equals(item));
-					
-					String [] args = newargs.toArray(new String[0]);
-					
-					if(args.length > 0) {
+					if(StringUtils.isNotBlank(cmd)) {
+						List<String> newargs = Arrays.asList(cmd.split("\"?( |$)(?=(([^\"]*\"){2})*[^\"]*$)\"?"));
+						newargs.removeIf(item -> item == null || "".equals(item));
 						
-						Options opts = new Options();
+						String [] args = newargs.toArray(new String[0]);
 						
-						Command command = createCommand(args[0]);
-						command.buildOptions(opts);
-						
-						cli = pp.parse(opts, args);
-						command.run(this);
-					} 
+						if(args.length > 0) {
+							
+							Options opts = new Options();
+							
+							Command command = createCommand(args[0]);
+							command.buildOptions(opts);
+							
+							cli = pp.parse(opts, args);
+							command.run(this);
+						} 
+					}
 				
 				}
 				catch(Throwable e) {

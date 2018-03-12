@@ -48,7 +48,7 @@ public class Launch implements Command {
 				r.getResourceLauncher().launch();
 			}
 		} catch (Exception e) {
-			System.err.println(String.format("Error: %s", e.getMessage()));
+			System.out.println(String.format("Error: %s", e.getMessage()));
 		}
 
 		

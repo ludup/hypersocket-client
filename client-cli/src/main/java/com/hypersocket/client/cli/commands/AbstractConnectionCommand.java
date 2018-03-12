@@ -26,7 +26,7 @@ public abstract class AbstractConnectionCommand implements Command {
 		ConsoleProvider console = cli.getConsole();
 		String pattern = null;
 		if (cli.getCommandLine().getArgs().length == 1) {
-			pattern = console.readLine("Enter connection id, hostname[:port][/path]: ");
+			pattern = console.readLine("Enter connection ID or hostname: ");
 		} else if (cli.getCommandLine().getArgs().length == 2) {
 			pattern = cli.getCommandLine().getArgList().get(1);
 		}
