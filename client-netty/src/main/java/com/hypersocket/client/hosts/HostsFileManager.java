@@ -49,10 +49,10 @@ public class HostsFileManager {
 	Map<String, String> hostsToLoopbackAlias = new HashMap<String, String>();
 	Map<String,String> staticAlias = new HashMap<String,String>();
 	
-	int _8bits = 192;
-	int _16bits = 168;
-	int _24bits = 10;
-	
+	int _8bits = 203;
+	int _16bits = 0;
+	int _24bits = 113;
+
 	static HostsFileManager systemManager;
 	
 	static final String BEGIN = "#----HYPERSOCKET BEGIN----";
@@ -61,7 +61,6 @@ public class HostsFileManager {
 			throws IOException {
 		this.hostsFile = hostsFile;
 		
-		selectNextRange();
 		generatePool();
 		loadFile(true);
 
@@ -83,54 +82,45 @@ public class HostsFileManager {
 	}
 
 	private void selectNextRange() throws IOException {
-		while(!checkRange(_8bits, _16bits, _24bits) && _24bits < 255) {
-			_24bits++;
-		}
 		
-		if(_24bits==255 && !checkRange(_8bits, _16bits, _24bits)) {
-			_8bits = 10;
-			_16bits = 240;
-			_24bits = 10;
-			
-			while(!checkRange(_8bits, _16bits, _24bits) && _24bits < 255) {
-				_24bits++;
-			}
-			
-			if(_24bits==255 && !checkRange(_8bits, _16bits, _24bits)) {
-				throw new IOException("Unable to allocate IP range");
-			}
+		if(_8bits == 198) {
+			throw new IOException("No more IP addresses available!");
 		}
+		int _8bits = 198;
+		int _16bits = 51;
+		int _24bits = 100;
 		
 		if(log.isInfoEnabled()) {
 			log.info("Selected IP range " + _8bits + "." + _16bits + "." + _24bits);
 		}
 	}
 	
-	private boolean checkRange(int _8bits, int _16bits, int _24bits) throws SocketException, UnknownHostException {
-		
-		Enumeration<NetworkInterface> e = NetworkInterface.getNetworkInterfaces();
-		while(e.hasMoreElements()) {
-			NetworkInterface net = e.nextElement();
-			for(InterfaceAddress i : net.getInterfaceAddresses()) {
-				String range = _8bits + "." + _16bits + "." + _24bits;
-				if(log.isInfoEnabled()) {
-					log.info("Checking interface " + i.toString());
-				}
-				if(i.getNetworkPrefixLength() > 0 && i.getNetworkPrefixLength() <= 31) {
-					
-					CIDR c = CIDR4.newCIDR(range + ".0" + "/" + i.getNetworkPrefixLength());
-					
-					if(c.contains(i.getAddress())) {
-						if(log.isInfoEnabled()) {
-							log.warn(i.getAddress() + " appears to be in our chosen range " + range + ".0" + "/" + i.getNetworkPrefixLength());
-						}
-						return false;
-					}
-				}
-			}
-		}
-		return true;
-	}
+//	private boolean checkRange(int _8bits, int _16bits, int _24bits) throws SocketException, UnknownHostException {
+//		
+//		Enumeration<NetworkInterface> e = NetworkInterface.getNetworkInterfaces();
+//		while(e.hasMoreElements()) {
+//			NetworkInterface net = e.nextElement();
+//			for(InterfaceAddress i : net.getInterfaceAddresses()) {
+//				String range = _8bits + "." + _16bits + "." + _24bits;
+//				if(log.isInfoEnabled()) {
+//					log.info("Checking interface " + i.toString());
+//				}
+//				if(i.getNetworkPrefixLength() > 0 && i.getNetworkPrefixLength() <= 31) {
+//					
+//					CIDR c = CIDR4.newCIDR(range + ".0" + "/" + i.getNetworkPrefixLength());
+//					
+//					if(c.contains(i.getAddress())) {
+//						if(log.isInfoEnabled()) {
+//							log.warn(i.getAddress() + " appears to be in our chosen range " + range + ".0" + "/" + i.getNetworkPrefixLength());
+//						}
+//						return false;
+//					}
+//				}
+//			}
+//		}
+//		return true;
+//	}
+	
 	public List<String> getAliasPool() {
 		return aliasPool;
 	}
@@ -172,9 +162,6 @@ public class HostsFileManager {
 	}
 
 	public void generatePool() throws IOException {
-
-		
-		selectNextRange();
 		
 		for (int i=1; i <= 254; i++) {
 			log.debug("Generating " + _8bits + "." + _16bits + "." + _24bits + "." + i);
@@ -310,6 +297,7 @@ public class HostsFileManager {
 
 	private synchronized String addAlias(String hostname) throws IOException {
 		if (!aliasPool.iterator().hasNext()) {
+			selectNextRange();
 			generatePool();
 		}
 		hostsToLoopbackAlias.put(hostname, aliasPool.removeFirst());

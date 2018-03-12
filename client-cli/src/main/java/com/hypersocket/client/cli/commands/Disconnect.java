@@ -16,7 +16,7 @@ public class Disconnect extends AbstractConnectionCommand {
 	public void run(CLI cli) throws Exception {
 		String pattern = getPattern(cli);
 		
-		if(cli.getCommandLine().getArgs().length == 1 && isSingleConnection(cli)) {
+		if(cli.getCommandLine().getArgs().length == 0 && isSingleConnection(cli)) {
 			disconnect(cli.getConnectionService().getConnections().iterator().next(), cli);
 		} else {
 			for (Connection c : getConnectionsMatching(pattern, cli)) {
