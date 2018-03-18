@@ -68,4 +68,5 @@ public interface GUICallback extends Serializable, Remote {
 
 	void updateResource(Connection connection, ResourceUpdateType type, Resource resource) throws RemoteException;
 
+	boolean isInteractive() throws RemoteException;
 }

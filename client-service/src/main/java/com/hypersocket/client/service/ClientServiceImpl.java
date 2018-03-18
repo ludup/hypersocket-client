@@ -108,21 +108,23 @@ public class ClientServiceImpl implements ClientService {
 
 		try {
 
-			guiRegistry.registerGUI(gui);
-			if (updating && guiNeedsSeparateUpdate) {
-				/*
-				 * If we register while an update is taking place, try to make
-				 * the client catch up and show the update progress window
-				 */
-				guiRegistry.onUpdateInit(appsToUpdate);
-				guiRegistry.onUpdateStart(ExtensionPlace.getDefault().getApp(),
-						serviceUpdateJob.getTotalSize(), null);
-				guiRegistry.onUpdateProgress(ExtensionPlace.getDefault()
-						.getApp(), 0, serviceUpdateJob.getTransfered(),serviceUpdateJob.getTotalSize());
-				if (serviceUpdateJob.getTransfered() >= serviceUpdateJob
-						.getTotalSize()) {
-					guiRegistry.onUpdateComplete(ExtensionPlace.getDefault()
-							.getApp(), serviceUpdateJob.getTransfered());
+			if(gui.isInteractive()) {
+				guiRegistry.registerGUI(gui);
+				if (updating && guiNeedsSeparateUpdate) {
+					/*
+					 * If we register while an update is taking place, try to make
+					 * the client catch up and show the update progress window
+					 */
+					guiRegistry.onUpdateInit(appsToUpdate);
+					guiRegistry.onUpdateStart(ExtensionPlace.getDefault().getApp(),
+							serviceUpdateJob.getTotalSize(), null);
+					guiRegistry.onUpdateProgress(ExtensionPlace.getDefault()
+							.getApp(), 0, serviceUpdateJob.getTransfered(),serviceUpdateJob.getTotalSize());
+					if (serviceUpdateJob.getTransfered() >= serviceUpdateJob
+							.getTotalSize()) {
+						guiRegistry.onUpdateComplete(ExtensionPlace.getDefault()
+								.getApp(), serviceUpdateJob.getTransfered());
+					}
 				}
 			}
 		} finally {
@@ -132,7 +134,9 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public void unregisterGUI(GUICallback gui) throws RemoteException {
-		guiRegistry.unregisterGUI(gui);
+		if(gui.isInteractive()) {
+			guiRegistry.unregisterGUI(gui);
+		}
 	}
 
 	@Override

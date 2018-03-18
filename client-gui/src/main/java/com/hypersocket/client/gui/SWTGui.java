@@ -798,4 +798,9 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 			}
 		});
 	}
+
+	@Override
+	public boolean isInteractive() throws RemoteException {
+		return true;
+	}
 }

@@ -70,7 +70,8 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	private boolean exitWhenDone;
 
 	private Registry registry;
-
+	private boolean interactive = false;
+	
 	protected CLI(String[] args) throws Exception {
 		super();
 
@@ -87,6 +88,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 			if(args.length > 0) {
 				runCommand(args);
 			} else {
+				interactive = true;
 				runInteractive();
 			}
 		} catch (Throwable e) {
@@ -98,6 +100,11 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 
 	}
 
+	@Override
+	public boolean isInteractive() throws RemoteException {
+		return interactive;
+	}
+	
 	private void runCommand(String[] args) throws Exception {
 		
 		connectToService();
@@ -170,22 +177,14 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 
 	public void registered() {
 		registrations++;
-		setOnlineState(true);
 		log.info("Connected to local service");
 	}
 
 	@Override
 	public void unregistered() {
 		registrations--;
-		setOnlineState(false);
 		log.info("Disconnected from local service");
 		System.exit(0);
-	}
-
-	private void setOnlineState(final boolean online) {
-		if (log.isInfoEnabled()) {
-			log.info("Setting online state to " + online);
-		}
 	}
 
 	public void notify(String msg, int type) {
@@ -460,14 +459,18 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	}
 
 	private void exitCli() {
-		new Thread() {
-			public void run() {
-
-				try {
-					clientService.unregisterGUI(CLI.this);
-				} catch (RemoteException e) {
+		if(interactive){
+			new Thread() {
+				public void run() {
+	
+					try {
+						clientService.unregisterGUI(CLI.this);
+					} catch (RemoteException e) {
+					}
 				}
-			}
-		}.start();
+			}.start();
+		} else {
+			System.exit(0);
+		}
 	}
 }

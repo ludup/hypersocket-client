@@ -15,14 +15,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.net.InterfaceAddress;
 import java.net.MalformedURLException;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.net.URL;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,8 +25,6 @@ import java.util.Map;
 import java.util.StringTokenizer;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jboss.netty.handler.ipfilter.CIDR;
-import org.jboss.netty.handler.ipfilter.CIDR4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

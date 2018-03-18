@@ -87,6 +87,11 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 		void updateResource(ResourceUpdateType type, Resource resource);
 	}
+	
+	@Override
+	public boolean isInteractive() throws RemoteException {
+		return true;
+	}
 
 	public Bridge() throws RemoteException {
 		super();
