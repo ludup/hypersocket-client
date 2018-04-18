@@ -39,6 +39,7 @@ import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hypersocket.client.HypersocketClientTransport;
 import com.hypersocket.client.NetworkResource;
 import com.hypersocket.netty.websocket.WebSocket;
@@ -67,8 +68,7 @@ public class NettyClientTransport implements HypersocketClientTransport {
 		workerExecutor = Executors.newCachedThreadPool();
 	}
 
-	public NettyClientTransport(ExecutorService bossExecutor,
-			ExecutorService workerExecutor) {
+	public NettyClientTransport(ExecutorService bossExecutor, ExecutorService workerExecutor) {
 		this.bossExecutor = bossExecutor;
 		this.workerExecutor = workerExecutor;
 		this.ownsExecutors = false;
@@ -85,34 +85,65 @@ public class NettyClientTransport implements HypersocketClientTransport {
 	}
 
 	@Override
-	public void connect(String host, int port, String path)
-			throws UnknownHostException, IOException {
+	public void connect(String host, int port, String path) throws UnknownHostException, IOException {
 
 		this.httpClient = new HttpClient(host, port, true);
 		this.httpClient.connect(bossExecutor, workerExecutor);
-		this.path = path;
 
-		if (!this.path.endsWith("/")) {
-			this.path += "/";
+		if (!path.endsWith("/")) {
+			path += "/";
 		}
 
+		if (path.equals("") || path.equals("/")) {
+
+			String discoPath = "/discover";
+			int redirects = 0;
+			while (true) {
+
+				HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, discoPath);
+
+				HttpHandlerResponse response = httpClient.sendRequest(request, 5000);
+
+				if (response.getStatusCode() == 200) {
+					ObjectMapper mapper = new ObjectMapper();
+					Discovery disco = mapper.readValue(response.getContent().toString(Charset.forName("UTF-8")),
+							Discovery.class);
+					path = disco.basePath;
+					if (!path.endsWith("/")) {
+						path += "/";
+					}
+					log.info(String.format("Discovered path %s", path));
+					break;
+				} else if (response.getStatusCode() == 302) {
+					discoPath = response.getHeader("Location");
+					redirects++;
+					if (redirects > 10)
+						throw new IOException("Too many redirects.");
+				} else {
+					log.warn(String.format("Could not discover path from %s:%d. Assuming /hypersocket. Error %d. %s",
+							host, port, response.getStatusCode(), response.getStatusText()));
+					path = "/hypersocket/";
+					break;
+				}
+			}
+		}
+
+		this.path = path;
 		this.apiPath = this.path + "api/";
 
-//		createServerBootstrap();
+		// createServerBootstrap();
 
 	}
 
 	private void createServerBootstrap() {
 		// Configure the server.
-		serverBootstrap = new ServerBootstrap(
-				new NioServerSocketChannelFactory(bossExecutor, workerExecutor));
+		serverBootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(bossExecutor, workerExecutor));
 
 		// Set up the event pipeline factory.
 		serverBootstrap.setPipelineFactory(new ChannelPipelineFactory() {
 			public ChannelPipeline getPipeline() throws Exception {
 				ChannelPipeline pipeline = Channels.pipeline();
-				pipeline.addLast("handler", new LocalForwardingHandler(
-						NettyClientTransport.this));
+				pipeline.addLast("handler", new LocalForwardingHandler(NettyClientTransport.this));
 				return pipeline;
 			}
 		});
@@ -120,8 +151,7 @@ public class NettyClientTransport implements HypersocketClientTransport {
 
 	public void setRequestTimeout(long requestTimeout) {
 		if (requestTimeout < 0) {
-			throw new IllegalArgumentException(
-					"requestTimeout cannot be negative");
+			throw new IllegalArgumentException("requestTimeout cannot be negative");
 		}
 		this.requestTimeout = requestTimeout;
 	}
@@ -160,7 +190,7 @@ public class NettyClientTransport implements HypersocketClientTransport {
 			bossExecutor.shutdownNow();
 			workerExecutor.shutdownNow();
 		}
-		if(serverBootstrap != null)
+		if (serverBootstrap != null)
 			serverBootstrap.shutdown();
 	}
 
@@ -169,16 +199,13 @@ public class NettyClientTransport implements HypersocketClientTransport {
 
 		try {
 			if (log.isInfoEnabled()) {
-				log.info("Stopping forwarding on " + listenAddress + ":"
-						+ listenPort);
+				log.info("Stopping forwarding on " + listenAddress + ":" + listenPort);
 			}
 
-			SocketAddress addr = new InetSocketAddress(listenAddress,
-					listenPort);
+			SocketAddress addr = new InetSocketAddress(listenAddress, listenPort);
 			stopLocalForwarding(addr);
 		} catch (Throwable e) {
-			log.error("Failed to stop local forwarding " + listenAddress + ":"
-					+ listenPort, e);
+			log.error("Failed to stop local forwarding " + listenAddress + ":" + listenPort, e);
 		}
 	}
 
@@ -194,20 +221,17 @@ public class NettyClientTransport implements HypersocketClientTransport {
 	}
 
 	@Override
-	public int startLocalForwarding(String listenAddress, int listenPort,
-			NetworkResource resource) throws IOException {
+	public int startLocalForwarding(String listenAddress, int listenPort, NetworkResource resource) throws IOException {
 		try {
-			if(serverBootstrap == null) {
+			if (serverBootstrap == null) {
 				createServerBootstrap();
 			}
 
 			if (log.isInfoEnabled()) {
-				log.info("Starting forwarding on " + listenAddress + ":"
-						+ listenPort + " to " + resource.getHostname() + ":"
-						+ resource.getPort());
+				log.info("Starting forwarding on " + listenAddress + ":" + listenPort + " to " + resource.getHostname()
+						+ ":" + resource.getPort());
 			}
-			Channel channel = serverBootstrap.bind(new InetSocketAddress(
-					listenAddress, listenPort));
+			Channel channel = serverBootstrap.bind(new InetSocketAddress(listenAddress, listenPort));
 
 			resourcesBySocketAddress.put(channel.getLocalAddress(), resource);
 			channelsBySocketAddress.put(channel.getLocalAddress(), channel);
@@ -229,25 +253,24 @@ public class NettyClientTransport implements HypersocketClientTransport {
 	public String get(String uri) throws IOException {
 		return get(uri, requestTimeout);
 	}
-	
+
 	public String resolveUrl(String uri) {
-		
-		return "https://" + getHost() + (getPort()!=443 ? ":" + getPort() : "")
-				+ apiPath + uri;
+
+		return "https://" + getHost() + (getPort() != 443 ? ":" + getPort() : "") + apiPath + uri;
 	}
 
 	@Override
 	public String get(String uri, long timeout) throws IOException {
 
-		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1,
-				HttpMethod.GET, apiPath + uri);
-		
+		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, apiPath + uri);
+
 		HttpHandlerResponse response = httpClient.sendRequest(request, timeout);
 
 		if (response.getStatusCode() == 200) {
 			return response.getContent().toString(Charset.forName("UTF-8"));
 		} else {
-			throw new IOException(String.format("GET of %s did not respond with 200 OK [%d]", uri, response.getStatusCode()));
+			throw new IOException(
+					String.format("GET of %s did not respond with 200 OK [%d]", uri, response.getStatusCode()));
 		}
 
 	}
@@ -255,16 +278,14 @@ public class NettyClientTransport implements HypersocketClientTransport {
 	@Override
 	public byte[] getBlob(String uri, long timeout) throws IOException {
 
-		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1,
-				HttpMethod.GET, apiPath + uri);
+		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, apiPath + uri);
 
 		HttpHandlerResponse response = httpClient.sendRequest(request, timeout);
 
 		if (response.getStatusCode() == 200) {
 			return response.getContent().array();
 		} else {
-			throw new IOException("GET did not respond with 200 OK ["
-					+ response.getStatusCode() + "]");
+			throw new IOException("GET did not respond with 200 OK [" + response.getStatusCode() + "]");
 		}
 
 	}
@@ -272,32 +293,27 @@ public class NettyClientTransport implements HypersocketClientTransport {
 	@Override
 	public InputStream getContent(String uri, long timeout) throws IOException {
 
-		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1,
-				HttpMethod.GET, apiPath + uri);
+		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, apiPath + uri);
 
 		HttpHandlerResponse response = httpClient.sendRequest(request, timeout);
 
 		if (response.getStatusCode() == 200) {
 			return new ChannelBufferInputStream(response.getContent());
 		} else {
-			throw new IOException("GET did not respond with 200 OK ["
-					+ response.getStatusCode() + "]");
+			throw new IOException("GET did not respond with 200 OK [" + response.getStatusCode() + "]");
 		}
 
 	}
 
 	@Override
-	public String post(String uri, Map<String, String> params)
-			throws IOException {
+	public String post(String uri, Map<String, String> params) throws IOException {
 		return post(uri, params, requestTimeout);
 	}
 
 	@Override
-	public String post(String uri, Map<String, String> params, long timeout)
-			throws IOException {
+	public String post(String uri, Map<String, String> params, long timeout) throws IOException {
 
-		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1,
-				HttpMethod.POST, apiPath + uri);
+		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, apiPath + uri);
 
 		StringBuffer buf = new StringBuffer();
 		for (Map.Entry<String, String> e : params.entrySet()) {
@@ -310,10 +326,8 @@ public class NettyClientTransport implements HypersocketClientTransport {
 		}
 
 		if (buf.length() > 0) {
-			ChannelBuffer buffer = ChannelBuffers.copiedBuffer(buf.toString(),
-					Charset.defaultCharset());
-			request.setHeader("Content-Type",
-					"application/x-www-form-urlencoded");
+			ChannelBuffer buffer = ChannelBuffers.copiedBuffer(buf.toString(), Charset.defaultCharset());
+			request.setHeader("Content-Type", "application/x-www-form-urlencoded");
 			request.setHeader("Content-Length", buffer.readableBytes());
 			request.setContent(buffer);
 		}
@@ -323,18 +337,15 @@ public class NettyClientTransport implements HypersocketClientTransport {
 		if (response.getStatusCode() == 200) {
 			return response.getContent().toString(Charset.forName("UTF-8"));
 		} else {
-			throw new IOException("POST did not respond with 200 OK ["
-					+ response.getStatusCode() + "]");
+			throw new IOException("POST did not respond with 200 OK [" + response.getStatusCode() + "]");
 		}
 
 	}
 
-	public WebSocket createWebsocket(String request, WebSocketListener callback)
-			throws IOException {
+	public WebSocket createWebsocket(String request, WebSocketListener callback) throws IOException {
 
 		try {
-			URI uri = new URI("ws://" + httpClient.getHost() + ":"
-					+ httpClient.getPort() + path + request);
+			URI uri = new URI("ws://" + httpClient.getHost() + ":" + httpClient.getPort() + path + request);
 
 			return httpClient.createWebsocket(uri, callback);
 
@@ -343,74 +354,75 @@ public class NettyClientTransport implements HypersocketClientTransport {
 		}
 	}
 
-	public WebSocket createTunnel(Channel channel, WebSocketListener callback)
-			throws IOException {
+	public WebSocket createTunnel(Channel channel, WebSocketListener callback) throws IOException {
 
-		NetworkResource resource = resourcesBySocketAddress.get(channel
-				.getLocalAddress());
+		NetworkResource resource = resourcesBySocketAddress.get(channel.getLocalAddress());
 
-		if(log.isDebugEnabled()) {
+		if (log.isDebugEnabled()) {
 			log.debug(String.format("Creating tunnel to %s:%d", resource.getDestinationHostname(), resource.getPort()));
 		}
-		
-		return createWebsocket(resource.getUri() + "?resourceId=" + resource.getParentResourceId()
-				+ "&hostname=" + resource.getDestinationHostname()
-				+ "&port=" + resource.getPort(), callback);
+
+		return createWebsocket(resource.getUri() + "?resourceId=" + resource.getParentResourceId() + "&hostname="
+				+ resource.getDestinationHostname() + "&port=" + resource.getPort(), callback);
 
 	}
 
 	/**
 	 * For testing purposes. Commented out, please leave for now.
 	 */
-//	public static void main(String[] args) throws UnknownHostException,
-//			IOException {
-//
-//		//BasicConfigurator.configure();
-//
-//		NettyClientTransport c = new NettyClientTransport();
-//		EmbeddedClient client = new EmbeddedClient(c);
-//
-//		client.connect("localhost", 8443, "/hypersocket",
-//				Locale.getDefault());
-//
-//		Map<String, String> params = new HashMap<String, String>();
-//		params.put("realm", "Default");
-//		params.put("username", "admin");
-//		params.put("password", "admin");
-//
-//		client.loginHttp("Default", "admin", "admin");
-//
-//		final WebSocket ws = c.createWebsocket("bind?id=12345", new WebSocketListener() {
-//			
-//			Random r = new Random();
-//			@Override
-//			public void onMessage(WebSocket client, WebSocketFrame frame) {
-//				System.out.println("Channel: " + frame.getRsv() + " " + frame.getBinaryData().toString("UTF-8"));
-//				client.send(new BinaryWebSocketFrame(true, r.nextInt(100), ChannelBuffers.copiedBuffer("echo\n", "UTF-8")));
-//			}
-//			
-//			@Override
-//			public void onError(Throwable t) {
-//				t.printStackTrace();
-//			}
-//			
-//			@Override
-//			public void onDisconnect(WebSocket client) {
-//				System.out.println("Disconnected");
-//			}
-//			
-//			@Override
-//			public void onConnect(WebSocket client) {
-//				System.out.println("Connected");
-//				client.send(new BinaryWebSocketFrame(true, r.nextInt(100), ChannelBuffers.copiedBuffer("echo\n", "UTF-8")));
-//			}
-//		});
-//		
-//		System.out.println("Connecting");
-//		ws.connect().awaitUninterruptibly();
-//		System.out.println("Waiting for bind");
-//		
-//	}
+	// public static void main(String[] args) throws UnknownHostException,
+	// IOException {
+	//
+	// //BasicConfigurator.configure();
+	//
+	// NettyClientTransport c = new NettyClientTransport();
+	// EmbeddedClient client = new EmbeddedClient(c);
+	//
+	// client.connect("localhost", 8443, "/hypersocket",
+	// Locale.getDefault());
+	//
+	// Map<String, String> params = new HashMap<String, String>();
+	// params.put("realm", "Default");
+	// params.put("username", "admin");
+	// params.put("password", "admin");
+	//
+	// client.loginHttp("Default", "admin", "admin");
+	//
+	// final WebSocket ws = c.createWebsocket("bind?id=12345", new
+	// WebSocketListener() {
+	//
+	// Random r = new Random();
+	// @Override
+	// public void onMessage(WebSocket client, WebSocketFrame frame) {
+	// System.out.println("Channel: " + frame.getRsv() + " " +
+	// frame.getBinaryData().toString("UTF-8"));
+	// client.send(new BinaryWebSocketFrame(true, r.nextInt(100),
+	// ChannelBuffers.copiedBuffer("echo\n", "UTF-8")));
+	// }
+	//
+	// @Override
+	// public void onError(Throwable t) {
+	// t.printStackTrace();
+	// }
+	//
+	// @Override
+	// public void onDisconnect(WebSocket client) {
+	// System.out.println("Disconnected");
+	// }
+	//
+	// @Override
+	// public void onConnect(WebSocket client) {
+	// System.out.println("Connected");
+	// client.send(new BinaryWebSocketFrame(true, r.nextInt(100),
+	// ChannelBuffers.copiedBuffer("echo\n", "UTF-8")));
+	// }
+	// });
+	//
+	// System.out.println("Connecting");
+	// ws.connect().awaitUninterruptibly();
+	// System.out.println("Waiting for bind");
+	//
+	// }
 
 	@Override
 	public String getHost() {
@@ -420,5 +432,27 @@ public class NettyClientTransport implements HypersocketClientTransport {
 	@Override
 	public int getPort() {
 		return httpClient.getPort();
+	}
+
+	public static class Discovery {
+		String basePath;
+		String version;
+
+		public String getBasePath() {
+			return basePath;
+		}
+
+		public void setBasePath(String basePath) {
+			this.basePath = basePath;
+		}
+
+		public String getVersion() {
+			return version;
+		}
+
+		public void setVersion(String version) {
+			this.version = version;
+		}
+
 	}
 }
