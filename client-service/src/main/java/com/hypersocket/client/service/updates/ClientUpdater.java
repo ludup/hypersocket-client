@@ -133,4 +133,8 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 		return Collections.<String>emptySet();
 	}
 
+	@Override
+	protected boolean getInstallMandatoryExtensions() {
+		return true;
+	}
 }
