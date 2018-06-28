@@ -49,7 +49,7 @@ public class GUIRegistryImpl implements GUIRegistry {
 	@Override
 	public void registerGUI(GUICallback gui) throws RemoteException {
 		if (this.gui != null)
-			throw new IllegalStateException("Already registered " + gui);
+			throw new IllegalStateException("CLI interactive mode cannot be executed at the same time as the Desktop Ribbon or another instance of the CLI in interactive mode");
 
 		synchronized (lock) {
 			this.gui = gui;

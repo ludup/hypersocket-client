@@ -296,7 +296,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 				in.close();
 			}
 		} catch (IOException e2) {
-			e2.printStackTrace();
+			log.warn("Could not load conf/rmi.properties file. Is the service running?");
 		}
 		int port = Integer.parseInt(properties.getProperty("port", "50000"));
 
