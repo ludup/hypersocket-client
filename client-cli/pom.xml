@@ -76,37 +76,54 @@
 			<id>public-releases</id>
 			<name>artifactory.javassh.com-releases</name>
 			<url>http://artifactory.javassh.com/public-releases</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+			<releases/>
 		</repository>
 		<repository>
 			<id>public-snapshots</id>
 			<name>artifactory.javassh.com-snapshots</name>
 			<url>http://artifactory.javassh.com/public-snapshots</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots/>
 		</repository>
 		<repository>
 			<id>ext-snapshots-local</id>
 			<name>artifactory.javassh.com-ext-snapshots</name>
 			<url>http://artifactory.javassh.com/ext-snapshots-local</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots/>
 		</repository>
 		<repository>
 			<id>ext-releases-local</id>
 			<name>artifactory.javassh.com-ext-releases</name>
 			<url>http://artifactory.javassh.com/ext-releases-local</url>
-		</repository>
-		<repository>
-			<id>opensource-snapshots</id>
-			<name>artifactory.javassh.com-oss-snapshots</name>
-			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+			<releases/>
 		</repository>
 		<repository>
 			<id>sshtools-oss-releases</id>
 			<name>sshtools-oss-releases</name>
 			<url>http://artifactory.javassh.com/opensource-releases</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
 			<releases/>
 		</repository>
 		<repository>
 			<id>sshtools-oss-snapshots</id>
 			<name>sshtools-oss-snapshots</name>
 			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
 			<snapshots/>
 		</repository>
 	</repositories>
