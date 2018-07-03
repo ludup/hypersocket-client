@@ -74,7 +74,7 @@
 		</repository>
 		<repository>
 			<id>public-releases</id>
-			<name>artifactory.javassh.com-releases</name>
+			<name>public-releases</name>
 			<url>http://artifactory.javassh.com/public-releases</url>
 			<snapshots>
 				<enabled>false</enabled>
@@ -83,7 +83,7 @@
 		</repository>
 		<repository>
 			<id>public-snapshots</id>
-			<name>artifactory.javassh.com-snapshots</name>
+			<name>public-snapshots</name>
 			<url>http://artifactory.javassh.com/public-snapshots</url>
 			<releases>
 				<enabled>false</enabled>
@@ -109,8 +109,8 @@
 			<releases/>
 		</repository>
 		<repository>
-			<id>sshtools-oss-releases</id>
-			<name>sshtools-oss-releases</name>
+			<id>opensource-releases</id>
+			<name>opensource-releases</name>
 			<url>http://artifactory.javassh.com/opensource-releases</url>
 			<snapshots>
 				<enabled>false</enabled>
@@ -118,8 +118,8 @@
 			<releases/>
 		</repository>
 		<repository>
-			<id>sshtools-oss-snapshots</id>
-			<name>sshtools-oss-snapshots</name>
+			<id>opensource-snapshots</id>
+			<name>opensource-snapshots</name>
 			<url>http://artifactory.javassh.com/opensource-snapshots</url>
 			<releases>
 				<enabled>false</enabled>
