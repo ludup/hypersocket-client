@@ -15,7 +15,7 @@ import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.controlsfx.control.textfield.CustomPasswordField;
 import org.controlsfx.control.textfield.CustomTextField;
 import org.slf4j.Logger;

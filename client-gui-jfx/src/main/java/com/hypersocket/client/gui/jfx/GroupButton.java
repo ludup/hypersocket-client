@@ -8,6 +8,11 @@ import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 import java.util.WeakHashMap;
 
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.hypersocket.client.gui.jfx.Flinger.Direction;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -16,14 +21,6 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
-
-
-import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-
-import com.hypersocket.client.gui.jfx.Flinger.Direction;
 
 public class GroupButton extends ImageButton {
 

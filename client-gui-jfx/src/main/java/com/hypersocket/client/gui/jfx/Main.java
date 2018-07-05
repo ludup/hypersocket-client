@@ -4,7 +4,7 @@ import java.awt.Image;
 import java.io.File;
 import java.io.IOException;
 
-import org.apache.commons.lang.SystemUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
