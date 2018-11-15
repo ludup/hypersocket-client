@@ -3,3 +3,5 @@
 /conf
 /.settings
 /bin/
+*.classpath
+*.project
