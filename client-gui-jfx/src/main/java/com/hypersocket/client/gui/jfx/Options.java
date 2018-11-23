@@ -164,8 +164,7 @@ public class Options extends AbstractController {
 				String.valueOf(c.get(Calendar.YEAR))));
 		version.setText(MessageFormat.format(
 				resources.getString("version"),
-				HypersocketVersion.getVersion(context.getBridge()
-						.getExtensionPlace().getApp())));
+				HypersocketVersion.getVersion()));
 		setLogo();
 
 		setAvailable();
