@@ -366,19 +366,19 @@ public class Client extends Application {
 		primaryStage.setTitle(BUNDLE.getString("title"));
 		primaryStage.getIcons().add(
 				new Image(getClass().getResourceAsStream(
-						"hypersocket-icon256x256.png")));
+						"logonbox-icon256x256.png")));
 		primaryStage.getIcons().add(
 				new Image(getClass().getResourceAsStream(
-						"hypersocket-icon128x128.png")));
+						"logonbox-icon128x128.png")));
 		primaryStage.getIcons().add(
 				new Image(getClass().getResourceAsStream(
-						"hypersocket-icon64x64.png")));
+						"logonbox-icon64x64.png")));
 		primaryStage.getIcons().add(
 				new Image(getClass().getResourceAsStream(
-						"hypersocket-icon48x48.png")));
+						"logonbox-icon48x48.png")));
 		primaryStage.getIcons().add(
 				new Image(getClass().getResourceAsStream(
-						"hypersocket-icon32x32.png")));
+						"logonbox-icon32x32.png")));
 
 		// Open the actual scene
 		FramedController fc = openScene(Dock.class,
