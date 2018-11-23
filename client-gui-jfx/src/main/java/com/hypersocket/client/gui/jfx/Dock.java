@@ -33,6 +33,8 @@ import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.Resource.Type;
 import com.hypersocket.client.rmi.ResourceRealm;
 import com.hypersocket.client.rmi.ResourceService;
+import com.sshtools.twoslices.Toast;
+import com.sshtools.twoslices.ToastType;
 
 import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
@@ -212,54 +214,74 @@ public class Dock extends AbstractController implements Listener {
 	 */
 
 	public void notify(String msg, int type, Action... actions) {
-		Pos pos = Pos.CENTER;
-		if (cfg.topProperty().get()) {
-			pos = Pos.TOP_LEFT;
-		} else if (cfg.bottomProperty().get()) {
-			pos = Pos.BOTTOM_LEFT;
-		} else if (cfg.leftProperty().get()) {
-			pos = Pos.TOP_RIGHT;
-		} else if (cfg.rightProperty().get()) {
-			pos = Pos.TOP_LEFT;
-		}
-
-		Notifications notificationBuilder = Notifications.create().text(msg).hideAfter(Duration.seconds(10))
-				.position(pos).onAction(new EventHandler<ActionEvent>() {
-					@Override
-					public void handle(ActionEvent arg0) {
-					}
-				});
-
-		notificationBuilder.hideCloseButton();
-		notificationBuilder.action(actions);
-
-		Configuration cfg = Configuration.getDefault();
-		Color backgroundColour = cfg.colorProperty().getValue();
-		if (backgroundColour.getBrightness() < 0.5) {
-			notificationBuilder.darkStyle();
-		}
-
-		// if (darkStyleChkBox.isSelected()) {
-		// notificationBuilder.darkStyle();
-		// }
-
+		ToastType toastType = null;
 		switch (type) {
 		case GUICallback.NOTIFY_WARNING:
-			notificationBuilder.showWarning();
+			toastType = ToastType.WARNING;
 			break;
 		case GUICallback.NOTIFY_INFO:
-			notificationBuilder.showInformation();
+			toastType = ToastType.INFO;
 			break;
 		case GUICallback.NOTIFY_CONNECT:
 		case GUICallback.NOTIFY_DISCONNECT:
-			notificationBuilder.showConfirm();
+			toastType = ToastType.INFO;
 			break;
 		case GUICallback.NOTIFY_ERROR:
-			notificationBuilder.showError();
+			toastType = ToastType.ERROR;
 			break;
 		default:
-			notificationBuilder.show();
+			toastType = ToastType.NONE;
 		}
+		Toast.toast(toastType, "Hypersocket Client", msg);
+		
+//		Pos pos = Pos.CENTER;
+//		if (cfg.topProperty().get()) {
+//			pos = Pos.TOP_LEFT;
+//		} else if (cfg.bottomProperty().get()) {
+//			pos = Pos.BOTTOM_LEFT;
+//		} else if (cfg.leftProperty().get()) {
+//			pos = Pos.TOP_RIGHT;
+//		} else if (cfg.rightProperty().get()) {
+//			pos = Pos.TOP_LEFT;
+//		}
+//
+//		Notifications notificationBuilder = Notifications.create().text(msg).hideAfter(Duration.seconds(10))
+//				.position(pos).onAction(new EventHandler<ActionEvent>() {
+//					@Override
+//					public void handle(ActionEvent arg0) {
+//					}
+//				});
+//
+//		notificationBuilder.hideCloseButton();
+//		notificationBuilder.action(actions);
+//
+//		Configuration cfg = Configuration.getDefault();
+//		Color backgroundColour = cfg.colorProperty().getValue();
+//		if (backgroundColour.getBrightness() < 0.5) {
+//			notificationBuilder.darkStyle();
+//		}
+//
+//		// if (darkStyleChkBox.isSelected()) {
+//		// notificationBuilder.darkStyle();
+//		// }
+//
+//		switch (type) {
+//		case GUICallback.NOTIFY_WARNING:
+//			notificationBuilder.showWarning();
+//			break;
+//		case GUICallback.NOTIFY_INFO:
+//			notificationBuilder.showInformation();
+//			break;
+//		case GUICallback.NOTIFY_CONNECT:
+//		case GUICallback.NOTIFY_DISCONNECT:
+//			notificationBuilder.showConfirm();
+//			break;
+//		case GUICallback.NOTIFY_ERROR:
+//			notificationBuilder.showError();
+//			break;
+//		default:
+//			notificationBuilder.show();
+//		}
 
 	}
 

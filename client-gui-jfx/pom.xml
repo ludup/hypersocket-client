@@ -2,7 +2,8 @@
 	and the accompanying materials are made available under the terms of the 
 	GNU Public License v3.0 which accompanies this distribution, and is available 
 	at http://www.gnu.org/licenses/gpl.html -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<artifactId>client-gui-jfx</artifactId>
@@ -66,7 +67,7 @@
 		<dependency>
 			<groupId>com.sshtools</groupId>
 			<artifactId>forker-client</artifactId>
-			<version>1.5-SNAPSHOT</version>	
+			<version>1.5-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.controlsfx</groupId>
@@ -80,6 +81,11 @@
 		</dependency>
 
 		<dependency>
+			<groupId>com.sshtools</groupId>
+			<artifactId>two-slices</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
+		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>1.2.17</version>
@@ -91,17 +97,13 @@
 
 	<repositories>
 		<repository>
-			<id>swt-repo</id>
-			<url>http://artifactory.javassh.com/swt-repo</url>
-		</repository>
-		<repository>
 			<id>public-releases</id>
 			<name>public-releases</name>
 			<url>http://artifactory.javassh.com/public-releases</url>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
-			<releases/>
+			<releases />
 		</repository>
 		<repository>
 			<id>public-snapshots</id>
@@ -110,7 +112,7 @@
 			<releases>
 				<enabled>false</enabled>
 			</releases>
-			<snapshots/>
+			<snapshots />
 		</repository>
 		<repository>
 			<id>ext-snapshots-local</id>
@@ -119,7 +121,7 @@
 			<releases>
 				<enabled>false</enabled>
 			</releases>
-			<snapshots/>
+			<snapshots />
 		</repository>
 		<repository>
 			<id>ext-releases-local</id>
@@ -128,7 +130,7 @@
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
-			<releases/>
+			<releases />
 		</repository>
 		<repository>
 			<id>opensource-releases</id>
@@ -137,7 +139,7 @@
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
-			<releases/>
+			<releases />
 		</repository>
 		<repository>
 			<id>opensource-snapshots</id>
@@ -146,8 +148,19 @@
 			<releases>
 				<enabled>false</enabled>
 			</releases>
-			<snapshots/>
+			<snapshots />
+		</repository>
+		<repository>
+			<id>oss-snapshots</id>
+			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
 		</repository>
 	</repositories>
+
 
 </project>
