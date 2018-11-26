@@ -222,6 +222,10 @@ public class Main {
 					Connection con = connectionService.getConnection(url.getHost());
 					if(con==null) {
 						con = connectionService.createNew();
+						String name = url.getHost();
+						if(url.getPort() > 0 && url.getPort() != 443)
+							name += ":" + url.getPort();
+						con.setName(name);
 						con.setStayConnected(true);
 						
 						con.setConnectAtStartup(false);
