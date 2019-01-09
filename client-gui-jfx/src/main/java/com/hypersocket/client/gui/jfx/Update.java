@@ -180,12 +180,6 @@ public class Update extends AbstractController {
 			if(restart) {
 				LOG.info(String
 						.format("All apps updated, starting restart process " + Math.random()));
-				try {
-					throw new Exception();
-				}
-				catch(Exception e) {
-					LOG.error("TRACE" , e);
-				}
 				awaitingBridgeLoss = new Timeline(new KeyFrame(
 						Duration.seconds(30), ae -> giveUpWaitingForBridgeStop()));
 				awaitingBridgeLoss.play();
