@@ -9,14 +9,14 @@
 
 <StackPane fx:id="addConnectionStackPane" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.hypersocket.client.gui.jfx.AddConnection">
    <children>
-   		<VBox fx:id="root" alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="380" styleClass="windowContent">
+   		<VBox alignment="CENTER_LEFT" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="380" styleClass="windowContent">
    			<children>
-   				<BorderPane fx:id="titleBp">
+   				<BorderPane>
                 	<left>
-                		<HBox fx:id="titleHb" VBox.vgrow="ALWAYS">
+                		<HBox VBox.vgrow="ALWAYS">
 	                     <children>
-	                     	<Button fx:id="addConectionIcon" mnemonicParsing="false" styleClass="uiButton, iconButton" text="%connect.icon" />
-                    	 	<Label fx:id="nameLbl" styleClass="title, info-lg" text="%title" textOverrun="CLIP">
+	                     	<Button mnemonicParsing="false" styleClass="uiButton, iconButton" text="%connect.icon" />
+                    	 	<Label styleClass="title, info-lg" text="%title" textOverrun="CLIP">
                         	</Label>
                         </children>
                         <styleClass>
@@ -28,7 +28,7 @@
                        </HBox>
                     </left>
                 </BorderPane>
-                <BorderPane fx:id="messageBp">
+                <BorderPane>
                 	<center>
                 		<Label fx:id="messageLbl">
 			               <padding>
@@ -37,9 +37,9 @@
 			            </Label>
                     </center>
                 </BorderPane>
-   				<BorderPane fx:id="nameBp">
+   				<BorderPane>
                 	<left>
-                    	 <Label fx:id="nameLbl" alignment="CENTER" styleClass="info-lg" text="%name" textOverrun="CLIP">
+                    	 <Label alignment="CENTER" styleClass="info-lg" text="%name" textOverrun="CLIP">
                            <padding>
                               <Insets bottom="12.0" left="0" right="4.0" top="4.0" />
                            </padding>
@@ -49,9 +49,9 @@
                     	<CustomTextField fx:id="nameInput" BorderPane.alignment="CENTER" styleClass="element-padding" minWidth="250"/>
                     </right>
                 </BorderPane>
-                <BorderPane fx:id="serverBp">
+                <BorderPane>
                 	<left>
-                    	 <Label fx:id="serverLbl" alignment="CENTER" styleClass="info-lg" text="%server" textOverrun="CLIP">
+                    	 <Label alignment="CENTER" styleClass="info-lg" text="%server" textOverrun="CLIP">
                            <padding>
                               <Insets bottom="12.0" left="0" right="4.0" top="4.0" />
                            </padding>
@@ -61,7 +61,7 @@
                     	<CustomTextField fx:id="serverInput" BorderPane.alignment="CENTER" styleClass="element-padding" minWidth="250"/>
                     </right>
                 </BorderPane>
-				<BorderPane fx:id="usernameBp">
+				<BorderPane>
                 	<left>
                     	 <Label fx:id="usernameLbl" alignment="CENTER" styleClass="info-lg" text="%username" textOverrun="CLIP">
                            <padding>
@@ -73,7 +73,7 @@
                     	<CustomTextField fx:id="usernameInput" BorderPane.alignment="CENTER" styleClass="element-padding" minWidth="250"/>
                     </right>
                 </BorderPane>
-                <BorderPane fx:id="passwordBp">
+                <BorderPane>
                 	<left>
                     	 <Label fx:id="passwordLbl" alignment="CENTER" styleClass="info-lg" text="%password" textOverrun="CLIP">
                            <padding>
@@ -85,16 +85,16 @@
                     	<CustomPasswordField fx:id="passwordInput" BorderPane.alignment="CENTER" styleClass="element-padding" minWidth="250"/>
                     </right>
                 </BorderPane>
-                <BorderPane fx:id="saveCredsBp">
+                <BorderPane>
                     <right>
-                    	<HBox fx:id="saveCredsHb" VBox.vgrow="ALWAYS">
+                    	<HBox VBox.vgrow="ALWAYS">
 	                     <children>
-	                     	<Label fx:id="saveCredsLbl" alignment="CENTER" styleClass="info" text="%saveCred" textOverrun="CLIP">
+	                     	<Label alignment="CENTER" styleClass="info" text="%saveCred" textOverrun="CLIP">
                            <padding>
                               <Insets bottom="12.0" left="4.0" right="4.0" top="4.0" />
                            </padding>
                         </Label>
-	                        <CheckBox fx:id="saveCredsCBox" mnemonicParsing="false" />
+	                        <CheckBox fx:id="saveCredsCBox" onAction="#evtSaveCred"  mnemonicParsing="false" />
 	                     </children>
 	                     <padding>
 	                        <Insets bottom="3.0" left="8.0" right="0" top="3.0" />
@@ -102,11 +102,11 @@
 	                  </HBox>
                     </right>
                 </BorderPane>
-                <BorderPane fx:id="conOnstartBp">
+                <BorderPane>
                     <right>
-                    	<HBox fx:id="conOnstartHb" VBox.vgrow="ALWAYS">
+                    	<HBox VBox.vgrow="ALWAYS">
 	                     <children>
-	                     	<Label fx:id="conOnstartLbl" alignment="CENTER" styleClass="info" text="%conOnstart" textOverrun="CLIP">
+	                     	<Label alignment="CENTER" styleClass="info" text="%conOnstart" textOverrun="CLIP">
                            <padding>
                               <Insets bottom="4.0" left="4.0" right="4.0" top="4.0" />
                            </padding>
@@ -119,16 +119,16 @@
 	                  </HBox>
                     </right>
                 </BorderPane>   
-                <BorderPane fx:id="passwordBp">
+                <BorderPane>
                 	<left>
-                		<Label fx:id="requiredLbl" text="%required.msg" styleClass="info, italics">
+                		<Label text="%required.msg" styleClass="info, italics">
 			               <padding>
 			                  <Insets bottom="10.0" left="4.0" top="10.0"/>
 			               </padding>
 			            </Label>
                 	</left>
                     <right>
-                    	<HBox fx:id="passwordHb">
+                    	<HBox>
 	                     <children>
 	                     	<Button fx:id="cancel" mnemonicParsing="false" onAction="#evtCancel" text="%cancel" />
 	                       	<Button fx:id="add" mnemonicParsing="false" onAction="#evtAdd" text="%add" />
