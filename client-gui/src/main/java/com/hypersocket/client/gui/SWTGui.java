@@ -324,7 +324,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 				Runtime.getRuntime().addShutdownHook(new Thread() {
 					public void run() {
 						try {
-							clientService.unregisterGUI(SWTGui.this);
+							clientService.unregisterGUI(SWTGui.this, false);
 						} catch (RemoteException e) {
 						}
 					}
@@ -802,5 +802,10 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	@Override
 	public boolean isInteractive() throws RemoteException {
 		return true;
+	}
+
+	@Override
+	public void ping() throws RemoteException {
+		// Noop
 	}
 }

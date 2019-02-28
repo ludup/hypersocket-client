@@ -1,6 +1,7 @@
 package com.hypersocket.client.cli.commands;
 
 import java.rmi.RemoteException;
+import java.util.List;
 
 import org.apache.commons.cli.Options;
 import org.slf4j.Logger;
@@ -18,7 +19,10 @@ public class Delete extends AbstractConnectionCommand {
 		
 		String  pattern = getPattern(cli);
 		
-		for(Connection connection : getConnectionsMatching(pattern, cli)) {
+		final List<Connection> c = getConnectionsMatching(pattern, cli);
+		if(c.isEmpty())
+			throw new IllegalArgumentException(String.format("No connection matches %s", pattern));
+		for(Connection connection : c) {
 			
 			int status;
 			try {

@@ -48,9 +48,7 @@ public class Create implements Command {
 		connection.setStayConnected(cli.getCommandLine().hasOption("S"));
 		
 		String path = uri.getPath();
-		if (path.equals("") || path.equals("/")) {
-			path = "/hypersocket";
-		} else if (path.indexOf('/', 1) > -1) {
+		if (path != null && path.indexOf('/', 1) > -1) {
 			path = path.substring(0, path.indexOf('/', 1));
 		}
 		connection.setPath(path);
@@ -60,6 +58,18 @@ public class Create implements Command {
 			if(cli.getCommandLine().getArgList().size() >= 4) {
 				connection.setUsername(cli.getCommandLine().getArgs()[2]);
 				connection.setPassword(cli.getCommandLine().getArgs()[3]);
+			}
+			else
+				throw new IllegalArgumentException("Save credentials options requires that you supply a username and password as the 3rd and 4th arguments.");
+
+			
+			if(cli.getCommandLine().getArgList().size() >= 5) {
+				connection.setName(cli.getCommandLine().getArgs()[4]);
+			}
+		}
+		else {
+			if(cli.getCommandLine().getArgList().size() >= 3) {
+				connection.setName(cli.getCommandLine().getArgs()[2]);
 			}
 		}
 		

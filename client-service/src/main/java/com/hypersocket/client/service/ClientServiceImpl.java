@@ -42,31 +42,26 @@ public class ClientServiceImpl implements ClientService {
 
 	static Logger log = LoggerFactory.getLogger(ClientServiceImpl.class);
 
-	ConnectionService connectionService;
-	ConfigurationService configurationService;
-	ResourceService resourceService;
-	VPNServiceImpl vpnService;
+	private ConnectionService connectionService;
+	private ConfigurationService configurationService;
+	private ResourceService resourceService;
+	private VPNServiceImpl vpnService;
 
-	ExecutorService bossExecutor;
-	ExecutorService workerExecutor;
-	Timer timer;
+	private ExecutorService bossExecutor;
+	private ExecutorService workerExecutor;
+	private Timer timer;
 
-	Map<Connection, HypersocketClient<Connection>> activeClients = new HashMap<Connection, HypersocketClient<Connection>>();
-	Map<Connection, TimerTask> connectingClients = new HashMap<Connection, TimerTask>();
-	Map<Connection, Set<ServicePlugin>> connectionPlugins = new HashMap<Connection, Set<ServicePlugin>>();
-	Map<Connection, ResourceBundle> resources = new HashMap<>();
+	private Map<Connection, HypersocketClient<Connection>> activeClients = new HashMap<Connection, HypersocketClient<Connection>>();
+	private Map<Connection, TimerTask> connectingClients = new HashMap<Connection, TimerTask>();
+	private Map<Connection, Set<ServicePlugin>> connectionPlugins = new HashMap<Connection, Set<ServicePlugin>>();
+	private Map<Connection, ResourceBundle> resources = new HashMap<>();
 
-	Semaphore startupLock = new Semaphore(1);
-	TimerTask updateTask;
-	Runnable restartCallback;
-	GUIRegistry guiRegistry;
-
+	private Semaphore startupLock = new Semaphore(1);
+	private Runnable restartCallback;
+	private GUIRegistry guiRegistry;
 	private boolean updating;
-
 	private boolean guiNeedsSeparateUpdate;
-
 	private int appsToUpdate;
-
 	private ClientUpdater serviceUpdateJob;
 
 	public ClientServiceImpl(ConnectionService connectionService,
@@ -133,15 +128,15 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public void unregisterGUI(GUICallback gui) throws RemoteException {
+	public void unregisterGUI(GUICallback gui, boolean callback) throws RemoteException {
 		if(gui.isInteractive()) {
-			guiRegistry.unregisterGUI(gui);
+			guiRegistry.unregisterGUI(gui, callback);
 		}
 	}
 
 	@Override
 	public void ping() {
-
+		// Noop
 	}
 
 	public boolean startService() {

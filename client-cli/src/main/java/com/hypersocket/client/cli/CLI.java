@@ -9,10 +9,11 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Properties;
 import java.util.ResourceBundle;
 
@@ -49,26 +50,19 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 
 	final static int DEFAULT_TIMEOUT = 10000;
 
-	int timeout = DEFAULT_TIMEOUT;
-	int registrations = 0;
+	private int registrations = 0;
 
-	ConnectionService connectionService;
-	ConfigurationService configurationService;
-	ResourceService resourceService;
-
-	ClientService clientService;
-
-	boolean suspendShellClose = false;
-	boolean awaitingServiceStop = false;
-	boolean awaitingServiceStart = false;
-
+	private ConnectionService connectionService;
+	private ConfigurationService configurationService;
+	private ResourceService resourceService;
+	private ClientService clientService;
+	private boolean awaitingServiceStop = false;
 	private int appsToUpdate = -1;
 	private int appsUpdated = 0;
 	private Updater updater;
 	private CommandLine cli;
 	private ConsoleProvider console;
 	private boolean exitWhenDone;
-
 	private Registry registry;
 	private boolean interactive = false;
 	
@@ -91,8 +85,11 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 				interactive = true;
 				runInteractive();
 			}
-		} catch (Throwable e) {
-			System.err.println(e.getMessage());
+		} catch (Exception e) {
+			if(interactive)
+				System.out.println(e.getMessage());
+			else
+				System.err.println(e.getMessage());
 			System.exit(1);
 		} finally {
 			exitCli();
@@ -133,7 +130,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 					
 					String cmd = console.readLine("LogonBox> ");
 					if(StringUtils.isNotBlank(cmd)) {
-						List<String> newargs = Arrays.asList(cmd.split("\"?( |$)(?=(([^\"]*\"){2})*[^\"]*$)\"?"));
+						List<String> newargs = parseQuotedString(cmd);
 						newargs.removeIf(item -> item == null || "".equals(item));
 						
 						String [] args = newargs.toArray(new String[0]);
@@ -143,6 +140,8 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 							Options opts = new Options();
 							
 							Command command = createCommand(args[0]);
+							if(command == null)
+								throw new NoSuchElementException(String.format("No command named %s", args[0]));
 							command.buildOptions(opts);
 							
 							cli = pp.parse(opts, args);
@@ -151,10 +150,12 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 					}
 				
 				}
-				catch(Throwable e) {
-					System.err.println(String.format("Error: %s", e.getMessage()));
+				catch(Exception e) {
+					if(interactive)
+						System.out.println(String.format("Error: %s", e.getMessage()));
+					else
+						System.err.println(String.format("Error: %s", e.getMessage()));
 				}
-			
 			} while(!exitWhenDone);
 		} finally {
 			exitCli();
@@ -193,6 +194,45 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 		}
 	}
 
+	/**
+	 * Parse a space separated string into a list, treating portions quotes with
+	 * single quotes as a single element. Single quotes themselves and spaces
+	 * can be escaped with a backslash.
+	 * 
+	 * @param command
+	 *            command to parse
+	 * @return parsed command
+	 */
+	private static List<String> parseQuotedString(String command) {
+		List<String> args = new ArrayList<String>();
+		boolean escaped = false;
+		boolean quoted = false;
+		StringBuilder word = new StringBuilder();
+		for (int i = 0; i < command.length(); i++) {
+			char c = command.charAt(i);
+			if (c == '"' && !escaped) {
+				if (quoted) {
+					quoted = false;
+				} else {
+					quoted = true;
+				}
+			} else if (c == '\\' && !escaped) {
+				escaped = true;
+			} else if (c == ' ' && !escaped && !quoted) {
+				if (word.length() > 0) {
+					args.add(word.toString());
+					word.setLength(0);
+					;
+				}
+			} else {
+				word.append(c);
+			}
+		}
+		if (word.length() > 0)
+			args.add(word.toString());
+		return args;
+	}
+
 	private void connectToService() throws Exception {
 
 		Properties properties = new Properties();
@@ -226,7 +266,15 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 		clientService = (ClientService) registry.lookup("clientService");
 		
 		clientService.registerGUI(this);
-		
+
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			public void run() {
+				try {
+					clientService.unregisterGUI(CLI.this, false);
+				} catch (RemoteException e) {
+				}
+			}
+		});
 	}
 
 	private Command createCommand(String cmd) {
@@ -458,19 +506,12 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 		return uri;
 	}
 
+	@Override
+	public void ping() throws RemoteException {
+		// Noop
+	}
+
 	private void exitCli() {
-		if(interactive){
-			new Thread() {
-				public void run() {
-	
-					try {
-						clientService.unregisterGUI(CLI.this);
-					} catch (RemoteException e) {
-					}
-				}
-			}.start();
-		} else {
-			System.exit(0);
-		}
+		System.exit(0);
 	}
 }

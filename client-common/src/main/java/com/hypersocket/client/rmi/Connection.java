@@ -2,43 +2,43 @@ package com.hypersocket.client.rmi;
 
 public interface Connection {
 	
-	public void setServerVersion(String serverVersion);
+	void setServerVersion(String serverVersion);
 	
-	public String getServerVersion();
+	String getServerVersion();
 	
-	public void setSerial(String serial);
+	void setSerial(String serial);
 	
-	public String getSerial();
+	String getSerial();
 
-	public void setPort(Integer port);
+	void setPort(Integer port);
 
-	public void setConnectAtStartup(boolean connectAtStartup);
+	void setConnectAtStartup(boolean connectAtStartup);
 
-	public boolean isConnectAtStartup();
+	boolean isConnectAtStartup();
 
-	public void setStayConnected(boolean stayConnected);
+	void setStayConnected(boolean stayConnected);
 
-	public boolean isStayConnected();
+	boolean isStayConnected();
 
-	public void setPassword(String hashedPassword);
+	void setPassword(String hashedPassword);
 
-	public String getEncryptedPassword();
+	String getEncryptedPassword();
 
-	public void setUsername(String username);
+	void setUsername(String username);
 
-	public String getUsername();
+	String getUsername();
 
-	public String getRealm();
+	String getRealm();
 	
-	public void setRealm(String realm);
+	void setRealm(String realm);
 	
-	public void setPath(String path);
+	void setPath(String path);
 
-	public String getPath();
+	String getPath();
 
-	public int getPort();
+	int getPort();
 
-	public void setHostname(String hostname);
+	void setHostname(String hostname);
 
 	public String getHostname();
 

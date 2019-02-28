@@ -14,7 +14,7 @@ public interface ClientService extends Remote {
 
 	void registerGUI(GUICallback gui) throws RemoteException;
 
-	void unregisterGUI(GUICallback gui) throws RemoteException;
+	void unregisterGUI(GUICallback gui, boolean callback) throws RemoteException;
 	
 	boolean isConnected(Connection c) throws RemoteException;
 	

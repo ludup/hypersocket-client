@@ -99,7 +99,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 			public void run() {
 				try {
 					if (clientService != null) {
-						clientService.unregisterGUI(Bridge.this);
+						clientService.unregisterGUI(Bridge.this, false);
 					}
 				} catch (RemoteException e) {
 				}
@@ -545,5 +545,10 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 				}
 			}
 		});
+	}
+
+	@Override
+	public void ping() throws RemoteException {
+		// Noop
 	}
 }

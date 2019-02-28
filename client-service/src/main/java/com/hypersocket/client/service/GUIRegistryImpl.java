@@ -1,6 +1,10 @@
 package com.hypersocket.client.service;
 
 import java.rmi.RemoteException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,10 +18,10 @@ import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.extensions.ExtensionDefinition;
 
 /**
- * A facade for the {@link GUIRegistryImpl} instance that should be used 'service
- * side'. It wraps remote callbacks, only calling if the RMI connection hasn't
- * been lost, and sometimes doing to exception handling as well so other service
- * side code does not have to do this.
+ * A facade for the {@link GUIRegistryImpl} instance that should be used
+ * 'service side'. It wraps remote callbacks, only calling if the RMI connection
+ * hasn't been lost, and sometimes doing to exception handling as well so other
+ * service side code does not have to do this.
  */
 public class GUIRegistryImpl implements GUIRegistry {
 
@@ -26,8 +30,13 @@ public class GUIRegistryImpl implements GUIRegistry {
 	private GUICallback gui;
 	private final Object lock = new Object();
 	private boolean guiAttached;
+	private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
-	/* (non-Javadoc)
+	private ScheduledFuture<?> pingTask;
+
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see com.hypersocket.client.service.IGuiRegistry#hasGUI()
 	 */
 	@Override
@@ -35,7 +44,9 @@ public class GUIRegistryImpl implements GUIRegistry {
 		return gui != null;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see com.hypersocket.client.service.IGuiRegistry#getGUI()
 	 */
 	@Override
@@ -43,15 +54,37 @@ public class GUIRegistryImpl implements GUIRegistry {
 		return gui;
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#registerGUI(com.hypersocket.client.rmi.GUICallback)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see com.hypersocket.client.service.IGuiRegistry#registerGUI(com.hypersocket.
+	 * client.rmi.GUICallback)
 	 */
 	@Override
 	public void registerGUI(GUICallback gui) throws RemoteException {
 		if (this.gui != null)
-			throw new IllegalStateException("CLI interactive mode cannot be executed at the same time as the Desktop Ribbon or another instance of the CLI in interactive mode");
+			throw new IllegalStateException(
+					"CLI interactive mode cannot be executed at the same time as the Desktop Ribbon or another instance of the CLI in interactive mode");
 
 		synchronized (lock) {
+			pingTask = scheduler.scheduleWithFixedDelay(new Runnable() {
+				@Override
+				public void run() {
+					synchronized (lock) {
+						if (GUIRegistryImpl.this.gui != null)
+							try {
+								GUIRegistryImpl.this.gui.ping();
+							} catch (RemoteException e) {
+								// Gone without informing us
+								try {
+									unregisterGUI(GUIRegistryImpl.this.gui, false);
+								} catch (RemoteException e1) {
+									GUIRegistryImpl.this.gui = null;
+								}
+							}
+					}
+				}
+			}, 10, 10, TimeUnit.SECONDS);
 			this.gui = gui;
 			guiAttached = true;
 			gui.registered();
@@ -61,24 +94,39 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#unregisterGUI(com.hypersocket.client.rmi.GUICallback)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#unregisterGUI(com.hypersocket.
+	 * client.rmi.GUICallback)
 	 */
 	@Override
-	public void unregisterGUI(GUICallback gui) throws RemoteException {
+	public void unregisterGUI(GUICallback gui, boolean callback) throws RemoteException {
 		if (log.isInfoEnabled()) {
 			log.info("Unregistering GUI");
 		}
 		synchronized (lock) {
 			if (gui == null)
 				throw new IllegalStateException("Not registered " + gui);
+			if(pingTask != null) {
+				if (log.isInfoEnabled()) {
+					log.info("Cancelling ping task");
+				}
+				pingTask.cancel(false);
+				pingTask = null;
+			}
 			this.gui = null;
 			guiAttached = false;
-			try {
-				gui.unregistered();
-			}
-			catch(Exception e) {
-				// Might EOF
+			if(callback) {
+				try {
+					if (log.isInfoEnabled()) {
+						log.info("Informing GUI they are now unregistered.");
+					}
+					gui.unregistered();
+				} catch (Exception e) {
+					// Might EOF
+				}
 			}
 			if (log.isInfoEnabled()) {
 				log.info("Unregistered GUI");
@@ -86,8 +134,12 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#started(com.hypersocket.client.rmi.Connection)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#started(com.hypersocket.client.
+	 * rmi.Connection)
 	 */
 	@Override
 	public void started(Connection connection) {
@@ -103,8 +155,12 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#ready(com.hypersocket.client.rmi.Connection)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#ready(com.hypersocket.client.rmi.
+	 * Connection)
 	 */
 	@Override
 	public void ready(Connection connection) {
@@ -121,8 +177,12 @@ public class GUIRegistryImpl implements GUIRegistry {
 
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#loadResources(com.hypersocket.client.rmi.Connection)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#loadResources(com.hypersocket.
+	 * client.rmi.Connection)
 	 */
 	@Override
 	public void loadResources(Connection connection) {
@@ -139,16 +199,19 @@ public class GUIRegistryImpl implements GUIRegistry {
 
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#failedToConnect(com.hypersocket.client.rmi.Connection, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#failedToConnect(com.hypersocket.
+	 * client.rmi.Connection, java.lang.String)
 	 */
 	@Override
 	public void failedToConnect(Connection connection, String reply) {
 		synchronized (lock) {
 			try {
 				if (gui != null && guiAttached) {
-					gui.failedToConnect(connection,
-							"Could not connect. " + reply);
+					gui.failedToConnect(connection, "Could not connect. " + reply);
 				}
 			} catch (RemoteException re) {
 				log.error("Failed to inform GUI of connection failure.", re);
@@ -157,16 +220,19 @@ public class GUIRegistryImpl implements GUIRegistry {
 
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#disconnected(com.hypersocket.client.rmi.Connection, java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#disconnected(com.hypersocket.
+	 * client.rmi.Connection, java.lang.String)
 	 */
 	@Override
 	public void disconnected(Connection connection, String message) {
 		synchronized (lock) {
 			try {
 				if (gui != null && guiAttached) {
-					gui.disconnected(connection, "Disconnected. "
-							+ message);
+					gui.disconnected(connection, "Disconnected. " + message);
 				}
 			} catch (RemoteException re) {
 				log.error("Failed to inform GUI of disconnection.", re);
@@ -175,8 +241,11 @@ public class GUIRegistryImpl implements GUIRegistry {
 
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#transportConnected(com.hypersocket.client.rmi.Connection)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see com.hypersocket.client.service.IGuiRegistry#transportConnected(com.
+	 * hypersocket.client.rmi.Connection)
 	 */
 	@Override
 	public void transportConnected(Connection connection) {
@@ -191,8 +260,11 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#notify(java.lang.String, int)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see com.hypersocket.client.service.IGuiRegistry#notify(java.lang.String,
+	 * int)
 	 */
 	@Override
 	public void notify(String msg, int type) {
@@ -207,8 +279,12 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#onExtensionUpdateComplete(java.lang.String, com.hypersocket.extensions.ExtensionDefinition)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#onExtensionUpdateComplete(java.
+	 * lang.String, com.hypersocket.extensions.ExtensionDefinition)
 	 */
 	@Override
 	public void onExtensionUpdateComplete(String app, ExtensionDefinition def) {
@@ -223,12 +299,14 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateProgress(java.lang.String, long, long, long)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateProgress(java.lang.
+	 * String, long, long, long)
 	 */
 	@Override
-	public void onUpdateProgress(String app, long sincelastProgress,
-			long totalSoFar, long totalBytesExpected) {
+	public void onUpdateProgress(String app, long sincelastProgress, long totalSoFar, long totalBytesExpected) {
 		synchronized (lock) {
 			try {
 				if (gui != null && guiAttached) {
@@ -240,8 +318,12 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateStart(java.lang.String, long)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#onUpdateStart(java.lang.String,
+	 * long)
 	 */
 	@Override
 	public void onUpdateStart(String app, long totalBytesExpected, Connection connection) {
@@ -256,7 +338,9 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateInit(int)
 	 */
 	@Override
@@ -268,8 +352,11 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateComplete(java.lang.String, long)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateComplete(java.lang.
+	 * String, long)
 	 */
 	@Override
 	public void onUpdateComplete(String app, long totalBytesTransfered) {
@@ -284,29 +371,37 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateFailure(java.lang.String, java.lang.Throwable)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#onUpdateFailure(java.lang.String,
+	 * java.lang.Throwable)
 	 */
 	@Override
 	public void onUpdateFailure(String app, Throwable e) {
 		synchronized (lock) {
 			try {
 				if (gui != null && guiAttached) {
-					gui.onUpdateFailure(app,
-							e == null ? "Update failed. No reason supplied."
-									: e.getMessage());
+					gui.onUpdateFailure(app, e == null ? "Update failed. No reason supplied." : e.getMessage());
 				}
 			} catch (RemoteException ex) {
 				failed(app, ex);
 			}
 		}
 	}
-	
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#updateResource(com.hypersocket.client.rmi.GUICallback.ResourceUpdateType, com.hypersocket.client.rmi.Resource)
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#updateResource(com.hypersocket.
+	 * client.rmi.GUICallback.ResourceUpdateType,
+	 * com.hypersocket.client.rmi.Resource)
 	 */
 	@Override
-	public void updateResource(Connection connection, ResourceUpdateType type, Resource resource) throws RemoteException {
+	public void updateResource(Connection connection, ResourceUpdateType type, Resource resource)
+			throws RemoteException {
 		synchronized (lock) {
 			if (gui != null && guiAttached) {
 				gui.updateResource(connection, type, resource);
@@ -314,8 +409,11 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
-	/* (non-Javadoc)
-	 * @see com.hypersocket.client.service.IGuiRegistry#onUpdateDone(java.lang.String)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.hypersocket.client.service.IGuiRegistry#onUpdateDone(java.lang.String)
 	 */
 	@Override
 	public void onUpdateDone(boolean restart, String failureMessage) throws RemoteException {

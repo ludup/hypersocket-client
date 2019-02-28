@@ -13,7 +13,7 @@ public interface GUIRegistry {
 
 	public abstract void registerGUI(GUICallback gui) throws RemoteException;
 
-	public abstract void unregisterGUI(GUICallback gui) throws RemoteException;
+	public abstract void unregisterGUI(GUICallback gui, boolean callback) throws RemoteException;
 
 	public abstract void started(Connection connection);
 

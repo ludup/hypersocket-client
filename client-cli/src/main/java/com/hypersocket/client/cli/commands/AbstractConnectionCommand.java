@@ -48,7 +48,8 @@ public abstract class AbstractConnectionCommand implements Command {
 		}
 		catch(NumberFormatException nfe) {
 			for(Connection c : cli.getConnectionService().getConnections()) {
-				if(pattern == null || pattern.equals("") || c.getHostname().matches(pattern) || 
+				if(pattern == null || pattern.equals("") || c.getHostname().matches(pattern) ||
+				   ( c.getName() != null && c.getName().matches(pattern) ) ||
 				   ( c.getHostname() + ":" + c.getPort()).matches(pattern) ||
 				   ( c.getHostname() + ":" + c.getPort() + c.getPath()).matches(pattern)) {
 					l.add(c);

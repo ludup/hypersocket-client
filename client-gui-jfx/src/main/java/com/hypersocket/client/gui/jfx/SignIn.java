@@ -700,7 +700,6 @@ public class SignIn extends AbstractController implements Listener {
 						Button edit = (Button) getButton(ButtonNature.EDIT, conId);
 						ToggleButton reveal = (ToggleButton) getButton(ButtonNature.REVEAL, conId); 
 						
-						
 						delete.setVisible(sel != null && !selectionConnected
 								&& sel.getId() != null);
 						delete.setDisable(disconnecting.contains(sel) || busy);
