@@ -74,24 +74,27 @@ public class Create implements Command {
 		}
 		
 		cli.getClientService().connect(cli.getConnectionService().save(connection));
-		
-		int status;
-		do {
-			Thread.sleep(500);
-			status = cli.getClientService().getStatus(connection);
-		} while(status==ConnectionStatus.CONNECTING);
-		
-		if(status==ConnectionStatus.DISCONNECTED) {
-			System.out.println(String.format("Error: Failed to authenticate to %s", connection.getHostname()));
-			cli.getConnectionService().delete(connection);
-		} else {
-			System.out.println(String.format("Created %s", connection.getHostname()));
-			cli.getClientService().disconnect(connection);
+
+		if(!cli.getCommandLine().hasOption("b")) {
+			int status;
+			do {
+				Thread.sleep(500);
+				status = cli.getClientService().getStatus(connection);
+			} while(status==ConnectionStatus.CONNECTING);
+			
+			if(status==ConnectionStatus.DISCONNECTED) {
+				System.out.println(String.format("Error: Failed to authenticate to %s", connection.getHostname()));
+				cli.getConnectionService().delete(connection);
+			} else {
+				System.out.println(String.format("Created %s", connection.getHostname()));
+				cli.getClientService().disconnect(connection);
+			}
 		}
 	}
 
 	@Override
 	public void buildOptions(Options options) {
+		options.addOption(new Option("b", "background", false, "Connect in the background and return immediately"));
 		options.addOption(new Option("s", "saveCredentials", false, "Save the credentials"));
 		options.addOption(new Option("S", "stayConnected", false, "Keep this configuration connected"));
 		options.addOption(new Option("c", "connectAtStartup", false, "Connect this configuration when the client starts"));
