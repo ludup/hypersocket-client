@@ -300,7 +300,8 @@ public abstract class HypersocketClient<T> {
 
 					params.putAll(results);
 					
-					if(params.containsKey("username") && params.containsKey("password")) {
+					if(params.containsKey("username") && params.containsKey("password") &&
+							!"false".equals(params.get("saveCredentials"))) {
 						CredentialCache.getInstance().saveCredentials(transport.getHost(), 
 								params.get("username"), 
 								params.get("password"));

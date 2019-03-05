@@ -126,6 +126,8 @@ public class SignIn extends AbstractController implements Listener {
 	private Popup addConnectionPopUp;
 	private AddConnection addConnectionContent;
 	private Set<Long> savedConnectionsIdCache = new HashSet<>();
+
+	private Connection currentConnection;
 	
 	/*
 	 * Class methods
@@ -219,6 +221,7 @@ public class SignIn extends AbstractController implements Listener {
 			boolean success) {
 
 		try {
+			currentConnection = connection;
 			abortPrompt = false;
 			promptSemaphore.acquire();
 			Platform.runLater(new Runnable() {
@@ -347,6 +350,8 @@ public class SignIn extends AbstractController implements Listener {
 			promptsAvailable = false;
 		} catch (Exception e) {
 			throw new RuntimeException(e);
+		} finally {
+			currentConnection = null;
 		}
 		if (abortPrompt) {
 			log.info("Returning nothing from prompt, was aborted.");
@@ -782,6 +787,8 @@ public class SignIn extends AbstractController implements Listener {
 							Boolean.toString(((CheckBox) en.getValue()).isSelected()));
 				}
 			}
+			if(currentConnection != null)
+				promptValues.put("saveCredentials", String.valueOf(Configuration.getDefault().isSaveCredentials(currentConnection)));
 			if (log.isDebugEnabled()) {
 				log.debug("Sending prompt values ..");
 				for (Map.Entry<String, String> en : promptValues.entrySet()) {
@@ -806,8 +813,6 @@ public class SignIn extends AbstractController implements Listener {
 	private void evtAddConnection(ActionEvent evt) throws IOException {
 		setUpAddConnectionPopUp();
 		addConnectionContent.setCurrentConnection(null);
-		addConnectionPopUp.setX(300);
-		addConnectionPopUp.setY(300);
 		addConnectionPopUp.popup();
 		
 	}
@@ -824,7 +829,7 @@ public class SignIn extends AbstractController implements Listener {
 		
 		Label nameLabel = new Label();
 		nameLabel.setId(String.format("label_%d", extractedConnectionId));
-		nameLabel.setText(connection.getName());
+		nameLabel.setText(StringUtils.isBlank(connection.getName()) ? resources.getString("connection.default") : connection.getName()) ;
 		nameLabel.getStyleClass().add("info-lg");
 		nameLabel.setWrapText(true);
 		nameLabel.setPrefWidth(120);
@@ -931,7 +936,7 @@ public class SignIn extends AbstractController implements Listener {
 	public void updateConnectionInList(Connection con) {
 		Long conId = getConnectionId(con);
 		Label nameLabel = getConnectionLabel(conId);
-		nameLabel.setText(con.getName());
+		nameLabel.setText(StringUtils.isBlank(con.getName()) ? resources.getString("connection.default") : con.getName());
 	}
 	
 	public void refreshConnectionList() {

@@ -70,6 +70,7 @@ public class AddConnection extends AbstractController {
 		messageLbl.setText("");
 		Decorator.removeAllDecorations(messageLbl);
 		nameInput.setText("");
+		nameInput.setDisable(false);
 		serverInput.setText("");
 		usernameInput.setText("");
 		passwordInput.setText("");
@@ -89,19 +90,36 @@ public class AddConnection extends AbstractController {
 
 		setUpDrag();
 		setAvailable();
+		
+		nameInput.requestFocus();
 	}
 
 	public void setUpEditPage() {
 		messageLbl.setText("");
 		Decorator.removeAllDecorations(messageLbl);
-		nameInput.setText(currentConnection.getName());
+		nameInput.setText(StringUtils.isBlank(currentConnection.getName()) ? resources.getString("connection.default") : currentConnection.getName()) ;
 		serverInput.setText(Util.getUri(currentConnection));
 		usernameInput.setText(currentConnection.getUsername());
 		passwordInput.setText(currentConnection.getEncryptedPassword());
 		conOnstartCBox.setSelected(currentConnection.isConnectAtStartup());
 		saveCredsCBox.setSelected(StringUtils.isNotBlank(currentConnection.getUsername()) || StringUtils.isNotBlank(currentConnection.getEncryptedPassword()));
+		if(conOnstartCBox.isSelected()) {
+			saveCredsCBox.setSelected(true);
+			saveCredsCBox.setDisable(true);
+		}
+		else
+			saveCredsCBox.setDisable(false);
+			
 		edit.setVisible(true);
 		add.setVisible(false);
+		if(StringUtils.isBlank(currentConnection.getName())) {
+			nameInput.setDisable(true);
+			serverInput.requestFocus();
+		}
+		else { 
+			nameInput.setDisable(false);
+			nameInput.requestFocus();
+		}
 	}
 
 	public Connection getCurrentConnection() {
@@ -113,9 +131,10 @@ public class AddConnection extends AbstractController {
 	}
 	
 	private void setAvailable() {
-		saveCredsCBox.setSelected(usernameInput.getText().length() > 0 | passwordInput.getText().length() > 0);
+		if(usernameInput.getText().length() > 0 | passwordInput.getText().length() > 0)
+			saveCredsCBox.setSelected(true);
 
-		if(saveCredsCBox.isSelected()) {
+		if(conOnstartCBox.isSelected()) {
 			usernameLbl.setText(resources.getString("usernameReq"));
 			passwordLbl.setText(resources.getString("passwordReq"));
 		}
@@ -124,7 +143,7 @@ public class AddConnection extends AbstractController {
 			passwordLbl.setText(resources.getString("password"));
 		}
 		
-		if (checkEmptyFields(nameInput.getText(), serverInput.getText(), saveCredsCBox.isSelected(), usernameInput.getText(), passwordInput.getText())) {
+		if (checkEmptyFields(nameInput.getText(), serverInput.getText(), conOnstartCBox.isSelected(), usernameInput.getText(), passwordInput.getText())) {
 			edit.setDisable(true);
 			add.setDisable(true);
 			return;
@@ -143,7 +162,7 @@ public class AddConnection extends AbstractController {
 			String username = usernameInput.getText();
 			String password = passwordInput.getText();
 
-			if (checkEmptyFields(name, server, saveCredsCBox.isSelected(), username, password)) {
+			if (checkEmptyFields(name, server, conOnstartCBox.isSelected(), username, password)) {
 				return;
 			}
 
@@ -174,18 +193,18 @@ public class AddConnection extends AbstractController {
 				return;
 			}
 
-			connection.setName(name);
+			if(!nameInput.isDisable())
+				connection.setName(name);
 
 			connection.setConnectAtStartup(conOnstartCBox.isSelected());
 
-			if (saveCredsCBox.isSelected()) {
-				connection.setUsername(username);
-				connection.setPassword(password);
-			}
+			connection.setUsername(username);
+			connection.setPassword(password);
 
 			context.getBridge().getConnectionService().saveCredentials(connection.getHostname(), username, password);
 
 			Connection connectionSaved = connectionService.save(connection);
+			Configuration.getDefault().setSaveCredentials(connectionSaved, saveCredsCBox.isSelected());
 
 			closePopUp();
 
@@ -205,7 +224,7 @@ public class AddConnection extends AbstractController {
 			String username = usernameInput.getText();
 			String password = passwordInput.getText();
 
-			if (checkEmptyFields(name, server, saveCredsCBox.isSelected(), username, password)) {
+			if (checkEmptyFields(name, server, conOnstartCBox.isSelected(), username, password)) {
 				return;
 			}
 
@@ -237,20 +256,18 @@ public class AddConnection extends AbstractController {
 				return;
 			}
 
-			connection.setName(name);
+			if(!nameInput.isDisable())
+				connection.setName(name);
 			connection.setConnectAtStartup(conOnstartCBox.isSelected());
 
-			if (saveCredsCBox.isSelected()) {
-				connection.setUsername(username);
-				connection.setPassword(password);
-			} else {
-				connection.setUsername("");
-				connection.setPassword("");
-			}
+			connection.setUsername(username);
+			connection.setPassword(password);
 
 			context.getBridge().getConnectionService().saveCredentials(connection.getHostname(), username, password);
 
 			Connection connectionSaved = connectionService.save(connection);
+
+			Configuration.getDefault().setSaveCredentials(connectionSaved, saveCredsCBox.isSelected());
 
 			int status = context.getBridge().getClientService().getStatus(connectionSaved);
 			if (ConnectionStatus.CONNECTED == status) {
@@ -282,6 +299,19 @@ public class AddConnection extends AbstractController {
 			usernameInput.clear();
 			usernameInput.requestFocus();
 		}
+		setAvailable();
+	}
+
+	@FXML
+	private void evtConOnstart(ActionEvent evt) throws Exception {
+		if (conOnstartCBox.isSelected()) {
+			saveCredsCBox.setSelected(true);
+			usernameInput.requestFocus();
+			saveCredsCBox.setDisable(true);
+		}
+		else
+			saveCredsCBox.setDisable(false);
+		setAvailable();
 	}
 
 	private void closePopUp() {
@@ -302,7 +332,7 @@ public class AddConnection extends AbstractController {
 	}
 
 	private boolean checkEmptyFields(String name, String server, boolean save, String username, String password) {
-		if (StringUtils.isBlank(name) || StringUtils.isBlank(server)
+		if ((StringUtils.isBlank(name) && !nameInput.isDisable()) || StringUtils.isBlank(server)
 				|| (save && (StringUtils.isBlank(username) || StringUtils.isBlank(password)))) {
 			// show error message
 			messageLbl.setText(resources.getString("all.fields.required"));

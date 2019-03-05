@@ -1,6 +1,13 @@
 package com.hypersocket.client.gui.jfx;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.prefs.Preferences;
+
+import org.apache.commons.lang3.StringUtils;
+
+import com.hypersocket.client.rmi.Connection;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
@@ -38,6 +45,7 @@ public class Configuration {
 	private Property<Color> color = new SimpleObjectProperty<>();
 	private Property<BrowserType> browserType = new SimpleObjectProperty<>();
 	private StringProperty temporaryOnStartConnection = new SimpleStringProperty();
+	private StringProperty saveCredentialsConnections = new SimpleStringProperty();
 
 	//
 	private final static Configuration DEFAULT_INSTANCE = new Configuration(
@@ -164,6 +172,9 @@ public class Configuration {
 		temporaryOnStartConnection.set(node.get("temporaryOnStartConnection", ""));
 		temporaryOnStartConnection.addListener(new StringPreferenceUpdateChangeListener(node, "temporaryOnStartConnection"));
 
+		saveCredentialsConnections.set(node.get("saveCredentialsConnections", ""));
+		saveCredentialsConnections.addListener(new StringPreferenceUpdateChangeListener(node, "saveCredentialsConnections"));
+
 		alwaysOnTop.set(node.getBoolean("alwaysOnTop", true));
 		alwaysOnTop.addListener(new BooleanPreferenceUpdateChangeListener(node,
 				"alwaysOnTop"));
@@ -228,6 +239,16 @@ public class Configuration {
 
 	public static Configuration getDefault() {
 		return DEFAULT_INSTANCE;
+	}
+	
+	public boolean isSaveCredentials(Connection connection) {
+		String creds = saveCredentialsConnections.get();
+		return (StringUtils.isBlank(creds) ? Collections.emptyList() : Arrays.asList(creds.split(","))).contains(String.valueOf(connection.getId()));
+	}
+	
+	public void setSaveCredentials(Connection connection, boolean saveCredentials) {
+		String creds = saveCredentialsConnections.get();
+		saveCredentialsConnections.set(String.join(",", new HashSet<>(StringUtils.isBlank(creds) ? Collections.emptyList() : Arrays.asList(creds.split(",")))));
 	}
 
 	public StringProperty temporaryOnStartConnectionProperty() {

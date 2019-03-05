@@ -231,55 +231,6 @@ public class Dock extends AbstractController implements Listener {
 			toastType = ToastType.NONE;
 		}
 		Toast.toast(toastType, "Hypersocket Client", msg);
-		
-//		Pos pos = Pos.CENTER;
-//		if (cfg.topProperty().get()) {
-//			pos = Pos.TOP_LEFT;
-//		} else if (cfg.bottomProperty().get()) {
-//			pos = Pos.BOTTOM_LEFT;
-//		} else if (cfg.leftProperty().get()) {
-//			pos = Pos.TOP_RIGHT;
-//		} else if (cfg.rightProperty().get()) {
-//			pos = Pos.TOP_LEFT;
-//		}
-//
-//		Notifications notificationBuilder = Notifications.create().text(msg).hideAfter(Duration.seconds(10))
-//				.position(pos).onAction(new EventHandler<ActionEvent>() {
-//					@Override
-//					public void handle(ActionEvent arg0) {
-//					}
-//				});
-//
-//		notificationBuilder.hideCloseButton();
-//		notificationBuilder.action(actions);
-//
-//		Configuration cfg = Configuration.getDefault();
-//		Color backgroundColour = cfg.colorProperty().getValue();
-//		if (backgroundColour.getBrightness() < 0.5) {
-//			notificationBuilder.darkStyle();
-//		}
-//
-//		// if (darkStyleChkBox.isSelected()) {
-//		// notificationBuilder.darkStyle();
-//		// }
-//
-//		switch (type) {
-//		case GUICallback.NOTIFY_WARNING:
-//			notificationBuilder.showWarning();
-//			break;
-//		case GUICallback.NOTIFY_INFO:
-//			notificationBuilder.showInformation();
-//			break;
-//		case GUICallback.NOTIFY_CONNECT:
-//		case GUICallback.NOTIFY_DISCONNECT:
-//			notificationBuilder.showConfirm();
-//			break;
-//		case GUICallback.NOTIFY_ERROR:
-//			notificationBuilder.showError();
-//			break;
-//		default:
-//			notificationBuilder.show();
-//		}
 
 	}
 

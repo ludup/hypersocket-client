@@ -311,9 +311,9 @@ public class Popup extends Stage {
 		double height = Double.isNaN(this.getHeight()) ? 0 : this.getHeight();
 		double width = Double.isNaN(this.getWidth()) ? 0 : this.getWidth();
 		
-		setX((screenBounds.getWidth() - width) / 2); 
+		setX(screenBounds.getMinX() + ( (screenBounds.getWidth() - width) / 2)); 
 		//100, adding a kind of padding, exact center makes user focus a lot, with 100 padding looks nice and easy to focus. 
-		setY(((screenBounds.getHeight() - height) / 2) - 100);  
+		setY(screenBounds.getMinY() + (((screenBounds.getHeight() - height) / 2) - 100));  
 	}
 	
 }
