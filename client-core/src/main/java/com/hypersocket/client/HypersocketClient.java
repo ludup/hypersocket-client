@@ -496,7 +496,7 @@ public abstract class HypersocketClient<T> {
 	public ResourceBundle getResources() throws IOException {
 		String json = transport.get("i18n");
 		ObjectMapper mapper = new ObjectMapper();		
-		Map<String, Object> result = mapper.readValue(json, new TypeReference<Map<String, String>>() {});
+		Map<String, Object> result = mapper.readValue(json, new TypeReference<Map<String, Object>>() {});
 		if(result != null) {
 			return new MapResourceBundle(result);
 		}
