@@ -3,8 +3,6 @@ package com.hypersocket.client.rmi;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-import com.hypersocket.client.rmi.Connection;
-
 public class Util {
 
 	public static URI getUri(String uriString) throws URISyntaxException {
