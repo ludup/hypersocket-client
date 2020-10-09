@@ -51,6 +51,7 @@
 		<module>client-netty</module>
 		<module>client-service</module>
 		<module>client-cli</module>
+		<module>credentials-wizard-jfx</module>
 	</modules>
 
 	<dependencies>

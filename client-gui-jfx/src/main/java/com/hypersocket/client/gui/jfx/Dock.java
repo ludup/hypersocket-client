@@ -79,14 +79,14 @@ public class Dock extends AbstractController implements Listener {
 	}
 
 	/**
-	 * How wide (or high when vertical mode is supported) will the 'tab' be,
-	 * i.e. the area where the user hovers over to dock to reveal it
+	 * How wide (or high when vertical mode is supported) will the 'tab' be, i.e.
+	 * the area where the user hovers over to dock to reveal it
 	 */
 	static final int AUTOHIDE_TAB_SIZE = 80;
 
 	/*
-	 * How height (or wide when vertical mode is supported) will the 'tab' be,
-	 * i.e. the area where the user hovers over to dock to reveal it
+	 * How height (or wide when vertical mode is supported) will the 'tab' be, i.e.
+	 * the area where the user hovers over to dock to reveal it
 	 */
 	static final int AUTOHIDE_TAB_OPPOSITE_SIZE = 18;
 
@@ -95,21 +95,21 @@ public class Dock extends AbstractController implements Listener {
 	static final int AUTOHIDE_DURATION = 125;
 
 	/*
-	 * How long after the mouse leaves the dock area, will the dock be hidden
-	 * (in MS)
+	 * How long after the mouse leaves the dock area, will the dock be hidden (in
+	 * MS)
 	 */
 	static final int AUTOHIDE_HIDE_TIME = 2000;
 
 	/*
-	 * The initial amount of time after startup before the dock is hidden (in
-	 * MS) when autohide is ON.
+	 * The initial amount of time after startup before the dock is hidden (in MS)
+	 * when autohide is ON.
 	 */
 	static final int INITIAL_AUTOHIDE_HIDE_TIME = 10000;
 
 	/*
-	 * How long (in MS) to keep the dock open after a launch. This prevents
-	 * autohide when focus is lost for a number of milliseconds. If focus is
-	 * regained, the timer is cleared.
+	 * How long (in MS) to keep the dock open after a launch. This prevents autohide
+	 * when focus is lost for a number of milliseconds. If focus is regained, the
+	 * timer is cleared.
 	 */
 	static final int LAUNCH_WAIT = 2000;
 
@@ -121,8 +121,8 @@ public class Dock extends AbstractController implements Listener {
 	/**
 	 * How long (in MS) the mouse must hover over the reveal tab before the dock
 	 * will be revealed. If the mouse exits the tab before this time, the reveal
-	 * will be cancelled. If the mouse is clicked before leaving the tab, the
-	 * dock will be immediatey revealed.
+	 * will be cancelled. If the mouse is clicked before leaving the tab, the dock
+	 * will be immediatey revealed.
 	 */
 	private static final double REVEAL_HOVER_TIME = 500;
 
@@ -206,7 +206,7 @@ public class Dock extends AbstractController implements Listener {
 	public static Dock getInstance() {
 		return instance;
 	}
-	
+
 	/*
 	 * Class methods
 	 */
@@ -266,8 +266,8 @@ public class Dock extends AbstractController implements Listener {
 					scn.setFill(new Color(0, 0, 0, 0));
 
 					/*
-					 * The update popup will get future update events, but it
-					 * needs this one to initialize
+					 * The update popup will get future update events, but it needs this one to
+					 * initialize
 					 */
 					updateScene.initUpdate(appsToUpdate, previousMode);
 
@@ -324,8 +324,8 @@ public class Dock extends AbstractController implements Listener {
 	}
 
 	/*
-	 * The following are all events from the {@link Bridge}, and will come in on
-	 * the RMI thread.
+	 * The following are all events from the {@link Bridge}, and will come in on the
+	 * RMI thread.
 	 */
 
 	@Override
@@ -347,10 +347,12 @@ public class Dock extends AbstractController implements Listener {
 
 	@Override
 	public void bridgeEstablished() {
-		/* Only rebuild launchers if the updater is not waiting for the bridge to come back,
-		 * as the GUI will be restarted shortly */
-		if (updateScene == null || ( !updateScene.isAwaitingBridgeEstablish() && !updateScene.isAwaitingGUIRestart())) {
-			
+		/*
+		 * Only rebuild launchers if the updater is not waiting for the bridge to come
+		 * back, as the GUI will be restarted shortly
+		 */
+		if (updateScene == null || (!updateScene.isAwaitingBridgeEstablish() && !updateScene.isAwaitingGUIRestart())) {
+
 			log.info(String.format("Bridge established, rebuilding all launchers"));
 			rebuildAllLaunchers();
 			if (context.getBridge().isServiceUpdating()) {
@@ -363,7 +365,8 @@ public class Dock extends AbstractController implements Listener {
 						Connection c = context.getBridge().getConnectionService().getConnection(Long.parseLong(tmp));
 						if (c == null)
 							throw new Exception("No connection with id of " + tmp);
-						log.info(String.format("Using temporary 'on start' connection %d (%s)", c.getId(), c.getHostname()));
+						log.info(String.format("Using temporary 'on start' connection %d (%s)", c.getId(),
+								c.getHostname()));
 						context.getBridge().connect(c);
 					} catch (Exception e) {
 						log.error("Failed to start temporary 'on start' connection.", e);
@@ -443,73 +446,73 @@ public class Dock extends AbstractController implements Listener {
 	public void updateResource(ResourceUpdateType type, Resource resource) {
 		switch (type) {
 		case CREATE: {
-				rebuildResourceIcon(resource.getRealm(), resource);
-				rebuildIcons();
-	
-				Action[] actions = new Action[0];
-	
-				// Find the button so we can launch on clicking the notify
-				ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
-				ResourceGroupList list = icons.get(key);
-				if (list != null) {
-					ResourceItem rit = list.getItemForResource(resource);
-					if (rit != null) {
-						LauncherButton lb = getButtonForResourceItem(rit);
-						if (lb != null) {
-							actions = new Action[] {
-									new Action(resources.getString("resources.launch"), new Consumer<ActionEvent>() {
-										@Override
-										public void accept(ActionEvent t) {
-											lb.launch();
-										}
-									}) };
-						}
+			rebuildResourceIcon(resource.getRealm(), resource);
+			rebuildIcons();
+
+			Action[] actions = new Action[0];
+
+			// Find the button so we can launch on clicking the notify
+			ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
+			ResourceGroupList list = icons.get(key);
+			if (list != null) {
+				ResourceItem rit = list.getItemForResource(resource);
+				if (rit != null) {
+					LauncherButton lb = getButtonForResourceItem(rit);
+					if (lb != null) {
+						actions = new Action[] {
+								new Action(resources.getString("resources.launch"), new Consumer<ActionEvent>() {
+									@Override
+									public void accept(ActionEvent t) {
+										lb.launch();
+									}
+								}) };
 					}
 				}
-	
-				notify(MessageFormat.format(resources.getString("resources.created"), resource.getName()),
-						GUICallback.NOTIFY_INFO, actions);
-				break;
 			}
+
+			notify(MessageFormat.format(resources.getString("resources.created"), resource.getName()),
+					GUICallback.NOTIFY_INFO, actions);
+			break;
+		}
 		case DELETE: {
-				ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
-				ResourceGroupList list = icons.get(key);
-				if (list != null) {
-					ResourceItem rit = list.getItemForResource(resource);
-					if (rit != null) {
-						list.getItems().remove(rit);
-						rebuildIcons();
-						deleteLinkedFavouriteItem(resource);
-						notify(MessageFormat.format(resources.getString("resources.deleted"), resource.getName()),
-								GUICallback.NOTIFY_INFO);
-						break;
-					}
+			ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
+			ResourceGroupList list = icons.get(key);
+			if (list != null) {
+				ResourceItem rit = list.getItemForResource(resource);
+				if (rit != null) {
+					list.getItems().remove(rit);
+					rebuildIcons();
+					deleteLinkedFavouriteItem(resource);
+					notify(MessageFormat.format(resources.getString("resources.deleted"), resource.getName()),
+							GUICallback.NOTIFY_INFO);
+					break;
 				}
-				break;
 			}
+			break;
+		}
 		default: {
-				ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
-				ResourceGroupList list = icons.get(key);
-				if (list != null) {
-					ResourceItem rit = list.getItemForResource(resource);
-					if (rit != null) {
-						rit.setResource(resource);
-						rebuildIcons();
-						notify(MessageFormat.format(resources.getString("resources.updated"), resource.getName()),
-								GUICallback.NOTIFY_INFO);
-						break;
-					} else {
-						log.warn(String.format("Could not find icon in icon group for resource %s (%s)", resource.getUid(),
-								resource.getName()));
-					}
+			ResourceGroupKey key = new ResourceGroupKey(resource.getType(), resource.getGroup());
+			ResourceGroupList list = icons.get(key);
+			if (list != null) {
+				ResourceItem rit = list.getItemForResource(resource);
+				if (rit != null) {
+					rit.setResource(resource);
+					rebuildIcons();
+					notify(MessageFormat.format(resources.getString("resources.updated"), resource.getName()),
+							GUICallback.NOTIFY_INFO);
+					break;
 				} else {
-					log.warn(String.format("Could not find icon group for resource %s (%s)", resource.getUid(),
+					log.warn(String.format("Could not find icon in icon group for resource %s (%s)", resource.getUid(),
 							resource.getName()));
 				}
-				break;
+			} else {
+				log.warn(String.format("Could not find icon group for resource %s (%s)", resource.getUid(),
+						resource.getName()));
 			}
+			break;
 		}
-		
+		}
+
 		DockOnEventDo.refreshResourcesFavouriteLists();
 		showHideResourcesButtonForResourceTypes();
 	}
@@ -556,22 +559,22 @@ public class Dock extends AbstractController implements Listener {
 		ssoResources.setVisible(false);
 		browserResources.setVisible(false);
 		fileResources.setVisible(false);
-		
+
 		UIHelpers.bindButtonToItsVisibleManagedProperty(networkResources);
 		UIHelpers.bindButtonToItsVisibleManagedProperty(ssoResources);
 		UIHelpers.bindButtonToItsVisibleManagedProperty(browserResources);
 		UIHelpers.bindButtonToItsVisibleManagedProperty(fileResources);
-		
+
 		networkResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("network.toolTip")));
 		ssoResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("sso.toolTip")));
 		browserResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("web.toolTip")));
 		fileResources.setTooltip(UIHelpers.createDockButtonToolTip(resources.getString("files.toolTip")));
-		
+
 		status.setTooltip(UIHelpers.createDockButtonToolTip(status.getTooltip().getText()));
 		exit.setTooltip(UIHelpers.createDockButtonToolTip(exit.getTooltip().getText()));
 		signIn.setTooltip(UIHelpers.createDockButtonToolTip(signIn.getTooltip().getText()));
 		options.setTooltip(UIHelpers.createDockButtonToolTip(options.getTooltip().getText()));
-		
+
 		// Button size changes
 		sizeChangeListener = new ChangeListener<Number>() {
 			@Override
@@ -624,7 +627,7 @@ public class Dock extends AbstractController implements Listener {
 		configurePull();
 		if (cfg.autoHideProperty().get())
 			maybeHideDock(INITIAL_AUTOHIDE_HIDE_TIME);
-		
+
 	}
 
 	private void configurePull() {
@@ -714,7 +717,7 @@ public class Dock extends AbstractController implements Listener {
 			Set<ResourceGroupKey> resourceGroupKeys = icons.keySet();
 			for (ResourceGroupKey resourceGroupKey : resourceGroupKeys) {
 				ResourceGroupList groupList = icons.get(resourceGroupKey);
-				if(groupList != null) {
+				if (groupList != null) {
 					for (ResourceItem item : groupList.getItems()) {
 						Resource resource = item.getResource();
 						avaialbleResourceTypes.add(resource.getType());
@@ -755,7 +758,7 @@ public class Dock extends AbstractController implements Listener {
 				}
 			};
 			signInScene.setPopup(signInPopup);
-			
+
 		}
 		signInPopup.popup();
 	}
@@ -810,12 +813,12 @@ public class Dock extends AbstractController implements Listener {
 		}
 		return null;
 	}
-	
+
 	public void toggleHideResources(Long connectionId) {
 		toggleResourcesForConnection.add(connectionId);
 		rebuildIcons();
 	}
-	
+
 	public void toggleShowResources(Long connectionId) {
 		toggleResourcesForConnection.remove(connectionId);
 		rebuildIcons();
@@ -836,7 +839,8 @@ public class Dock extends AbstractController implements Listener {
 
 			List<ResourceGroupList> groupsAdded = new ArrayList<>();
 			for (ResourceItem item : ig.getValue().getItems()) {
-				if(!item.getResource().getFavourite() || toggleResourcesForConnection.contains(item.getResource().getConnectionId())) {
+				if (!item.getResource().getFavourite()
+						|| toggleResourcesForConnection.contains(item.getResource().getConnectionId())) {
 					continue;
 				}
 				ResourceGroupKey gk = new ResourceGroupKey(item.getResource().getType(), item.getResource().getGroup());
@@ -910,9 +914,9 @@ public class Dock extends AbstractController implements Listener {
 		if (hide != hidden) {
 
 			/*
-			 * If revealing, then don't actually reveal until a delay has
-			 * passed. The delayed action will be cancelled if in the mean time
-			 * the mouse leaves the dock revealer
+			 * If revealing, then don't actually reveal until a delay has passed. The
+			 * delayed action will be cancelled if in the mean time the mouse leaves the
+			 * dock revealer
 			 */
 			if (!hide) {
 				stopDockRevealerTimer();
@@ -933,9 +937,8 @@ public class Dock extends AbstractController implements Listener {
 		hidePopOver();
 
 		/*
-		 * If already hiding, we don't want the mouse event that MIGHT happen
-		 * when the resizing dock passes under the mouse (the user wont have
-		 * moved mouse yet)
+		 * If already hiding, we don't want the mouse event that MIGHT happen when the
+		 * resizing dock passes under the mouse (the user wont have moved mouse yet)
 		 */
 		if (hiding) {
 			// TODO check this ...
@@ -1135,17 +1138,17 @@ public class Dock extends AbstractController implements Listener {
 		}
 		signIn.setEffect(null);
 	}
-	
+
 	private void mouseMovementShow(MouseEvent evt) {
 		hideDock(false);
 		evt.consume();
 	}
-	
+
 	private void mouseMovementHide(MouseEvent evt) {
 		maybeHideDock();
 		evt.consume();
 	}
-	
+
 	@FXML
 	private void evtMouseEnter(MouseEvent evt) throws Exception {
 		AmIOnDockSensor.INSTANCE.setSensor(true);
@@ -1158,8 +1161,8 @@ public class Dock extends AbstractController implements Listener {
 	private void evtMouseExit(MouseEvent evt) throws Exception {
 		AmIOnDockSensor.INSTANCE.setSensor(false);
 		stopDockRevealerTimer();
-		if (cfg.autoHideProperty().get() && cfg.hoverToRevealProperty().get() 
-				&& !arePopupsOpen() && (contextMenu == null || !contextMenu.isShowing())) {
+		if (cfg.autoHideProperty().get() && cfg.hoverToRevealProperty().get() && !arePopupsOpen()
+				&& (contextMenu == null || !contextMenu.isShowing())) {
 			mouseMovementHide(evt);
 		}
 	}
@@ -1167,7 +1170,7 @@ public class Dock extends AbstractController implements Listener {
 	@FXML
 	private void evtMouseClick(MouseEvent evt) throws Exception {
 		if (evt.getButton() == MouseButton.PRIMARY && !cfg.hoverToRevealProperty().get()) {
-			if(hidden) {
+			if (hidden) {
 				mouseMovementShow(evt);
 			} else {
 				stopDockRevealerTimer();
@@ -1209,29 +1212,30 @@ public class Dock extends AbstractController implements Listener {
 		ssoResourcesContent = (SsoResources) values[0];
 		ssoResourcesPopup = (Popup) values[1];
 	}
-	
+
 	@FXML
 	private void evtRefilterListBrowser(ActionEvent evt) throws IOException {
 		Object[] values = evtRefilterList(evt, BrowserResources.class, browserResourcesContent, browserResourcesPopup);
 		browserResourcesContent = (BrowserResources) values[0];
 		browserResourcesPopup = (Popup) values[1];
 	}
-	
+
 	@FXML
 	private void evtRefilterListNetwork(ActionEvent evt) throws IOException {
 		Object[] values = evtRefilterList(evt, NetworkResources.class, networkResourcesContent, networkResourcesPopup);
 		networkResourcesContent = (NetworkResources) values[0];
 		networkResourcesPopup = (Popup) values[1];
 	}
-	
+
 	@FXML
 	private void evtRefilterListFile(ActionEvent evt) throws IOException {
 		Object[] values = evtRefilterList(evt, FileResources.class, fileResourcesContent, fileResourcesPopup);
 		fileResourcesContent = (FileResources) values[0];
 		fileResourcesPopup = (Popup) values[1];
 	}
-	
-	private Object[] evtRefilterList(ActionEvent evt, Class<? extends AbstractResourceListController> clazz, AbstractResourceListController listController, Popup popup) throws IOException {
+
+	private Object[] evtRefilterList(ActionEvent evt, Class<? extends AbstractResourceListController> clazz,
+			AbstractResourceListController listController, Popup popup) throws IOException {
 		Window parent = this.scene.getWindow();
 		if (popup == null) {
 			listController = (AbstractResourceListController) context.openScene(clazz);
@@ -1243,14 +1247,14 @@ public class Dock extends AbstractController implements Listener {
 			};
 			listController.setPopup(popup);
 		}
-		
+
 		if (context.getBridge().isConnected() && !context.getBridge().isServiceUpdating()) {
 			listController.setResources(icons);
 		}
 		popup.popup();
-		return new Object[] {listController, popup};
+		return new Object[] { listController, popup };
 	}
-	
+
 	@FXML
 	private void evtShowPopup(MouseEvent evt) {
 		changeHidden(false);
@@ -1286,11 +1290,15 @@ public class Dock extends AbstractController implements Listener {
 					// seem to be anyway of determining what the opposite
 					// component was the gained the focus. Being as that is
 					// the ONLY utility dialog, it should be the one
-					for (Stage s : com.sun.javafx.stage.StageHelper.getStages()) {
-						if (s.getStyle() == StageStyle.UTILITY) {
-							return s.isShowing();
-						}
-					}
+					
+					// Doesnt compile on Java8 + OpenJFX ... Only choice on Linux now
+//					for (Window s : Stage.getWindows()) {
+//						if (s instanceof Stage) {
+//							if (((Stage) s).getStyle() == StageStyle.UTILITY) {
+//								return s.isShowing();
+//							}
+//						}
+//					}
 					return false;
 				}
 			};
@@ -1299,44 +1307,44 @@ public class Dock extends AbstractController implements Listener {
 		}
 		optionsPopup.popup();
 	}
-	
+
 	private void markFavouritesInIcons() {
 		if (context.getBridge().isConnected() && !context.getBridge().isServiceUpdating()) {
-			try{
+			try {
 				FavouriteItemService favouriteItemService = context.getBridge().getFavouriteItemService();
 				List<FavouriteItem> favouriteItems = favouriteItemService.getFavouriteItems();
-				
-				if(favouriteItems != null) {
+
+				if (favouriteItems != null) {
 					Map<String, FavouriteItem> favouriteItemsMap = new HashMap<>();
-					
+
 					for (FavouriteItem favouriteItem : favouriteItems) {
 						favouriteItemsMap.put(favouriteItem.getUid(), favouriteItem);
 					}
-					
+
 					Set<ResourceGroupKey> resourceGroupKeys = icons.keySet();
 					for (ResourceGroupKey resourceGroupKey : resourceGroupKeys) {
 						ResourceGroupList groupList = icons.get(resourceGroupKey);
-						if(groupList != null) {
+						if (groupList != null) {
 							for (ResourceItem item : groupList.getItems()) {
 								Resource resource = item.getResource();
 								FavouriteItem favouriteItem = favouriteItemsMap.get(resource.getUid());
-								if(favouriteItem != null) {
+								if (favouriteItem != null) {
 									resource.setFavourite(favouriteItem.getFavourite());
 								}
 							}
 						}
 					}
-							
+
 				}
-			}catch (RemoteException e) {
+			} catch (RemoteException e) {
 				throw new IllegalStateException(e.getMessage(), e);
 			}
 		}
 	}
-	
+
 	public void requestFocus() {
 		final Stage stage = getStage();
-		if(!stage.isFocused()){
+		if (!stage.isFocused()) {
 			// Defer this as events may still be coming in
 			Platform.runLater(new Runnable() {
 				@Override
@@ -1346,32 +1354,33 @@ public class Dock extends AbstractController implements Listener {
 			});
 		}
 	}
-	
+
 	private void deleteLinkedFavouriteItem(Resource resource) {
-		try{
+		try {
 			FavouriteItemService favouriteItemService = context.getBridge().getFavouriteItemService();
 			FavouriteItem favouriteItem = favouriteItemService.getFavouriteItem(resource.getUid());
-			if(favouriteItem != null) {
+			if (favouriteItem != null) {
 				favouriteItemService.delete(favouriteItem.getId());
 			}
 		} catch (RemoteException e) {
 			throw new IllegalStateException(e.getMessage(), e);
 		}
 	}
-	
+
 	public static class DockOnEventDo {
-		
+
 		/**
-		 * We need null check at times this code might be called when favourite lists are not initialized.
+		 * We need null check at times this code might be called when favourite lists
+		 * are not initialized.
 		 */
 		public static void refreshResourcesFavouriteLists() {
-			if(SsoResources.getInstance() != null)
+			if (SsoResources.getInstance() != null)
 				SsoResources.getInstance().clearList();
-			if(BrowserResources.getInstance() != null)
+			if (BrowserResources.getInstance() != null)
 				BrowserResources.getInstance().clearList();
-			if(NetworkResources.getInstance() != null)
+			if (NetworkResources.getInstance() != null)
 				NetworkResources.getInstance().clearList();
-			if(FileResources.getInstance() != null)
+			if (FileResources.getInstance() != null)
 				FileResources.getInstance().clearList();
 		}
 	}

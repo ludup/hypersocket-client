@@ -6,14 +6,11 @@ import java.util.Calendar;
 
 import com.hypersocket.HypersocketVersion;
 import com.hypersocket.client.gui.jfx.Configuration.BrowserType;
-import com.sun.javafx.scene.control.skin.ColorPalette;
-import com.sun.javafx.scene.control.skin.ColorPickerSkin;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ColorPicker;
@@ -23,6 +20,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+//import javafx.scene.control.skin.ColorPickerSkin;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
@@ -105,7 +103,7 @@ public class Options extends AbstractController {
 		right.selectedProperty().bindBidirectional(cfg.rightProperty());
 		size.valueProperty().bindBidirectional(cfg.sizeProperty());
 		color.valueProperty().bindBidirectional(cfg.colorProperty());
-		color.setSkin(new CustomColorPickerSkin(color));
+//		color.setSkin(new CustomColorPickerSkin(color));
 
 		cfg.colorProperty().addListener(new ChangeListener<Color>() {
 
@@ -169,11 +167,15 @@ public class Options extends AbstractController {
 
 		setAvailable();
 	}
-
-	public boolean isCustomColorPopupShowing() {
-		return ((ColorPalette) ((CustomColorPickerSkin) color.getSkin())
-				.getPopupContent()).isCustomColorDialogShowing();
-	}
+//
+//	public boolean isCustomColorPopupShowing() {
+//		CustomColorPickerSkin skin = (CustomColorPickerSkin) color.getSkin();
+//		Node node = skin.getPopupContent();
+//		System.out.println("Node: " + node);
+//		return ((ColorPalette) skin
+//				.getPopupContent()).isCustomColorDialogShowing();
+//		return false;
+//	}
 
 	private void moveToScreen(Screen s) {
 		Configuration.getDefault().monitorProperty()
@@ -235,15 +237,15 @@ public class Options extends AbstractController {
 		}
 	}
 
-	class CustomColorPickerSkin extends ColorPickerSkin {
-
-		public CustomColorPickerSkin(ColorPicker colorPicker) {
-			super(colorPicker);
-		}
-
-		@Override
-		public Node getPopupContent() {
-			return super.getPopupContent();
-		}
-	}
+//	class CustomColorPickerSkin extends ColorPickerSkin {
+//
+//		public CustomColorPickerSkin(ColorPicker colorPicker) {
+//			super(colorPicker);
+//		}
+//
+//		@Override
+//		public Node getPopupContent() {
+//			return super.getPopupContent();
+//		}
+//	}
 }
