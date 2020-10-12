@@ -69,7 +69,6 @@ public abstract class AbstractCredentialWizard extends Application {
 			public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
 				String url = webView.getEngine().locationProperty().getValue();
 				int status = onPageChange(stripTrailingSlashes(url));
-				System.out.println("URL: " + url + " = " + String.valueOf(status));
 				switch (status) {
 				case NO_OPERATION_REQUIRED:
 				case OPERATION_COMPLETE:
