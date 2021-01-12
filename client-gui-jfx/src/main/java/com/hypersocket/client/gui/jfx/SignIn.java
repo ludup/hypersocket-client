@@ -93,8 +93,6 @@ public class SignIn extends AbstractController implements Listener {
 	@FXML
 	private ProgressIndicator spinner;
 	@FXML
-	private HBox progressUI;
-	@FXML
 	private VBox container;
 	@FXML
 	private VBox root;
@@ -422,7 +420,7 @@ public class SignIn extends AbstractController implements Listener {
 
 		
 		promptUI.managedProperty().bind(promptUI.visibleProperty());
-		progressUI.managedProperty().bind(progressUI.visibleProperty());
+		spinner.managedProperty().bind(spinner.visibleProperty());
 		
 		setAvailable(null);
 
@@ -723,11 +721,11 @@ public class SignIn extends AbstractController implements Listener {
 					}
 					
 					promptUI.setVisible(disconnecting.isEmpty() && promptsAvailable);
-					progressUI.setVisible(showSpinner);
+					spinner.setVisible(showSpinner);
 					login.setDisable(selectionConnected);
 
 				} else {
-					progressUI.setVisible(false);
+					spinner.setVisible(false);
 					promptUI.setVisible(false);
 					login.setDisable(true);
 				}

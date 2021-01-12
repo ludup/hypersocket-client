@@ -48,4 +48,6 @@ public interface Connection {
 	
 	void setName(String name);
 
+	String getUri(boolean withUsername);
+
 }

@@ -28,7 +28,7 @@
 				</configuration>
 			</plugin>
 
-			<plugin>
+			<!-- <plugin>
 				<groupId>com.zenjava</groupId>
 				<artifactId>javafx-maven-plugin</artifactId>
 				<version>8.8.3</version>
@@ -45,18 +45,18 @@
 					</execution>
 				</executions>
 
-				<!-- BUG - http://stackoverflow.com/questions/19407959/javafx-maven-plugin-and-api-incompatibility -->
-				<!-- <dependencies> <dependency> <groupId>org.twdata.maven</groupId> 
+				BUG - http://stackoverflow.com/questions/19407959/javafx-maven-plugin-and-api-incompatibility
+				<dependencies> <dependency> <groupId>org.twdata.maven</groupId> 
 					<artifactId>mojo-executor</artifactId> <version>2.1.0</version> </dependency> 
-					</dependencies> -->
-			</plugin>
+					</dependencies>
+			</plugin> -->
 		</plugins>
 	</build>
 
 	<dependencies>
 		<dependency>
 			<groupId>com.hypersocket</groupId>
-			<artifactId>client-common</artifactId>
+			<artifactId>client-default-common</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -89,6 +89,26 @@
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>1.2.17</version>
+		</dependency>
+		<dependency>
+			<groupId>org.openjfx</groupId>
+			<artifactId>javafx-controls</artifactId>
+			<version>${javafx.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.openjfx</groupId>
+			<artifactId>javafx-graphics</artifactId>
+			<version>${javafx.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.openjfx</groupId>
+			<artifactId>javafx-fxml</artifactId>
+			<version>${javafx.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.openjfx</groupId>
+			<artifactId>javafx-web</artifactId>
+			<version>${javafx.version}</version>
 		</dependency>
 	</dependencies>
 

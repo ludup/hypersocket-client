@@ -48,10 +48,10 @@ import com.hypersocket.client.Prompt;
 import com.hypersocket.client.i18n.I18N;
 import com.hypersocket.client.rmi.ApplicationLauncherTemplate;
 import com.hypersocket.client.rmi.CancelledException;
-import com.hypersocket.client.rmi.ClientService;
 import com.hypersocket.client.rmi.ConfigurationService;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionService;
+import com.hypersocket.client.rmi.DefaultClientService;
 import com.hypersocket.client.rmi.GUICallback;
 import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.client.rmi.ResourceLauncherThread;
@@ -94,7 +94,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 	ConfigurationService configurationService;
 	ResourceService resourceService;
 
-	ClientService clientService;
+	DefaultClientService clientService;
 	ConnectionsWindow connectionsWindow;
 	ResourcesTree resourcesWindow;
 
@@ -316,7 +316,7 @@ public class SWTGui extends UnicastRemoteObject implements GUICallback {
 			resourceService = (ResourceService) registry
 					.lookup("resourceService");
 
-			clientService = (ClientService) registry.lookup("clientService");
+			clientService = (DefaultClientService) registry.lookup("clientService");
 
 			clientService.registerGUI(this);
 

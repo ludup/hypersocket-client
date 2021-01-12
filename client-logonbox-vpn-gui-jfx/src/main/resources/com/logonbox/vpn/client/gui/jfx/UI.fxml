@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Hyperlink?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.web.WebView?>
+
+<StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.logonbox.vpn.client.gui.jfx.UI">
+	<children>
+		<BorderPane>
+			<top>
+				<BorderPane fx:id="header" styleClass="titleBar" BorderPane.alignment="CENTER">
+					<right>
+						<HBox BorderPane.alignment="CENTER">
+							<children>
+								<Hyperlink onAction="#evtMinimize" styleClass="icon" text="%minimize" />
+								<Hyperlink onAction="#evtClose" styleClass="icon" text="%close" />
+							</children>
+						</HBox>
+					</right>
+					<left>
+						<HBox BorderPane.alignment="CENTER">
+							<children>
+								<Hyperlink onAction="#evtToggleSidebar" styleClass="icon" text="%menu" />
+							</children>
+						</HBox>
+					</left>
+					<center>
+						<Label alignment="CENTER" styleClass="title" text="%title" textAlignment="CENTER" BorderPane.alignment="CENTER" />
+					</center>
+				</BorderPane>
+			</top>
+         <center>
+            <StackPane BorderPane.alignment="CENTER">
+               <children>
+      				<WebView fx:id="webView" prefHeight="400.0" prefWidth="400.0" />
+      				<BorderPane fx:id="sidebar" maxWidth="-Infinity" minWidth="200.0" visible="false" StackPane.alignment="CENTER_LEFT">
+      					<bottom>
+      						<BorderPane BorderPane.alignment="CENTER">
+      							<center>
+      								<HBox>
+      									<children>
+      										<Hyperlink fx:id="addConnection" onAction="#evtAddConnection" text="%addConnection">
+      											<graphic>
+      												<Label styleClass="smallIcon" text="%addConnection.icon" />
+      											</graphic>
+      										</Hyperlink>
+      									</children>
+      								</HBox>
+      							</center>
+      						</BorderPane>
+      					</bottom>
+                     <center>
+								<ListView fx:id="connections" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+                     </center>
+      				</BorderPane>
+               </children>
+            </StackPane>
+         </center>
+		</BorderPane>
+	</children>
+</StackPane>

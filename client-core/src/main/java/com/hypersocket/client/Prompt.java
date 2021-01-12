@@ -11,7 +11,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.hypersocket.client.Option;
 import com.hypersocket.client.i18n.I18N;
 
 public class Prompt implements Serializable {

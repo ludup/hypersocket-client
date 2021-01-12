@@ -13,19 +13,17 @@ public class Util {
 			}
 			uriString = "https://" + uriString;
 		}
-		return new URI(uriString);
+		URI uri = new URI(uriString);
+		if("".equals(uri.getPath()))
+			uri = uri.resolve("/app");
+		return uri;
 	}
 	
 	public static String getUri(Connection connection) {
 		if (connection == null) {
 			return "";
 		}
-		String uri = "https://" + connection.getHostname();
-		if (connection.getPort() != 443) {
-			uri += ":" + connection.getPort();
-		}
-		uri += connection.getPath();
-		return uri;
+		return connection.getUri(false);
 	}
 	
 	public static void prepareConnectionWithURI(URI uriObj, Connection connection) {

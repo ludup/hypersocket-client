@@ -23,14 +23,14 @@ import com.hypersocket.client.rmi.GUICallback;
 import com.hypersocket.client.rmi.GUIRegistry;
 import com.hypersocket.client.rmi.ResourceService;
 
-public class ServiceClient extends HypersocketClient<Connection> {
+public class ServiceClient<C extends ClientContext> extends HypersocketClient<Connection> {
 
 	static Logger log = LoggerFactory.getLogger(ServiceClient.class);
 
 	ResourceService resourceService;
 	GUIRegistry guiRegistry;
 	ClientService clientService; 
-	List<ServicePlugin> plugins = new ArrayList<ServicePlugin>();
+	List<ServicePlugin<C>> plugins = new ArrayList<ServicePlugin<C>>();
 
 	protected ServiceClient(HypersocketClientTransport transport,
 			ClientService clientService,
@@ -103,7 +103,7 @@ public class ServiceClient extends HypersocketClient<Connection> {
 	@Override
 	protected void onDisconnecting() {
 
-		for (ServicePlugin plugin : plugins) {
+		for (ServicePlugin<C> plugin : plugins) {
 			try {
 				plugin.stop();
 			} catch (Throwable e) {

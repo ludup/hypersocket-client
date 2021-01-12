@@ -19,11 +19,11 @@ import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.Prompt;
 import com.hypersocket.client.rmi.ApplicationLauncherTemplate;
-import com.hypersocket.client.rmi.ClientService;
 import com.hypersocket.client.rmi.ConfigurationService;
 import com.hypersocket.client.rmi.Connection;
 import com.hypersocket.client.rmi.ConnectionService;
 import com.hypersocket.client.rmi.ConnectionStatus;
+import com.hypersocket.client.rmi.DefaultClientService;
 import com.hypersocket.client.rmi.FavouriteItemService;
 import com.hypersocket.client.rmi.GUICallback;
 import com.hypersocket.client.rmi.Resource;
@@ -40,7 +40,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 	private ConnectionService connectionService;
 	private ResourceService resourceService;
-	private ClientService clientService;
+	private DefaultClientService clientService;
 	private ConfigurationService configurationService;
 	private FavouriteItemService favouriteItemService;
 	private boolean connected;
@@ -127,7 +127,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		return resourceService;
 	}
 
-	public ClientService getClientService() {
+	public DefaultClientService getClientService() {
 		return clientService;
 	}
 
@@ -188,7 +188,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 			resourceService = (ResourceService) registry
 					.lookup("resourceService");
 
-			clientService = (ClientService) registry.lookup("clientService");
+			clientService = (DefaultClientService) registry.lookup("clientService");
 			
 			favouriteItemService = (FavouriteItemService) registry.lookup("favouriteItemService");
 
@@ -309,9 +309,8 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		for (Listener l : new ArrayList<Listener>(listeners)) {
 			l.disconnecting(connection);
 		}
-		log.info(String.format("Disconnecting from https://%s:%d/%s",
-				connection.getHostname(), connection.getPort(),
-				connection.getPath()));
+		log.info(String.format("Disconnecting from %s",
+				connection.getUri(false)));
 		clientService.disconnect(connection);
 	}
 
@@ -319,9 +318,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		for (Listener l : new ArrayList<Listener>(listeners)) {
 			l.connecting(connection);
 		}
-		log.info(String.format("Connecting to https://%s:%d/%s",
-				connection.getHostname(), connection.getPort(),
-				connection.getPath()));
+		log.info(String.format("Connecting to %",connection.getUri(false)));
 		clientService.connect(connection);
 	}
 

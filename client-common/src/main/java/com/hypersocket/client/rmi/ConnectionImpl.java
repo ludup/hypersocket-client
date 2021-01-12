@@ -45,7 +45,7 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Column(nullable=true)
 	String hashedPassword;
 	
-	@Column(columnDefinition="clob")
+	@Column
 	@Lob
 	char[] encryptedPassword;
 	
@@ -258,6 +258,19 @@ public class ConnectionImpl implements Connection, Serializable {
 				+ ", connectAtStartup=" + connectAtStartup + ", serverVersion="
 				+ serverVersion + ", serial="
 				+ serial + "]";
+	}
+
+	@Override
+	public String getUri(boolean withUsername) {
+		String uri = "https://";
+		if(withUsername && username != null && username.length() > 0)
+			uri += username + "@";
+		uri += getHostname();
+		if (getPort() != 443) {
+			uri += ":" + getPort();
+		}
+		uri += getPath();
+		return uri;
 	}
 
 	

@@ -1,9 +1,9 @@
 package com.hypersocket.client.db;
 
 import org.hibernate.SessionFactory;
-import org.hibernate.cfg.AnnotationConfiguration;
+import org.hibernate.cfg.Configuration;
 
-import com.hypersocket.client.Main;
+import com.hypersocket.client.AbstractMain;
 
 public class HibernateSessionFactory {
 
@@ -12,9 +12,9 @@ public class HibernateSessionFactory {
 
 	public static SessionFactory getFactory() {
 		if (factory == null) {
-			synchronized (Main.class) {
+			synchronized (AbstractMain.class) {
 				if (factory == null) {
-					factory = new AnnotationConfiguration().configure()
+					factory = new Configuration().configure()
 							.buildSessionFactory();
 				}
 			}

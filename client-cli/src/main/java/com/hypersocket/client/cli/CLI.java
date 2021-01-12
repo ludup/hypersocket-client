@@ -498,12 +498,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 		if (connection == null) {
 			return "";
 		}
-		String uri = "https://" + connection.getHostname();
-		if (connection.getPort() != 443) {
-			uri += ":" + connection.getPort();
-		}
-		uri += connection.getPath();
-		return uri;
+		return connection.getUri(false);
 	}
 
 	@Override

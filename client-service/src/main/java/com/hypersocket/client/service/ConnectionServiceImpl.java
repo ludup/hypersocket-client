@@ -2,6 +2,7 @@ package com.hypersocket.client.service;
 
 import java.net.URI;
 import java.rmi.RemoteException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
@@ -23,25 +24,41 @@ import com.hypersocket.encrypt.RsaEncryptionProvider;
 
 public class ConnectionServiceImpl implements ConnectionService {
 
-	static Logger log = LoggerFactory.getLogger(ClientServiceImpl.class);
-	
-	Session session;
+	public interface Listener {
+		void connectionRemoving(Connection connection, Session session);
+
+		void connectionRemoved(Connection connection, Session session);
+	}
+
+	static Logger log = LoggerFactory.getLogger(AbstractClientServiceImpl.class);
+
+	private Session session;
+	private List<Listener> listeners = new ArrayList<>();
+
 	public ConnectionServiceImpl() {
 		session = HibernateSessionFactory.getFactory().openSession();
+	}
+	
+	public void addListener(Listener listener) {
+		this.listeners.add(listener);
+	}
+	
+	public void removeListener(Listener listener) {
+		this.listeners.remove(listener);
 	}
 
 	@Override
 	public Connection createNew() {
 		return new ConnectionImpl();
 	}
-	
+
 	@Override
 	public Connection createNew(URI uriObj) {
-		Connection newConnection =  new ConnectionImpl();
+		Connection newConnection = new ConnectionImpl();
 		Util.prepareConnectionWithURI(uriObj, newConnection);
 		return newConnection;
 	}
-	
+
 	@Override
 	public Connection update(URI uriObj, Connection connection) throws RemoteException {
 		Util.prepareConnectionWithURI(uriObj, connection);
@@ -51,57 +68,61 @@ public class ConnectionServiceImpl implements ConnectionService {
 		connection.setRealm(connection.getRealm());
 		return connection;
 	}
-	
 
 	@Override
 	public Connection save(Connection connection) {
-	
+
 		Transaction trans = session.beginTransaction();
 		Connection connectionSaved = null;
-		
+
 		try {
-			if(StringUtils.isNotBlank(connection.getEncryptedPassword())) {
-				if(!connection.getEncryptedPassword().startsWith("!ENC!")) {
-					connection.setPassword("!ENC!" + RsaEncryptionProvider.getInstance().encrypt(connection.getEncryptedPassword()));
+			if (StringUtils.isNotBlank(connection.getEncryptedPassword())) {
+				if (!connection.getEncryptedPassword().startsWith("!ENC!")) {
+					connection.setPassword(
+							"!ENC!" + RsaEncryptionProvider.getInstance().encrypt(connection.getEncryptedPassword()));
 				}
 			}
-			if(connection.getId() != null) {
+			if (connection.getId() != null) {
 				log.info("Updating existing connection " + connection);
 				connectionSaved = (Connection) session.merge(connection);
 			} else {
 				log.info("Saving new connection " + connection);
 				session.save(connection);
 				connectionSaved = connection;
+				log.info("Saved new connection " + connection);
 			}
 			session.flush();
 			trans.commit();
 		} catch (Throwable e) {
+			log.error("Failed to save connection.", e);
 			trans.rollback();
 			throw new IllegalStateException(e.getMessage(), e);
 		}
-			
+
 		return connectionSaved;
 	}
-	
+
 	@Override
 	public Boolean hasEncryptedPassword(Connection connection) throws RemoteException {
 		String password = connection.getEncryptedPassword();
-		if(StringUtils.isNotBlank(password)) {
-			if(password.startsWith("!ENC!")) {
+		if (StringUtils.isNotBlank(password)) {
+			if (password.startsWith("!ENC!")) {
 				return true;
 			}
 		}
 		return false;
 	}
-	
+
 	@Override
 	public char[] getDecryptedPassword(Connection connection) throws RemoteException {
-		if(!hasEncryptedPassword(connection)) {
-			return StringUtils.isBlank(connection.getEncryptedPassword()) ? "".toCharArray() : connection.getEncryptedPassword().toCharArray();
+		if (!hasEncryptedPassword(connection)) {
+			return StringUtils.isBlank(connection.getEncryptedPassword()) ? "".toCharArray()
+					: connection.getEncryptedPassword().toCharArray();
 		}
-		
+
 		try {
-			return RsaEncryptionProvider.getInstance().decrypt(connection.getEncryptedPassword().substring(5)).toCharArray();
+			return RsaEncryptionProvider.getInstance().decrypt(connection.getEncryptedPassword().substring(5))
+					.toCharArray();
 		} catch (Throwable e) {
 			throw new IllegalStateException(e.getMessage(), e);
 		}
@@ -110,48 +131,54 @@ public class ConnectionServiceImpl implements ConnectionService {
 	@SuppressWarnings("unchecked")
 	@Override
 	public List<Connection> getConnections() throws RemoteException {
-		
+
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		return crit.list();
 	}
 
 	@Override
 	public void delete(Connection con) {
-		
+
 		Transaction trans = session.beginTransaction();
 		
+		for(int i = listeners.size() - 1 ; i >= 0 ; i--) 
+			listeners.get(i).connectionRemoving(con, session);
+
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		crit.add(Restrictions.eq("id", con.getId()));
-		
+
 		Connection toDelete = (Connection) crit.uniqueResult();
-		if(toDelete != null) {
+		if (toDelete != null) {
 			session.delete(toDelete);
 			session.flush();
 		}
-		trans.commit();
+
+		for(int i = listeners.size() - 1 ; i >= 0 ; i--) 
+			listeners.get(i).connectionRemoved(con, session);
 		
+		trans.commit();
+
 	}
 
 	@Override
 	public Connection getConnection(final String hostname) throws RemoteException {
-		
+
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		crit.add(Restrictions.eq("hostname", hostname));
 		return (Connection) crit.uniqueResult();
 	}
-	
-	
+
 	@Override
 	public Connection getConnectionByName(final String name) throws RemoteException {
-		
+
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		crit.add(Restrictions.eq("name", name));
 		return (Connection) crit.uniqueResult();
 	}
-	
+
 	@Override
 	public Connection getConnection(Long id) throws RemoteException {
-		
+
 		Criteria crit = session.createCriteria(ConnectionImpl.class);
 		crit.add(Restrictions.eq("id", id));
 		return (Connection) crit.uniqueResult();

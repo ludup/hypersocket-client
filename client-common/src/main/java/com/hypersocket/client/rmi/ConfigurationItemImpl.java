@@ -16,7 +16,7 @@ public class ConfigurationItemImpl implements ConfigurationItem, Serializable {
 	private static final long serialVersionUID = -3650734390706745660L;
 
 	@Id
-	@GeneratedValue(strategy=GenerationType.TABLE)
+	@GeneratedValue(strategy=GenerationType.AUTO)
 	Long id;
 	
 	@Column

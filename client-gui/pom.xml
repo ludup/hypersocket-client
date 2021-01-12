@@ -18,7 +18,7 @@
 	<dependencies>
 		<dependency>
 			<groupId>com.hypersocket</groupId>
-			<artifactId>client-common</artifactId>
+			<artifactId>client-default-common</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<!-- SWT -->
