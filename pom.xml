@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.hypersocket</groupId>
@@ -29,11 +30,27 @@
 		<developerConnection>scm:git:https://github.com/ludup/hypersocket-client</developerConnection>
 	</scm>
 
+	<distributionManagement>
+		<repository>
+			<id>opensource-releases</id>
+			<url>http://artifactory.javassh.com/opensource-releases</url>
+		</repository>
+		<snapshotRepository>
+			<id>opensource-snapshots</id>
+			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+		</snapshotRepository>
+	</distributionManagement>
+
 	<developers>
 		<developer>
 			<id>lee</id>
 			<name>Lee David Painter</name>
 			<email>lee@hypersocket.com</email>
+		</developer>
+		<developer>
+			<id>brett</id>
+			<name>Brett Smith</name>
+			<email>brett@logonbox.com</email>
 		</developer>
 	</developers>
 
@@ -41,6 +58,7 @@
 		<org.springframework.version>3.1.4.RELEASE</org.springframework.version>
 		<aspectj.version>1.6.12</aspectj.version>
 		<project.build.sourceEncoding>ISO-8859-1</project.build.sourceEncoding>
+		<javafx.version>11.0.1</javafx.version>
 	</properties>
 
 	<modules>
@@ -73,6 +91,19 @@
 	<build>
 		<directory>target</directory>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>3.2.0</version>
+				<configuration>
+					<encoding>UTF-8</encoding>
+					<excludePackageNames>**.impl.*</excludePackageNames>
+
+					<!-- https://bugs.openjdk.java.net/browse/JDK-8212233 -->
+					<source>8</source>
+					<additionalparam>-Xdoclint:none</additionalparam>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -136,22 +167,31 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>3.2.0</version>
 				<executions>
 					<execution>
 						<id>attach-javadocs</id>
 						<goals>
 							<goal>jar</goal>
 						</goals>
-						<configuration>
-							<additionalparam>-Xdoclint:none</additionalparam>
-						</configuration>
 					</execution>
 				</executions>
 			</plugin>
 		</plugins>
 		<pluginManagement>
 			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-javadoc-plugin</artifactId>
+					<version>3.2.0</version>
+					<configuration>
+						<encoding>UTF-8</encoding>
+						<excludePackageNames>**.impl.*</excludePackageNames>
+
+						<!-- https://bugs.openjdk.java.net/browse/JDK-8212233 -->
+						<source>8</source>
+						<additionalparam>-Xdoclint:none</additionalparam>
+					</configuration>
+				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-jar-plugin</artifactId>
@@ -165,7 +205,7 @@
 				<plugin>
 					<groupId>com.nervepoint</groupId>
 					<artifactId>google-translate-v2-java-maven-plugin</artifactId>
-					<version>0.0.5-SNAPSHOT</version>
+					<version>0.9.0-SNAPSHOT</version>
 					<configuration>
 						<apikey>${googleAPIKey}</apikey>
 						<cacheTag>main</cacheTag>
@@ -223,6 +263,28 @@
 		</pluginManagement>
 	</build>
 
+	<profiles>
+		<profile>
+			<activation>
+				<jdk>[9,)</jdk>
+			</activation>
+			<build>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<groupId>org.apache.maven.plugins</groupId>
+							<artifactId>maven-javadoc-plugin</artifactId>
+							<configuration>
+								<!-- TODO: Why is this STILL broken! -->
+								<javadocExecutable>${java.home}/bin/javadoc</javadocExecutable>
+							</configuration>
+						</plugin>
+					</plugins>
+				</pluginManagement>
+			</build>
+		</profile>
+	</profiles>
+
 	<repositories>
 		<repository>
 			<id>sonatype-oss-snapshots</id>
@@ -238,7 +300,15 @@
 		<pluginRepository>
 			<id>sonatype-oss-shapshots-plugins</id>
 			<url>https://oss.sonatype.org/content/groups/public</url>
-			<snapshots/>
+			<snapshots />
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+		</pluginRepository>
+		<pluginRepository>
+			<id>opensource-snapshots</id>
+			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<snapshots />
 			<releases>
 				<enabled>false</enabled>
 			</releases>
