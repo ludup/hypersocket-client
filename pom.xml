@@ -50,19 +50,11 @@
 		<module>client-netty</module>
 		<module>client-service</module>
 		
-		<!-- <module>client-gui</module> -->
-		<module>client-gui-jfx</module>
-		
-		<module>client-default-common</module>
-		<module>client-default-service</module>
-		
 		<module>client-logonbox-vpn-service</module>
 		<module>client-logonbox-vpn-common</module>
 		<module>client-logonbox-vpn-gui-jfx</module>
 		
 		<module>client-cli</module>
-		
-		<module>credentials-wizard-jfx</module>
 	</modules>
 
 	<dependencies>
