@@ -1,9 +1,4 @@
-@font-face {
-    src: url('ARFLRDBD.ttf');
-}
-@font-face {
-    src: url('fontawesome/fontawesome-webfont.ttf');
-}
+
 
 .iconButton, .icon, .smallIcon {	
     -fx-font-family: FontAwesome;
@@ -23,6 +18,10 @@
 }
 
 /** Add your own styling to this stylesheet **/
+#header FontIcon {
+	-fx-icon-color: white;
+}
+
 #header img {
     /*-fx-preferrheight: 35px;*/
 }

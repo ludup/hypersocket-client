@@ -3,13 +3,13 @@
 <?import javafx.scene.control.Hyperlink?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
-<?import javafx.scene.control.ProgressIndicator?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.web.WebView?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
 
-<StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.logonbox.vpn.client.gui.jfx.UI">
+<StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.logonbox.vpn.client.gui.jfx.UI">
 	<children>
 		<BorderPane>
 			<top>
@@ -17,15 +17,24 @@
 					<right>
 						<HBox BorderPane.alignment="CENTER">
 							<children>
-								<Hyperlink onAction="#evtMinimize" styleClass="icon" text="%minimize" />
-								<Hyperlink onAction="#evtClose" styleClass="icon" text="%close" />
+								<Hyperlink onAction="#evtMinimize" styleClass="icon">
+                           <graphic>
+                              <FontIcon iconLiteral="fa-window-minimize" iconSize="32" />
+                           </graphic></Hyperlink>
+								<Hyperlink onAction="#evtClose" styleClass="icon">
+                           <graphic>
+                              <FontIcon iconLiteral="fa-window-close" iconSize="32" />
+                           </graphic></Hyperlink>
 							</children>
 						</HBox>
 					</right>
 					<left>
 						<HBox BorderPane.alignment="CENTER">
 							<children>
-								<Hyperlink onAction="#evtToggleSidebar" styleClass="icon" text="%menu" />
+								<Hyperlink onAction="#evtToggleSidebar" styleClass="icon">
+                           <graphic>
+                              <FontIcon iconLiteral="fa-bars" iconSize="32" />
+                           </graphic></Hyperlink>
 							</children>
 						</HBox>
 					</left>
@@ -45,9 +54,9 @@
       								<HBox>
       									<children>
       										<Hyperlink fx:id="addConnection" onAction="#evtAddConnection" text="%addConnection">
-      											<graphic>
-      												<Label styleClass="smallIcon" text="%addConnection.icon" />
-      											</graphic>
+                                       <graphic>
+                                          <FontIcon iconLiteral="fa-plus" iconSize="22" />
+                                       </graphic>
       										</Hyperlink>
       									</children>
       								</HBox>

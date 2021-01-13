@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 import com.goxr3plus.fxborderlessscene.borderless.BorderlessScene;
 import com.logonbox.vpn.client.gui.jfx.MiniHttpServer.DynamicContent;
 import com.logonbox.vpn.client.gui.jfx.MiniHttpServer.DynamicContentFactory;
-import com.logonbox.vpn.client.gui.jfx.fontawesome.AwesomeIcons;
 
 import javafx.application.Application;
 import javafx.application.ConditionalFeature;
@@ -195,7 +194,6 @@ public class Client extends Application {
 		Parent node = scene.getRoot();
 
 		node.getStylesheets().add(Client.class.getResource(Client.class.getSimpleName() + ".css").toExternalForm());
-		AwesomeIcons.install(node);
 
 		/* Anchor to stretch the content across the borderless window */
 		AnchorPane anchor = new AnchorPane(node);
