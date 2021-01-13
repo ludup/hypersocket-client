@@ -23,11 +23,13 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
+					<!-- TODO: Need to compile to 11 but use a 15+ runtime. The client JavaFX 
+						part requires 15, but Hypersocket Enterprise needs this too -->
 					<source>15</source>
 					<target>15</target>
+					<encoding>UTF-8</encoding>
 				</configuration>
 			</plugin>
-
 		</plugins>
 	</build>
 
@@ -185,6 +187,5 @@
 			</releases>
 		</repository>
 	</repositories>
-
 
 </project>
