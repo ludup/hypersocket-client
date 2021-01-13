@@ -10,12 +10,6 @@
 	<name>Hypersocket Client</name>
 	<description>A client for adding further services to the Hypersocket Framework server.</description>
 
-	<parent>
-		<groupId>org.sonatype.oss</groupId>
-		<artifactId>oss-parent</artifactId>
-		<version>7</version>
-	</parent>
-
 	<licenses>
 		<license>
 			<name>GNU General Public License v3</name>
@@ -293,6 +287,14 @@
 			</releases>
 			<snapshots />
 			<url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+		</repository>
+		<repository>
+			<id>opensource-releases</id>
+			<url>http://artifactory.javassh.com/opensource-releases</url>
+			<releases />
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
 		</repository>
 	</repositories>
 
