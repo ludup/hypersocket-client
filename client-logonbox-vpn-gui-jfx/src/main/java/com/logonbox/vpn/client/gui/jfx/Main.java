@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Main {
-
 	static Logger log = LoggerFactory.getLogger(Main.class);
 
 	Runnable restartCallback;

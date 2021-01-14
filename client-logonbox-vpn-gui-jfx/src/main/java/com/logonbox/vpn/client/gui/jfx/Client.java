@@ -45,6 +45,22 @@ import javafx.stage.StageStyle;
 public class Client extends Application {
 
 	/**
+	 * There seems to be some problem with runtimes later than 11 and loading
+	 * resources in the embededded browser from the classpath.
+	 * 
+	 * This switch activates a work around that opens a local HTTP server and
+	 * directs the browser to that instead.
+	 * 
+	 * Attempts are made to secure this with the use of a private cookie, but this
+	 * doesn't always work (not sure why!)
+	 */
+	static boolean useLocalHTTPService = System.getProperty("logonbox.vpn.useLocalHTTPService", "false").equals("true");
+
+	/* Security can be turned off for this, useful for debugging */
+	static boolean secureLocalHTTPService = System.getProperty("logonbox.vpn.secureLocalHTTPService", "true")
+			.equals("true");
+
+	/**
 	 * Matches the identifier in logonbox VPN server
 	 * PeerConfigurationAuthenticationProvider.java
 	 */
@@ -107,66 +123,66 @@ public class Client extends Application {
 			installAllTrustingCertificateVerifier();
 		}
 
-		miniHttp = new MiniHttpServer(59999, 0, null);
-		miniHttp.addContent(new DynamicContentFactory() {
-			@Override
-			public DynamicContent get(String path, Map<String, List<String>> headers) throws IOException {
-				List<String> localCookie = headers.get("Cookie");
-				boolean allowed = false;
-				if (localCookie != null) {
-					for (String ck : localCookie) {
-						int idx = ck.indexOf('=');
-						String name = ck.substring(0, idx);
-						if (name.equals(LOCBCOOKIE) && ck.substring(idx + 1).equals(localWebServerCookie.toString())) {
-							allowed = true;
-							break;
+		if (useLocalHTTPService) {
+			miniHttp = new MiniHttpServer(59999, 0, null);
+			miniHttp.addContent(new DynamicContentFactory() {
+				@Override
+				public DynamicContent get(String path, Map<String, List<String>> headers) throws IOException {
+					List<String> localCookie = headers.get("Cookie");
+					boolean allowed = !secureLocalHTTPService;
+					if (!allowed && localCookie != null) {
+						for (String ck : localCookie) {
+							int idx = ck.indexOf('=');
+							String name = ck.substring(0, idx);
+							if (name.equals(LOCBCOOKIE)
+									&& ck.substring(idx + 1).equals(localWebServerCookie.toString())) {
+								allowed = true;
+								break;
+							}
 						}
 					}
-				}
-//				if (!allowed)
-//					throw new IOException("Access denied to " + path);
-				System.out.println("WARNING: Letting all requests through, no security. MUST BE FIXED");
+					if (!allowed)
+						throw new IOException("Access denied to " + path);
 
-				String pathNoParms = path;
-				int idx = pathNoParms.indexOf('?');
-				if (idx != -1) {
-					pathNoParms = pathNoParms.substring(0, idx);
+					String pathNoParms = path;
+					int idx = pathNoParms.indexOf('?');
+					if (idx != -1) {
+						pathNoParms = pathNoParms.substring(0, idx);
+					}
+					URL res = Client.class.getResource(pathNoParms.substring(1));
+					if (res == null) {
+						System.out.println("404 " + path);
+						throw new FileNotFoundException(path);
+					}
+					URLConnection conx = res.openConnection();
+					String contentType = conx.getContentType();
+					if (pathNoParms.endsWith(".js")) {
+						contentType = "text/javascript";
+					} else if (pathNoParms.endsWith(".css")) {
+						contentType = "text/css";
+					} else if (pathNoParms.endsWith(".html")) {
+						contentType = "text/html";
+					} else if (pathNoParms.endsWith(".woff")) {
+						contentType = "font/woff";
+					} else if (pathNoParms.endsWith(".ttf")) {
+						contentType = "font/ttf";
+					} else if (pathNoParms.endsWith(".svg")) {
+						contentType = "image/svg+xml";
+					} else if (pathNoParms.endsWith(".bmp")) {
+						contentType = "image/bmp";
+					} else if (pathNoParms.endsWith(".png")) {
+						contentType = "image/png";
+					} else if (pathNoParms.endsWith(".gif")) {
+						contentType = "image/gif";
+					} else if (pathNoParms.endsWith(".jpeg") || pathNoParms.endsWith(".jpe")) {
+						contentType = "image/jpg";
+					}
+					return new DynamicContent(contentType, conx.getContentLengthLong(), conx.getInputStream(),
+							"Set-Cookie", LOCBCOOKIE + "=" + localWebServerCookie + "; Path=/");
 				}
-				URL res = Client.class.getResource(pathNoParms.substring(1));
-				if (res == null) {
-					System.out.println("404 " + path);
-					throw new FileNotFoundException(path);
-				}
-				URLConnection conx = res.openConnection();
-				String contentType = conx.getContentType();
-				if (pathNoParms.endsWith(".js")) {
-					contentType = "text/javascript";
-				} else if (pathNoParms.endsWith(".css")) {
-					contentType = "text/css";
-				} else if (pathNoParms.endsWith(".html")) {
-					contentType = "text/html";
-				} else if (pathNoParms.endsWith(".woff")) {
-					contentType = "font/woff";
-				} else if (pathNoParms.endsWith(".ttf")) {
-					contentType = "font/ttf";
-				} else if (pathNoParms.endsWith(".svg")) {
-					contentType = "image/svg+xml";
-				} else if (pathNoParms.endsWith(".bmp")) {
-					contentType = "image/bmp";
-				} else if (pathNoParms.endsWith(".png")) {
-					contentType = "image/png";
-				} else if (pathNoParms.endsWith(".gif")) {
-					contentType = "image/gif";
-				} else if (pathNoParms.endsWith(".jpeg") || pathNoParms.endsWith(".jpe")) {
-					contentType = "image/jpg";
-				}
-				return new DynamicContent(contentType, conx.getContentLengthLong(), conx.getInputStream(), "Set-Cookie",
-						LOCBCOOKIE + "=" + localWebServerCookie + "; Path=/");
-			}
-		});
-		miniHttp.start();
-
-//		setUserAgentStylesheet(STYLESHEET_MODENA);
+			});
+			miniHttp.start();
+		}
 
 		synchronized (barrier) {
 			barrier.notify();
@@ -265,9 +281,11 @@ public class Client extends Application {
 	}
 
 	protected void exitApp() {
-		try {
-			miniHttp.close();
-		} catch (IOException e) {
+		if (miniHttp != null) {
+			try {
+				miniHttp.close();
+			} catch (IOException e) {
+			}
 		}
 		System.exit(0);
 	}

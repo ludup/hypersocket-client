@@ -82,6 +82,26 @@
 		<directory>target</directory>
 		<plugins>
 			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>properties-maven-plugin</artifactId>
+				<version>1.0-alpha-2</version>
+				<executions>
+					<execution>
+						<phase>initialize</phase>
+						<goals>
+							<goal>read-project-properties</goal>
+						</goals>
+						<configuration>
+							<quiet>true</quiet>
+							<files>
+								<file>${basedir}/hypersocket.build.properties</file>
+								<file>${user.home}/.hypersocket.build.properties</file>
+							</files>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
@@ -146,7 +166,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>3.2.0</version>
 				<executions>
 					<execution>
 						<id>attach-javadocs</id>
@@ -169,8 +188,8 @@
 				    <configuration>
 						<encoding>UTF-8</encoding>
 						<excludePackageNames>**.impl.*</excludePackageNames>
-	
 						<!-- https://bugs.openjdk.java.net/browse/JDK-8212233 -->
+						<detectJavaApiLink>false</detectJavaApiLink>
 						<source>8</source>
 						<additionalparam>-Xdoclint:none</additionalparam>
                 	</configuration>

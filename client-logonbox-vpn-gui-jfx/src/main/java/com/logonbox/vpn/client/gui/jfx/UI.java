@@ -612,13 +612,17 @@ public class UI extends AbstractController implements Listener {
 					webView.getEngine().load(htmlPage);
 				} else {
 					webView.getEngine().setUserStyleSheetLocation(UI.class.getResource("local.css").toExternalForm());
+
 					// webView.getEngine().load(getClass().getResource(htmlPage).toExternalForm());
 
 					setupPage();
-
-					// webView.getEngine().load("app://" + htmlPage);
-					// webView.getEngine().load("app://" + htmlPage);
-					String loc = "http://localhost:59999/" + htmlPage;
+					String loc = htmlPage;
+					if (Client.useLocalHTTPService) {
+						// webView.getEngine().load("app://" + htmlPage);
+						loc = "http://localhost:59999/" + htmlPage;
+					} else {
+						loc = UI.class.getResource(htmlPage).toExternalForm();
+					}
 
 					URI uri = new URI(loc);
 					Map<String, List<String>> headers = new LinkedHashMap<String, List<String>>();
@@ -783,7 +787,7 @@ public class UI extends AbstractController implements Listener {
 			Section interfaceSection = ini.get("Interface");
 			config.setAddress(interfaceSection.get("Address"));
 			config.setDns(toStringList(interfaceSection, "DNS"));
-			
+
 			/* TODO private key should be removed from server at this point */
 			config.setUserPrivateKey(interfaceSection.get("PrivateKey"));
 
