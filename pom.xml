@@ -300,16 +300,40 @@
 
 	<pluginRepositories>
 		<pluginRepository>
-			<id>sonatype-oss-shapshots-plugins</id>
-			<url>https://oss.sonatype.org/content/groups/public</url>
-			<snapshots/>
+			<id>libs-releases</id>
+			<url>http://artifactory.javassh.com/libs-releases-local</url>
+			<releases />
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</pluginRepository>
+		<pluginRepository>
+			<id>libs-snapshots</id>
+			<url>http://artifactory.javassh.com/libs-snapshots-local</url>
 			<releases>
 				<enabled>false</enabled>
 			</releases>
+			<snapshots />
+		</pluginRepository>
+		<pluginRepository>
+			<id>opensource-releases</id>
+			<url>http://artifactory.javassh.com/opensource-releases</url>
+			<releases />
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
 		</pluginRepository>
 		<pluginRepository>
 			<id>opensource-snapshots</id>
 			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots />
+		</pluginRepository>
+		<pluginRepository>
+			<id>sonatype-oss-shapshots-plugins</id>
+			<url>https://oss.sonatype.org/content/groups/public</url>
 			<snapshots/>
 			<releases>
 				<enabled>false</enabled>
