@@ -11,6 +11,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.hypersocket.client.rmi.Connection;
 
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
@@ -21,6 +23,10 @@ public class Configuration {
 
 	private StringProperty temporaryOnStartConnection = new SimpleStringProperty();
 	private StringProperty saveCredentialsConnections = new SimpleStringProperty();
+	private IntegerProperty w = new SimpleIntegerProperty();
+	private IntegerProperty h = new SimpleIntegerProperty();
+	private IntegerProperty x = new SimpleIntegerProperty();
+	private IntegerProperty y = new SimpleIntegerProperty();
 	private UUID deviceUUID;
 
 	//
@@ -96,6 +102,23 @@ public class Configuration {
 	}
 
 	public Configuration(Preferences node) {
+		x.set(node.getInt("x", 0));
+		x.addListener((c, o, n) -> {
+			node.putInt("x", n.intValue());
+		});
+		y.set(node.getInt("y", 0));
+		y.addListener((c, o, n) -> {
+			node.putInt("y", n.intValue());
+		});
+		w.set(node.getInt("w", 0));
+		w.addListener((c, o, n) -> {
+			node.putInt("w", n.intValue());
+		});
+		h.set(node.getInt("h", 0));
+		h.addListener((c, o, n) -> {
+			node.putInt("h", n.intValue());
+		});
+
 		temporaryOnStartConnection.set(node.get("temporaryOnStartConnection", ""));
 		temporaryOnStartConnection
 				.addListener(new StringPreferenceUpdateChangeListener(node, "temporaryOnStartConnection"));
@@ -105,17 +128,15 @@ public class Configuration {
 				.addListener(new StringPreferenceUpdateChangeListener(node, "saveCredentialsConnections"));
 
 		String deviceUUIDString = node.get("deviceUUID", "");
-		if(deviceUUIDString.equals("")) {
+		if (deviceUUIDString.equals("")) {
 			deviceUUID = UUID.randomUUID();
 			try {
 				node.put("deviceUUID", deviceUUID.toString());
 				node.flush();
-			}
-			catch(BackingStoreException bse) {
+			} catch (BackingStoreException bse) {
 				throw new IllegalStateException("Failed to save device UUID.", bse);
 			}
-		}
-		else
+		} else
 			deviceUUID = UUID.fromString(deviceUUIDString);
 	}
 
@@ -134,9 +155,25 @@ public class Configuration {
 		saveCredentialsConnections.set(String.join(",",
 				new HashSet<>(StringUtils.isBlank(creds) ? Collections.emptyList() : Arrays.asList(creds.split(",")))));
 	}
-	
+
 	public UUID getDeviceUUID() {
 		return deviceUUID;
+	}
+
+	public IntegerProperty wProperty() {
+		return w;
+	}
+
+	public IntegerProperty hProperty() {
+		return h;
+	}
+
+	public IntegerProperty xProperty() {
+		return x;
+	}
+
+	public IntegerProperty yProperty() {
+		return y;
 	}
 
 	public StringProperty temporaryOnStartConnectionProperty() {

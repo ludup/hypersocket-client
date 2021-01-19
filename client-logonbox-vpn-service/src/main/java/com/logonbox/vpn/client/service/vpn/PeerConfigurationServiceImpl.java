@@ -10,6 +10,8 @@ import javax.persistence.criteria.Root;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.db.HibernateSessionFactory;
 import com.hypersocket.client.rmi.Connection;
@@ -22,6 +24,9 @@ import com.logonbox.vpn.common.client.PeerConfigurationService;
 
 public class PeerConfigurationServiceImpl implements PeerConfigurationService, Listener {
 
+
+	static Logger log = LoggerFactory.getLogger(PeerConfigurationServiceImpl.class);
+	
 	private Session session;
 	private LogonBoxVPNContext context;
 
@@ -53,7 +58,8 @@ public class PeerConfigurationServiceImpl implements PeerConfigurationService, L
 			trans.commit();
 		} catch (Exception e) {
 			trans.rollback();
-			throw new RemoteException("Failed to save.");
+			log.error("Failed to save.", e);
+			throw new RemoteException("Failed to save.", e);
 		}
 	}
 

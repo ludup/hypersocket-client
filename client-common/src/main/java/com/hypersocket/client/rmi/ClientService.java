@@ -6,6 +6,10 @@ import java.util.List;
 
 public interface ClientService extends Remote {
 	
+	default String[] getMissingPackages() throws RemoteException {
+		return new String[0];
+	}
+	
 	boolean isGUINeedsUpdating() throws RemoteException;
 	
 	boolean isUpdating() throws RemoteException;

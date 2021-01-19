@@ -12,7 +12,9 @@ import com.hypersocket.client.rmi.ResourceService;
 import com.logonbox.vpn.client.service.LogonBoxVPNClientServiceImpl;
 import com.logonbox.vpn.client.service.vpn.PeerConfigurationServiceImpl;
 import com.logonbox.vpn.client.wireguard.LinuxPlatformServiceImpl;
+import com.logonbox.vpn.client.wireguard.OSXPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
+import com.logonbox.vpn.client.wireguard.WindowsPlatformServiceImpl;
 import com.logonbox.vpn.common.client.LogonBoxVPNClientService;
 import com.logonbox.vpn.common.client.PeerConfigurationService;
 
@@ -36,6 +38,10 @@ public class Main extends AbstractMain<LogonBoxVPNClientService, LogonBoxVPNCont
 
 		if (SystemUtils.IS_OS_LINUX) {
 			platform = new LinuxPlatformServiceImpl();
+		} else if (SystemUtils.IS_OS_WINDOWS) {
+			platform = new WindowsPlatformServiceImpl();
+		} else if (SystemUtils.IS_OS_MAC_OSX) {
+			platform = new OSXPlatformServiceImpl();
 		} else
 			throw new UnsupportedOperationException(
 					String.format("%s not currently supported.", System.getProperty("os.name")));

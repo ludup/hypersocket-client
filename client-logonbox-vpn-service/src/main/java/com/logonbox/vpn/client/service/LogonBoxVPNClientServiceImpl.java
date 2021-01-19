@@ -27,6 +27,11 @@ public class LogonBoxVPNClientServiceImpl
 
 	}
 
+	@Override
+	public String[] getMissingPackages() throws RemoteException {
+		return getContext().getPlatformService().getMissingPackages();
+	}
+
 	public void start() {
 		for (LogonBoxVPNSession session : getContext().getPlatformService().start(getContext())) {
 			activeClients.put(session.getConnection(), session);

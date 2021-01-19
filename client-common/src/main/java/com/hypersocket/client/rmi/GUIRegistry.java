@@ -7,47 +7,47 @@ import com.hypersocket.extensions.ExtensionDefinition;
 
 public interface GUIRegistry {
 
-	public abstract boolean hasGUI();
+	boolean hasGUI();
 
-	public abstract GUICallback getGUI();
+	GUICallback getGUI();
 
-	public abstract void registerGUI(GUICallback gui) throws RemoteException;
+	void registerGUI(GUICallback gui) throws RemoteException;
 
-	public abstract void unregisterGUI(GUICallback gui, boolean callback) throws RemoteException;
+	void unregisterGUI(GUICallback gui, boolean callback) throws RemoteException;
 
-	public abstract void started(Connection connection);
+	void started(Connection connection);
 
-	public abstract void ready(Connection connection);
+	void ready(Connection connection);
 
-	public abstract void loadResources(Connection connection);
+	void loadResources(Connection connection);
 
-	public abstract void failedToConnect(Connection connection, String reply);
+	void failedToConnect(Connection connection, String reply);
 
-	public abstract void disconnected(Connection connection, String message);
+	void disconnected(Connection connection, String message);
 
-	public abstract void transportConnected(Connection connection);
+	void transportConnected(Connection connection);
 
-	public abstract void notify(String msg, int type);
+	void notify(String msg, int type);
 
-	public abstract void onExtensionUpdateComplete(String app,
+	void onExtensionUpdateComplete(String app,
 			ExtensionDefinition def);
 
-	public abstract void onUpdateProgress(String app, long sincelastProgress,
+	void onUpdateProgress(String app, long sincelastProgress,
 			long totalSoFar, long totalBytesExpected);
 
-	public abstract void onUpdateStart(String app, long totalBytesExpected, Connection connection);
+	void onUpdateStart(String app, long totalBytesExpected, Connection connection);
 
-	public abstract void onUpdateInit(int apps) throws RemoteException;
+	void onUpdateInit(int apps) throws RemoteException;
 
-	public abstract void onUpdateComplete(String app, long totalBytesTransfered);
+	void onUpdateComplete(String app, long totalBytesTransfered);
 
-	public abstract void onUpdateFailure(String app, Throwable e);
+	void onUpdateFailure(String app, Throwable e);
 
-	public abstract void updateResource(Connection connection,
+	void updateResource(Connection connection,
 			ResourceUpdateType type,
 			Resource resource) throws RemoteException;
 
-	public abstract void onUpdateDone(boolean restart, String failureMessage)
+	void onUpdateDone(boolean restart, String failureMessage)
 			throws RemoteException;
 
 }

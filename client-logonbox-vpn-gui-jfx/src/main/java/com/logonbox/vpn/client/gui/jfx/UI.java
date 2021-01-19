@@ -1,13 +1,18 @@
 package com.logonbox.vpn.client.gui.jfx;
 
+import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.net.URI;
+import java.net.URL;
 import java.rmi.RemoteException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +20,7 @@ import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import org.controlsfx.control.action.Action;
 import org.ini4j.Ini;
@@ -54,6 +60,7 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.util.Callback;
@@ -71,6 +78,10 @@ public class UI extends AbstractController implements Listener {
 	 * This object is exposed to the local HTML/Javascript that runs in the browse.
 	 */
 	public class UIBridge {
+
+		public void reload() {
+			UI.this.initUi(getSelectedConnection());
+		}
 
 		public void showError(String error) {
 			UI.this.showError(error);
@@ -142,6 +153,7 @@ public class UI extends AbstractController implements Listener {
 	private ResourceBundle pageBundle;
 	private String lastErrorMessage;
 	private Throwable lastException;
+	private Map<String, Collection<String>> collections = new HashMap<>();
 
 	public UI() {
 		instance = this;
@@ -259,6 +271,7 @@ public class UI extends AbstractController implements Listener {
 
 	@Override
 	protected void onInitialize() {
+		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
 	}
 
 	@Override
@@ -406,7 +419,17 @@ public class UI extends AbstractController implements Listener {
 			PeerConfigurationService srv = context.getBridge().getPeerConfigurationService();
 			Element rootEl = webView.getEngine().getDocument().getDocumentElement();
 			PeerConfiguration cfg = sel == null ? null : srv.getConfiguration(sel);
-			dataAttributes(rootEl, cfg, sel);
+			Map<Node, Collection<Node>> newNodes = new HashMap<>();
+			Set<Node> removeNodes = new HashSet<>();
+			dataAttributes(rootEl, cfg, sel, newNodes, removeNodes);
+			for(Map.Entry<Node, Collection<Node>> en : newNodes.entrySet()) {
+				for(Node n : en.getValue())
+					en.getKey().appendChild(n);
+			}
+			for(Node n : removeNodes)
+				n.getParentNode().removeChild(n);
+			
+			collections.clear();
 			lastException = null;
 			lastErrorMessage = null;
 
@@ -415,7 +438,8 @@ public class UI extends AbstractController implements Listener {
 		}
 	}
 
-	protected void dataAttributes(Element node, PeerConfiguration cfg, Connection connection) {
+	protected void dataAttributes(Element node, PeerConfiguration cfg, Connection connection,
+			Map<Node, Collection<Node>> newNodes, Set<Node> removeNodes) {
 
 		String errorText = "";
 		String exceptionText = "";
@@ -503,6 +527,20 @@ public class UI extends AbstractController implements Listener {
 						attrVal = MessageFormat.format(attrVal, args.toArray(new Object[0]));
 					}
 					node.setTextContent(attrVal);
+				} else if (attr.getNodeName().equals("data-collection")) {
+					Collection<String> collection = collections.get(val);
+					if(collection == null)
+						log.warn(String.format("No collection named %s", val));
+					else {
+						List<Node> newCollectionNodes = new ArrayList<>();
+						for (String elVal : collection) {
+							Node template = node.cloneNode(false);
+							template.setTextContent(elVal);
+							newCollectionNodes.add(template);
+						}
+						newNodes.put(node.getParentNode(), newCollectionNodes);
+						removeNodes.add(node);
+					}
 				} else if (attr.getNodeName().equals("data-content")) {
 					if (val.equals("server"))
 						node.setTextContent(hostname);
@@ -530,7 +568,7 @@ public class UI extends AbstractController implements Listener {
 		for (int i = 0; i < n.getLength(); i++) {
 			Node c = n.item(i);
 			if (c instanceof Element)
-				dataAttributes((Element) c, cfg, connection);
+				dataAttributes((Element) c, cfg, connection, newNodes, removeNodes);
 		}
 	}
 
@@ -621,7 +659,10 @@ public class UI extends AbstractController implements Listener {
 						// webView.getEngine().load("app://" + htmlPage);
 						loc = "http://localhost:59999/" + htmlPage;
 					} else {
-						loc = UI.class.getResource(htmlPage).toExternalForm();
+						URL resource = UI.class.getResource(htmlPage);
+						if (resource == null)
+							throw new FileNotFoundException(String.format("No page named %s.", htmlPage));
+						loc = resource.toExternalForm();
 					}
 
 					URI uri = new URI(loc);
@@ -748,26 +789,32 @@ public class UI extends AbstractController implements Listener {
 
 	private void selectPageForState() {
 		try {
-			Connection sel = getSelectedConnection();
-			if (sel == null) {
-				/* There are no connections at all */
-				if (context.getBridge().isConnected()) {
-					/* The bridge is connected */
-					setHtmlPage("connected.html");
-				} else
-					/* The bridge is not (yet?) connected */
-					setHtmlPage("index.html");
-			} else if (context.getBridge().getClientService().isConnected(sel)) {
-				/* We have a connection, a peer configuration and are connected! */
-				setHtmlPage("joined.html");
+			if (context.getBridge().isConnected()
+					&& context.getBridge().getClientService().getMissingPackages().length > 0) {
+				collections.put("packages", Arrays.asList(context.getBridge().getClientService().getMissingPackages()));
+				setHtmlPage("missingSoftware.html");
 			} else {
-				PeerConfiguration peer = context.getBridge().getPeerConfigurationService().getConfiguration(sel);
-				if (peer == null)
-					/* We have a Connection, but not PeerConfiguration */
-					setHtmlPage("new.html");
-				else
-					/* We have both, but are not currently connected */
-					setHtmlPage("join.html");
+				Connection sel = getSelectedConnection();
+				if (sel == null) {
+					/* There are no connections at all */
+					if (context.getBridge().isConnected()) {
+						/* The bridge is connected */
+						setHtmlPage("connected.html");
+					} else
+						/* The bridge is not (yet?) connected */
+						setHtmlPage("index.html");
+				} else if (context.getBridge().getClientService().isConnected(sel)) {
+					/* We have a connection, a peer configuration and are connected! */
+					setHtmlPage("joined.html");
+				} else {
+					PeerConfiguration peer = context.getBridge().getPeerConfigurationService().getConfiguration(sel);
+					if (peer == null)
+						/* We have a Connection, but not PeerConfiguration */
+						setHtmlPage("new.html");
+					else
+						/* We have both, but are not currently connected */
+						setHtmlPage("join.html");
+				}
 			}
 		} catch (Exception e) {
 			showError("Failed to set page.", e);

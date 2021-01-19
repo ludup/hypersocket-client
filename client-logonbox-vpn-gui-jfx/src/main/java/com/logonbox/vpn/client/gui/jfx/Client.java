@@ -1,10 +1,14 @@
 package com.logonbox.vpn.client.gui.jfx;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.GeneralSecurityException;
+import java.security.Security;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -18,7 +22,9 @@ import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
+import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,8 +48,8 @@ import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-public class Client extends Application {
-
+public class Client extends Application implements X509TrustManager {
+	
 	/**
 	 * There seems to be some problem with runtimes later than 11 and loading
 	 * resources in the embededded browser from the classpath.
@@ -73,26 +79,22 @@ public class Client extends Application {
 
 	private Bridge bridge;
 
-	private static Object barrier = new Object();
 	private ExecutorService loadQueue = Executors.newSingleThreadExecutor();
 	private boolean waitingForExitChoice;
 
 	private Stage primaryStage;
 	private MiniHttpServer miniHttp;
+	private static Client instance;
+	
+	public static Client get() {
+		return instance;
+	}
 
-	public static void initialize() throws InterruptedException {
-		Thread t = new Thread("JavaFX Init Thread") {
-			@Override
-			public void run() {
-				Application.launch(Client.class, new String[0]);
-			}
-		};
-
-		synchronized (barrier) {
-			t.setDaemon(true);
-			t.start();
-			barrier.wait();
-		}
+	@Override
+	public void init() throws Exception {
+		instance = this;
+		PropertyConfigurator.configureAndWatch(
+				System.getProperty("hypersocket.logConfiguration", "conf" + File.separator + "log4j.properties"));
 	}
 
 	public FramedController openScene(Class<? extends Initializable> controller) throws IOException {
@@ -184,10 +186,6 @@ public class Client extends Application {
 			miniHttp.start();
 		}
 
-		synchronized (barrier) {
-			barrier.notify();
-		}
-
 		// Bridges to the common client network code
 		bridge = new Bridge();
 
@@ -224,8 +222,26 @@ public class Client extends Application {
 		primaryScene.setResizable(true);
 
 		// Finalise and show
+		Configuration cfg = Configuration.getDefault();
+		int x = cfg.xProperty().get();
+		int y = cfg.yProperty().get();
+		int h = cfg.hProperty().get();
+		int w = cfg.wProperty().get();
+		if (h == 0 && w == 0) {
+			primaryStage.setWidth(700);
+			primaryStage.setHeight(640);
+		} else {
+			primaryStage.setX(x);
+			primaryStage.setY(y);
+			primaryStage.setWidth(w);
+			primaryStage.setHeight(h);
+		}
 		primaryStage.setScene(primaryScene);
 		primaryStage.show();
+		primaryStage.xProperty().addListener((c, o, n) -> cfg.xProperty().set(n.intValue()));
+		primaryStage.yProperty().addListener((c, o, n) -> cfg.yProperty().set(n.intValue()));
+		primaryStage.widthProperty().addListener((c, o, n) -> cfg.wProperty().set(n.intValue()));
+		primaryStage.heightProperty().addListener((c, o, n) -> cfg.hProperty().set(n.intValue()));
 
 		primaryStage.onCloseRequestProperty().set(we -> {
 			confirmExit();
@@ -308,11 +324,13 @@ public class Client extends Application {
 	}
 
 	protected void installAllTrustingCertificateVerifier() {
-		NaiveTrustProvider.setAlwaysTrust(true);
+
+		Security.insertProviderAt(new ClientTrustProvider(), 1);
+		Security.setProperty("ssl.TrustManagerFactory.algorithm", ClientTrustProvider.TRUST_PROVIDER_ALG);
 
 		try {
 			SSLContext sc = SSLContext.getInstance("SSL");
-			sc.init(null, new TrustManager[] { new NaiveTrustManager() }, new java.security.SecureRandom());
+			sc.init(null, new TrustManager[] { this }, new java.security.SecureRandom());
 			HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
 		} catch (GeneralSecurityException e) {
 		}
@@ -320,12 +338,33 @@ public class Client extends Application {
 		// Create all-trusting host name verifier
 		HostnameVerifier allHostsValid = new HostnameVerifier() {
 			public boolean verify(String hostname, SSLSession session) {
+				System.out.println("VERIFY HOSTNAME:" + hostname + " : " + session);
 				return true;
 			}
 		};
 
 		// Install the all-trusting host verifier
 		HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+	}
+
+	@Override
+	public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+		System.out.println("checkServerTrusted " + authType);
+		for(X509Certificate c : chain) {
+			System.out.println("  checkServerTrusted cert " + c.toString());
+			c.checkValidity();
+		}
+	}
+
+	@Override
+	public X509Certificate[] getAcceptedIssuers() {
+		X509Certificate[] NO_CERTS = new X509Certificate[0];
+		return NO_CERTS;
 	}
 
 }

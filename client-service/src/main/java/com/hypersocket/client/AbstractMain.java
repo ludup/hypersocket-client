@@ -99,7 +99,6 @@ public abstract class AbstractMain<S extends ClientService, L extends LocalConte
 		if (log.isInfoEnabled()) {
 			log.info("RMI PATH: " + rmiPath);
 		}
-		System.getProperties().list(System.err);
 		if (rmiPath != null) {
 			rmiPropertiesFile = new File(rmiPath);
 		} else if (Boolean.getBoolean("hypersocket.development")) {
@@ -371,7 +370,7 @@ public abstract class AbstractMain<S extends ClientService, L extends LocalConte
 		File logs = new File("logs");
 		logs.mkdirs();
 
-		PropertyConfigurator.configureAndWatch("conf" + File.separator + "log4j.properties");
+		PropertyConfigurator.configureAndWatch(System.getProperty("hypersocket.logConfiguration", "conf" + File.separator + "log4j.properties"));
 
 		System.setProperty("java.rmi.server.hostname", "localhost");
 

@@ -10,6 +10,8 @@ import com.logonbox.vpn.client.LogonBoxVPNContext;
 import com.logonbox.vpn.client.service.LogonBoxVPNSession;
 
 public interface PlatformService {
+	
+	String[] getMissingPackages();
 
 	VirtualInetAddress add(String name, String type) throws IOException;
 
