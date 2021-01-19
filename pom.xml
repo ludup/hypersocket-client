@@ -291,10 +291,10 @@
 		<repository>
 			<id>opensource-snapshots</id>
 			<url>http://artifactory.javassh.com/opensource-snapshots</url>
-			<releases />
-			<snapshots>
+			<snapshots />
+			<releases>
 				<enabled>false</enabled>
-			</snapshots>
+			</releases>
 		</repository>
 		<repository>
 			<id>sonatype-oss-snapshots</id>
