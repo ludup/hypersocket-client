@@ -289,8 +289,8 @@
 
 	<repositories>
 		<repository>
-			<id>public-snapshots</id>
-			<url>http://artifactory.javassh.com/public-snapshots-local</url>
+			<id>opensource-snapshots</id>
+			<url>http://artifactory.javassh.com/opensource-snapshots</url>
 			<releases />
 			<snapshots>
 				<enabled>false</enabled>
