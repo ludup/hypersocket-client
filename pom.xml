@@ -289,6 +289,14 @@
 
 	<repositories>
 		<repository>
+			<id>public-snapshots</id>
+			<url>http://artifactory.javassh.com/public-snapshots-local</url>
+			<releases />
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+		<repository>
 			<id>sonatype-oss-snapshots</id>
 			<releases>
 				<enabled>false</enabled>
