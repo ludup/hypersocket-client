@@ -10,11 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.Prompt;
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
-import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.logonbox.vpn.client.gui.jfx.Bridge.Listener;
+import com.logonbox.vpn.common.client.Connection;
 
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -89,10 +87,6 @@ public class AbstractController implements FramedController, Listener {
 	}
 
 	@Override
-	public void loadResources(Connection connection) {
-	}
-
-	@Override
 	public void disconnecting(Connection connection) {
 	}
 
@@ -137,10 +131,6 @@ public class AbstractController implements FramedController, Listener {
 
 	@Override
 	public void initDone(boolean restart, String errorMessage) {
-	}
-
-	@Override
-	public void updateResource(ResourceUpdateType type, Resource resource) {
 	}
 
 	protected void walkTree(Object node, Consumer<Object> visitor) {

@@ -33,15 +33,12 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import com.hypersocket.client.Prompt;
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.rmi.ConnectionService;
-import com.hypersocket.client.rmi.ConnectionStatus;
-import com.hypersocket.client.rmi.GUICallback;
-import com.hypersocket.client.rmi.Util;
 import com.logonbox.vpn.client.gui.jfx.Bridge.Listener;
-import com.logonbox.vpn.common.client.PeerConfiguration;
-import com.logonbox.vpn.common.client.PeerConfigurationImpl;
-import com.logonbox.vpn.common.client.PeerConfigurationService;
+import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.GUICallback;
+import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionService;
+import com.logonbox.vpn.common.client.Util;
 import com.sshtools.twoslices.Toast;
 import com.sshtools.twoslices.ToastType;
 
@@ -416,19 +413,17 @@ public class UI extends AbstractController implements Listener {
 
 		try {
 			Connection sel = getSelectedConnection();
-			PeerConfigurationService srv = context.getBridge().getPeerConfigurationService();
 			Element rootEl = webView.getEngine().getDocument().getDocumentElement();
-			PeerConfiguration cfg = sel == null ? null : srv.getConfiguration(sel);
 			Map<Node, Collection<Node>> newNodes = new HashMap<>();
 			Set<Node> removeNodes = new HashSet<>();
-			dataAttributes(rootEl, cfg, sel, newNodes, removeNodes);
-			for(Map.Entry<Node, Collection<Node>> en : newNodes.entrySet()) {
-				for(Node n : en.getValue())
+			dataAttributes(rootEl, sel, sel, newNodes, removeNodes);
+			for (Map.Entry<Node, Collection<Node>> en : newNodes.entrySet()) {
+				for (Node n : en.getValue())
 					en.getKey().appendChild(n);
 			}
-			for(Node n : removeNodes)
+			for (Node n : removeNodes)
 				n.getParentNode().removeChild(n);
-			
+
 			collections.clear();
 			lastException = null;
 			lastErrorMessage = null;
@@ -438,7 +433,7 @@ public class UI extends AbstractController implements Listener {
 		}
 	}
 
-	protected void dataAttributes(Element node, PeerConfiguration cfg, Connection connection,
+	protected void dataAttributes(Element node, Connection cfg, Connection connection,
 			Map<Node, Collection<Node>> newNodes, Set<Node> removeNodes) {
 
 		String errorText = "";
@@ -529,7 +524,7 @@ public class UI extends AbstractController implements Listener {
 					node.setTextContent(attrVal);
 				} else if (attr.getNodeName().equals("data-collection")) {
 					Collection<String> collection = collections.get(val);
-					if(collection == null)
+					if (collection == null)
 						log.warn(String.format("No collection named %s", val));
 					else {
 						List<Node> newCollectionNodes = new ArrayList<>();
@@ -575,16 +570,10 @@ public class UI extends AbstractController implements Listener {
 	protected void connect(Connection n) {
 		try {
 			if (n != null) {
-				PeerConfiguration peerConfiguration = context.getBridge().getPeerConfigurationService()
-						.getConfiguration(n);
-				if (peerConfiguration == null) {
-					setHtmlPage("new.html");
-				} else {
-					if (context.getBridge().getClientService().isConnected(n))
-						joinedNetwork();
-					else
-						unjoined();
-				}
+				if (context.getBridge().getClientService().isConnected(n))
+					joinedNetwork();
+				else
+					unjoined();
 			}
 		} catch (Exception e) {
 			showError("Failed to connect.", e);
@@ -721,7 +710,7 @@ public class UI extends AbstractController implements Listener {
 
 	protected void addConnection(Boolean connectAtStartup, String server) {
 		try {
-			ConnectionService connectionService = context.getBridge().getConnectionService();
+			ConnectionService connectionService = context.getBridge().getPeerConfigurationService();
 
 //		if (sameNameCheck(null, (conId) -> {
 //			try {
@@ -735,7 +724,7 @@ public class UI extends AbstractController implements Listener {
 
 			URI uriObj = Util.getUri(server);
 
-			final Connection connection = context.getBridge().getConnectionService().createNew(uriObj);
+			final Connection connection = connectionService.createNew(uriObj);
 
 //		if (sameHostPortPathCheck(null, (conId) -> {
 //			try {
@@ -771,7 +760,7 @@ public class UI extends AbstractController implements Listener {
 
 	protected void editConnection(Boolean connectAtStartup, String server, Connection connection) {
 		try {
-			ConnectionService connectionService = context.getBridge().getConnectionService();
+			ConnectionService connectionService = context.getBridge().getPeerConfigurationService();
 			connection.setName(server);
 			URI uriObj = Util.getUri(server);
 			connection.setHostname(uriObj.getHost());
@@ -807,13 +796,8 @@ public class UI extends AbstractController implements Listener {
 					/* We have a connection, a peer configuration and are connected! */
 					setHtmlPage("joined.html");
 				} else {
-					PeerConfiguration peer = context.getBridge().getPeerConfigurationService().getConfiguration(sel);
-					if (peer == null)
-						/* We have a Connection, but not PeerConfiguration */
-						setHtmlPage("new.html");
-					else
-						/* We have both, but are not currently connected */
-						setHtmlPage("join.html");
+					/* We have both, but are not currently connected */
+					setHtmlPage("join.html");
 				}
 			}
 		} catch (Exception e) {
@@ -822,12 +806,9 @@ public class UI extends AbstractController implements Listener {
 
 	}
 
-	private void configure(String usernameHint, String configIniFile, Connection connection) {
+	private void configure(String usernameHint, String configIniFile, Connection config) {
 		try {
 			Ini ini = new Ini(new StringReader(configIniFile));
-			PeerConfiguration config = new PeerConfigurationImpl();
-			config.setConnection(connection);
-			config.setId(connection.getId());
 			config.setUsernameHint(usernameHint);
 
 			/* Interface (us) */
@@ -849,7 +830,7 @@ public class UI extends AbstractController implements Listener {
 
 			context.getBridge().getPeerConfigurationService().add(config);
 
-			joinNetwork(connection);
+			joinNetwork(config);
 
 		} catch (Exception e) {
 			showError("Failed to configure connection.", e);
@@ -925,8 +906,7 @@ public class UI extends AbstractController implements Listener {
 
 	private void doDelete(Connection sel) throws RemoteException {
 		log.info(String.format("Deleting connection %s", sel));
-		context.getBridge().getConnectionService().delete(sel);
-		context.getBridge().getConnectionService().removeCredentials(sel.getHostname());
+		context.getBridge().getPeerConfigurationService().delete(sel);
 		try {
 			ObservableList<Connection> items = connections.getItems();
 			items.remove(sel);
@@ -1056,7 +1036,7 @@ public class UI extends AbstractController implements Listener {
 
 	private List<Connection> getConnections() {
 		try {
-			return context.getBridge().getConnectionService().getConnections();
+			return context.getBridge().getPeerConfigurationService().getConnections();
 		} catch (RemoteException e) {
 			throw new IllegalStateException(e.getMessage(), e);
 		}

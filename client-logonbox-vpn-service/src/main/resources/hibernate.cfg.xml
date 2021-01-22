@@ -38,9 +38,8 @@
 		
         <property name="hibernate.connection.autocommit">true</property>
 		
-		<mapping class="com.hypersocket.client.rmi.ConnectionImpl"/>
-		<mapping class="com.hypersocket.client.rmi.ConfigurationItemImpl"/>
-		<mapping class="com.logonbox.vpn.common.client.PeerConfigurationImpl"/>
+		<mapping class="com.logonbox.vpn.common.client.ConnectionImpl"/>
+		<mapping class="com.logonbox.vpn.common.client.ConfigurationItemImpl"/>
 		
 		
     </session-factory>

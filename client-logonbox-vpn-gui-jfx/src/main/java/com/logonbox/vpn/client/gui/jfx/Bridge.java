@@ -18,17 +18,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.Prompt;
-import com.hypersocket.client.rmi.ApplicationLauncherTemplate;
-import com.hypersocket.client.rmi.ClientService;
-import com.hypersocket.client.rmi.ConfigurationService;
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.rmi.ConnectionService;
-import com.hypersocket.client.rmi.ConnectionStatus;
-import com.hypersocket.client.rmi.GUICallback;
-import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionPlace;
-import com.logonbox.vpn.common.client.PeerConfigurationService;
+import com.logonbox.vpn.common.client.ClientService;
+import com.logonbox.vpn.common.client.ConfigurationService;
+import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.GUICallback;
+import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionService;
 
 import javafx.application.Platform;
 
@@ -37,18 +34,15 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 	static Logger log = LoggerFactory.getLogger(Bridge.class);
 
-	private ConnectionService connectionService;
 	private ClientService clientService;
 	private ConfigurationService configurationService;
 	private boolean connected;
 	private List<Listener> listeners = new ArrayList<>();
-	private PeerConfigurationService peerConfigurationService;
+	private ConnectionService connectionService;
 
 	static int failedConnectionAttempts = 0;
 	
 	public interface Listener {
-
-		void loadResources(Connection connection);
 
 		void connecting(Connection connection);
 
@@ -82,8 +76,6 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		void updateFailure(String app, String message);
 
 		void extensionUpdateComplete(String app, ExtensionDefinition def);
-
-		void updateResource(ResourceUpdateType type, Resource resource);
 	}
 	
 	@Override
@@ -117,12 +109,8 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		listeners.add(l);
 	}
 
-	public ConnectionService getConnectionService() {
+	public ConnectionService getPeerConfigurationService() {
 		return connectionService;
-	}
-
-	public PeerConfigurationService getPeerConfigurationService() {
-		return peerConfigurationService;
 	}
 
 	public ClientService getClientService() {
@@ -143,7 +131,10 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		FileInputStream in;
 		try {
 			String path;
-			if (Boolean.getBoolean("hypersocket.development")) {
+			if(System.getProperty("hypersocket.rmi") != null)  {
+				path = System.getProperty("hypersocket.rmi");
+			}
+			else if (Boolean.getBoolean("hypersocket.development")) {
 				path = System.getProperty("user.home")
 						+ File.separator + ".logonbox" + File.separator
 						+ "conf" + File.separator
@@ -173,16 +164,13 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 			
 			Registry registry = LocateRegistry.getRegistry(port);
 
-			connectionService = (ConnectionService) registry
-					.lookup("connectionService");
-
 			configurationService = (ConfigurationService) registry
 					.lookup("configurationService");
 
-			peerConfigurationService = (PeerConfigurationService) registry
-					.lookup("peerConfigurationService");
+			connectionService = (ConnectionService) registry
+					.lookup("connectionService");
 
-			clientService = (ClientService) registry.lookup("logonBoxVPNClientService");
+			clientService = (ClientService) registry.lookup("clientService");
 			
 			clientService.registerGUI(this);
 			failedConnectionAttempts = 0;
@@ -290,13 +278,6 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		return null;
 	}
 
-	@Override
-	public int executeAsUser(ApplicationLauncherTemplate launcherTemplate,
-			String clientUsername, String connectedHostname)
-			throws RemoteException {
-		return 0;
-	}
-
 	public void disconnect(Connection connection) throws RemoteException {
 		for (Listener l : new ArrayList<Listener>(listeners)) {
 			l.disconnecting(connection);
@@ -345,14 +326,6 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		log.info("Connection " + connection + " is now ready");
 		for (Listener l : new ArrayList<Listener>(listeners)) {
 			l.finishedConnecting(connection, null);
-		}
-	}
-
-	@Override
-	public void loadResources(Connection connection) throws RemoteException {
-		log.info("Connection " + connection + " should load resources");
-		for (Listener l : new ArrayList<Listener>(listeners)) {
-			l.loadResources(connection);
 		}
 	}
 
@@ -523,19 +496,6 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 		catch(RemoteException re) {
 			return false;
 		}
-	}
-
-	@Override
-	public void updateResource(Connection connection, ResourceUpdateType type, Resource resource)
-			throws RemoteException {
-		Platform.runLater(new Runnable() {
-			@Override
-			public void run() {
-				for (Listener l : new ArrayList<Listener>(listeners)) {
-					l.updateResource(type, resource);
-				}
-			}
-		});
 	}
 
 	@Override

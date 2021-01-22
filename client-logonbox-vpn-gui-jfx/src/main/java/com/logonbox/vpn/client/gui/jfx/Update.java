@@ -6,8 +6,8 @@ import java.text.MessageFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.rmi.GUICallback;
+import com.logonbox.vpn.common.client.GUICallback;
+import com.logonbox.vpn.common.client.Connection;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;

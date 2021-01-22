@@ -6,7 +6,7 @@ import java.net.NetworkInterface;
 import java.util.Collection;
 import java.util.List;
 
-import com.logonbox.vpn.client.LogonBoxVPNContext;
+import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.LogonBoxVPNSession;
 
 public interface PlatformService {
@@ -29,7 +29,7 @@ public interface PlatformService {
 
 	String genkey(String privateKey);
 
-	Collection<LogonBoxVPNSession> start(LogonBoxVPNContext ctx);
+	Collection<LogonBoxVPNSession> start(LocalContext ctx);
 
 	String getPublicKey(String interfaceName) throws IOException;
 

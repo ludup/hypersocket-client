@@ -32,7 +32,6 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hypersocket.client.CredentialCache.Credential;
 import com.hypersocket.client.i18n.I18N;
 import com.hypersocket.json.JsonPrincipal;
 
@@ -260,12 +259,6 @@ public abstract class HypersocketClient<T> {
 		int attempts = maxAttempts;
 		boolean attemptedCached = false;
 		List<Prompt> prompts = new ArrayList<Prompt>();
-		Credential credential = CredentialCache.getInstance().getCredentials(transport.getHost());
-		if(credential!=null) {
-			params.put("username", credential.username);
-			params.put("password", credential.password);
-			attemptedCached = true;
-		}
 		
 		while (!isLoggedOn()) {
 
@@ -299,13 +292,6 @@ public abstract class HypersocketClient<T> {
 				if (results != null) {
 
 					params.putAll(results);
-					
-					if(params.containsKey("username") && params.containsKey("password") &&
-							!"false".equals(params.get("saveCredentials"))) {
-						CredentialCache.getInstance().saveCredentials(transport.getHost(), 
-								params.get("username"), 
-								params.get("password"));
-					}
 					
 				} else {
 					if(log.isInfoEnabled()) {

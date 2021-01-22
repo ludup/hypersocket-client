@@ -8,20 +8,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hypersocket.client.HypersocketClient;
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.service.AbstractClientServiceImpl;
-import com.hypersocket.client.service.ConnectionServiceImpl;
-import com.hypersocket.client.service.ConnectionServiceImpl.Listener;
-import com.logonbox.vpn.client.LogonBoxVPNContext;
-import com.logonbox.vpn.common.client.LogonBoxVPNClientService;
+import com.logonbox.vpn.client.LocalContext;
+import com.logonbox.vpn.client.service.vpn.ConnectionServiceImpl;
+import com.logonbox.vpn.client.service.vpn.ConnectionServiceImpl.Listener;
+import com.logonbox.vpn.common.client.Connection;
 
 public class LogonBoxVPNClientServiceImpl
-		extends AbstractClientServiceImpl<LogonBoxVPNClientContext, LogonBoxVPNSession, LogonBoxVPNContext>
-		implements Listener, LogonBoxVPNClientService {
+		extends AbstractClientServiceImpl
+		implements Listener {
 
 	static Logger log = LoggerFactory.getLogger(LogonBoxVPNClientServiceImpl.class);
 
-	public LogonBoxVPNClientServiceImpl(LogonBoxVPNContext ctx) {
+	public LogonBoxVPNClientServiceImpl(LocalContext ctx) {
 		super(ctx);
 		((ConnectionServiceImpl) ctx.getConnectionService()).addListener(this);
 
@@ -49,11 +47,11 @@ public class LogonBoxVPNClientServiceImpl
 	}
 
 	@Override
-	public LogonBoxVPNClientContext createClientContent(HypersocketClient<Connection> client) {
-		return new LogonBoxVPNClientContext() {
+	public ClientContext createClientContent(HypersocketClient<Connection> client) {
+		return new ClientContext() {
 
 			@Override
-			public LogonBoxVPNContext getLocalContext() {
+			public LocalContext getLocalContext() {
 				return getContext();
 			}
 

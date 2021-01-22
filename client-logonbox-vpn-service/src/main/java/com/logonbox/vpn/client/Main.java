@@ -7,22 +7,16 @@ import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.client.AbstractMain;
-import com.hypersocket.client.rmi.ResourceService;
 import com.logonbox.vpn.client.service.LogonBoxVPNClientServiceImpl;
-import com.logonbox.vpn.client.service.vpn.PeerConfigurationServiceImpl;
 import com.logonbox.vpn.client.wireguard.LinuxPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.OSXPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.client.wireguard.WindowsPlatformServiceImpl;
-import com.logonbox.vpn.common.client.LogonBoxVPNClientService;
-import com.logonbox.vpn.common.client.PeerConfigurationService;
+import com.logonbox.vpn.common.client.ClientService;
 
-public class Main extends AbstractMain<LogonBoxVPNClientService, LogonBoxVPNContext> implements LogonBoxVPNContext {
+public class Main extends AbstractMain {
 
 	static Logger log = LoggerFactory.getLogger(Main.class);
-
-	private PeerConfigurationServiceImpl peerConfigurationService;
 	private PlatformService platform;
 
 	public Main(Runnable restartCallback, Runnable shutdownCallback, String[] args) {
@@ -31,10 +25,6 @@ public class Main extends AbstractMain<LogonBoxVPNClientService, LogonBoxVPNCont
 
 	@Override
 	protected void createServices() throws RemoteException {
-
-		if (log.isInfoEnabled()) {
-			log.info("Creating Peer Configuration Service");
-		}
 
 		if (SystemUtils.IS_OS_LINUX) {
 			platform = new LinuxPlatformServiceImpl();
@@ -46,7 +36,6 @@ public class Main extends AbstractMain<LogonBoxVPNClientService, LogonBoxVPNCont
 			throw new UnsupportedOperationException(
 					String.format("%s not currently supported.", System.getProperty("os.name")));
 
-		peerConfigurationService = new PeerConfigurationServiceImpl(this);
 
 	}
 
@@ -58,15 +47,14 @@ public class Main extends AbstractMain<LogonBoxVPNClientService, LogonBoxVPNCont
 	@Override
 	protected void unpublishServices() {
 		try {
-			getRegistry().unbind("peerConfigurationService");
+			getRegistry().unbind("connectionService");
 		} catch (Exception e) {
 		}
 	}
 
 	@Override
 	protected void publishServices() throws Exception {
-		publishService(PeerConfigurationService.class, peerConfigurationService);
-		publishService(LogonBoxVPNClientService.class, getClientService());
+		publishService(ClientService.class, getClientService());
 	}
 
 	/**
@@ -113,20 +101,10 @@ public class Main extends AbstractMain<LogonBoxVPNClientService, LogonBoxVPNCont
 	@Override
 	protected void startServices() {
 		try {
-			peerConfigurationService.start();
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to start peer configuration service.", e);
-		}
-		try {
 			((LogonBoxVPNClientServiceImpl) getClientService()).start();
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to start client configuration service.", e);
 		}
-	}
-
-	@Override
-	public PeerConfigurationService getPeerConfigurationService() {
-		return peerConfigurationService;
 	}
 
 	@Override
@@ -137,11 +115,6 @@ public class Main extends AbstractMain<LogonBoxVPNClientService, LogonBoxVPNCont
 	@Override
 	public boolean start() {
 		return ((LogonBoxVPNClientServiceImpl) getClientService()).startService();
-	}
-
-	@Override
-	public ResourceService getResourceService() {
-		throw new UnsupportedOperationException();
 	}
 
 }

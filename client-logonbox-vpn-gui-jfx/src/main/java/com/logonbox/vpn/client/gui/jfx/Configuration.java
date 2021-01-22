@@ -9,7 +9,7 @@ import java.util.prefs.Preferences;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.hypersocket.client.rmi.Connection;
+import com.logonbox.vpn.common.client.Connection;
 
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;

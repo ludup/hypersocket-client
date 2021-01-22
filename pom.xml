@@ -50,16 +50,13 @@
 	</properties>
 
 	<modules>
-		<module>client-common</module>
 		<module>client-core</module>
 		<module>client-netty</module>
-		<module>client-service</module>
 		
 		<module>client-logonbox-vpn-service</module>
 		<module>client-logonbox-vpn-common</module>
 		<module>client-logonbox-vpn-gui-jfx</module>
-		
-		<module>client-cli</module>
+		<module>client-logonbox-vpn-cli</module>
 	</modules>
 
 	<dependencies>

@@ -11,18 +11,20 @@ import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.StringTokenizer;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.client.HypersocketClient;
+import com.hypersocket.client.HypersocketClientAdapter;
+import com.hypersocket.client.HypersocketClientListener;
 import com.hypersocket.client.UserCancelledException;
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.service.AbstractConnectionJob;
-import com.logonbox.vpn.client.LogonBoxVPNContext;
+import com.hypersocket.netty.NettyClientTransport;
+import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
-import com.logonbox.vpn.common.client.PeerConfiguration;
+import com.logonbox.vpn.common.client.Connection;
 import com.sshtools.forker.client.DefaultNonBlockingProcessListener;
 import com.sshtools.forker.client.ForkerBuilder;
 import com.sshtools.forker.client.ForkerProcess;
@@ -30,7 +32,7 @@ import com.sshtools.forker.client.NonBlockingProcess;
 import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.common.IO;
 
-public class LogonBoxVPNSession extends AbstractConnectionJob<LogonBoxVPNContext> implements Closeable {
+public class LogonBoxVPNSession extends AbstractConnectionJob implements Closeable {
 
 	public static final int MAX_INTERFACES = Integer.parseInt(System.getProperty("wireguard.maxInterfaces", "10"));
 
@@ -39,12 +41,24 @@ public class LogonBoxVPNSession extends AbstractConnectionJob<LogonBoxVPNContext
 	private List<String> allows;
 	private VirtualInetAddress ip;
 
-	public LogonBoxVPNSession(Connection connection, LogonBoxVPNContext localContext) {
+	private LocalContext localContext;
+	private Connection connection;
+
+	public LocalContext getLocalContext() {
+		return localContext;
+	}
+
+	public Connection getConnection() {
+		return connection;
+	}
+	
+	public LogonBoxVPNSession(Connection connection, LocalContext localContext) {
 		this(connection, localContext, null);
 	}
 
-	public LogonBoxVPNSession(Connection connection, LogonBoxVPNContext localContext, VirtualInetAddress ip) {
-		super(localContext, connection);
+	public LogonBoxVPNSession(Connection connection, LocalContext localContext, VirtualInetAddress ip) {
+		this.localContext = localContext;
+		this.connection = connection;
 		this.ip = ip;
 	}
 
@@ -65,19 +79,40 @@ public class LogonBoxVPNSession extends AbstractConnectionJob<LogonBoxVPNContext
 			log.info("Connecting to " + connection);
 		}
 
-		LogonBoxVPNContext cctx = getLocalContext();
+		LocalContext cctx = getLocalContext();
 		LogonBoxVPNClientServiceImpl clientServiceImpl = (LogonBoxVPNClientServiceImpl) cctx.getClientService();
+
+		HypersocketClientListener<Connection> listener = new HypersocketClientAdapter<Connection>() {
+			@Override
+			public void disconnected(HypersocketClient<Connection> client, boolean onError) {
+				clientServiceImpl.disconnected(connection, client);
+				log.info("Client has disconnected, informing GUI");
+				cctx.getGuiRegistry().disconnected(connection, onError ? "Error occured during connection." : null);
+				if (client.getAttachment().isStayConnected() && onError) {
+					try {
+						clientServiceImpl.scheduleConnect(connection);
+					} catch (RemoteException e1) {
+					}
+				}
+			}
+		};
+
+		ServiceClient client = null;
 		try {
-			PeerConfiguration config = cctx.getPeerConfigurationService().getConfiguration(connection);
-			if (config == null)
-				throw new IllegalStateException(
-						"There is no peer configuration associated with this connection, so the VPN may not be started.");
+			/*
+			 * This is the HTTPs connection to the server, it is effectively now only used
+			 * to get the current version for updates.
+			 */
+			client = new ServiceClient(new NettyClientTransport(cctx.getBoss(), cctx.getWorker()), clientServiceImpl,
+					Locale.getDefault(), listener, connection, cctx.getGuiRegistry());
+
+			client.connect(connection.getHostname(), connection.getPort(), connection.getPath(), Locale.getDefault());
 
 			if (log.isInfoEnabled()) {
-				log.info("Connected to " + config);
+				log.info("Connected to " + connection);
 			}
 
-			start(config);
+			start(connection);
 			cctx.getGuiRegistry().transportConnected(connection);
 
 			/*
@@ -88,10 +123,12 @@ public class LogonBoxVPNSession extends AbstractConnectionJob<LogonBoxVPNContext
 
 			/*
 			 * Now check for updates. If there are any, we don't start any plugins for this
-			 * connection, and the GUI will not be told to load its resources
+			 * connection
 			 */
-//			if (!clientService.update(connection, clientService)) {
-//				clientService.startPlugins(client);
+
+			clientServiceImpl.update(connection, client);
+//			if (!clientServiceImpl.update(connection, clientServiceImpl)) {
+//				clientServiceImpl.startPlugins(client);
 //			}
 			clientServiceImpl.finishedConnecting(connection, this);
 
@@ -103,21 +140,18 @@ public class LogonBoxVPNSession extends AbstractConnectionJob<LogonBoxVPNContext
 			clientServiceImpl.failedToConnect(connection, e);
 
 			if (!(e instanceof UserCancelledException)) {
-				if (StringUtils.isNotBlank(connection.getUsername())
-						&& StringUtils.isNotBlank(connection.getEncryptedPassword())) {
-					if (connection.isStayConnected()) {
-						try {
-							cctx.getClientService().scheduleConnect(connection);
-							return;
-						} catch (RemoteException e1) {
-						}
+				if (connection.isStayConnected()) {
+					try {
+						cctx.getClientService().scheduleConnect(connection);
+						return;
+					} catch (RemoteException e1) {
 					}
 				}
 			}
 		}
 	}
 
-	void start(PeerConfiguration configuration) throws IOException {
+	void start(Connection configuration) throws IOException {
 
 		/*
 		 * Look for wireguard interfaces that are available but not connected. If we
@@ -187,7 +221,7 @@ public class LogonBoxVPNSession extends AbstractConnectionJob<LogonBoxVPNContext
 		setRoutes(ip);
 	}
 
-	void write(PeerConfiguration configuration, Writer writer) {
+	void write(Connection configuration, Writer writer) {
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println("[Interface]");
 		pw.println(String.format("PrivateKey = %s", configuration.getUserPrivateKey()));
