@@ -78,5 +78,9 @@ public interface Connection {
 
 	void setAllowedIps(List<String> allowedIps);
 
+	boolean isAuthorized();
+
+	void deauthorize();
+
 
 }

@@ -90,6 +90,11 @@ public abstract class AbstractMain implements LocalContext {
 		return connectionService;
 	}
 
+	@Override
+	public ConfigurationService getConfigurationService() {
+		return configurationService;
+	}
+
 	boolean buildServices() throws RemoteException {
 		port = -1;
 

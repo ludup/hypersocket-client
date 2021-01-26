@@ -16,6 +16,8 @@ import javax.persistence.Id;
 import javax.persistence.Lob;
 import javax.persistence.Table;
 
+import org.apache.commons.lang3.StringUtils;
+
 @Entity
 @Table(name = "peer_configurations")
 public class ConnectionImpl implements Connection, Serializable {
@@ -26,25 +28,25 @@ public class ConnectionImpl implements Connection, Serializable {
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	private Long id;
 
-	@Column(nullable = false)
+	@Column(nullable = true)
 	private String usernameHint;
 
-	@Column(nullable = false)
+	@Column(nullable = true)
 	private String userPrivateKey;
 
-	@Column(nullable = false)
+	@Column(nullable = true)
 	private String userPublicKey;
 
-	@Column(nullable = false)
+	@Column(nullable = true)
 	private String publicKey;
 
-	@Column(nullable = false)
+	@Column(nullable = true)
 	private String address;
 
-	@Column(nullable = false)
+	@Column(nullable = true)
 	private String endpointAddress;
 
-	@Column(nullable = false)
+	@Column
 	private int endpointPort;
 
 	@Column(nullable = false)
@@ -322,6 +324,25 @@ public class ConnectionImpl implements Connection, Serializable {
 
 	public void setAllowedIps(List<String> allowedIps) {
 		this.allowedIps = allowedIps == null || allowedIps.size() == 0 ? null : String.join(",", allowedIps);
+	}
+
+	@Override
+	public boolean isAuthorized() {
+		return StringUtils.isNotBlank(endpointAddress) && StringUtils.isNotBlank(publicKey);
+	}
+
+	@Override
+	public void deauthorize() {
+		usernameHint = null;
+		publicKey = null;
+		address = null;
+		endpointAddress = null;
+		endpointPort = 0;
+		mtu = 0;
+		dns = null;
+		peristentKeepalive = 0;
+		allowedIps = null;
+
 	}
 
 }

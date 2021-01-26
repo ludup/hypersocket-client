@@ -302,11 +302,11 @@ public class GUIRegistryImpl implements GUIRegistry {
 	 * long)
 	 */
 	@Override
-	public void onUpdateStart(String app, long totalBytesExpected, Connection connection) {
+	public void onUpdateStart(String app, long totalBytesExpected) {
 		synchronized (lock) {
 			try {
 				if (gui != null && guiAttached) {
-					gui.onUpdateStart(app, totalBytesExpected, connection);
+					gui.onUpdateStart(app, totalBytesExpected);
 				}
 			} catch (RemoteException ex) {
 				failed(app, ex);
@@ -393,6 +393,15 @@ public class GUIRegistryImpl implements GUIRegistry {
 			log.error("Failed to inform GUI of update state change.", ex);
 		}
 		guiAttached = false;
+	}
+
+	@Override
+	public void showBrowser(Connection connection, String uri) throws RemoteException {
+		synchronized (lock) {
+			if (gui != null && guiAttached) {
+				gui.showBrowser(connection, uri);
+			}
+		}
 	}
 
 }

@@ -8,8 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.client.cli.CLI;
-import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 
 public class Delete extends AbstractConnectionCommand {
 	static Logger log = LoggerFactory.getLogger(CLI.class);
@@ -24,13 +24,13 @@ public class Delete extends AbstractConnectionCommand {
 			throw new IllegalArgumentException(String.format("No connection matches %s", pattern));
 		for(Connection connection : c) {
 			
-			int status;
+			Type status;
 			try {
 				status = cli.getClientService().getStatus(connection);
 			} catch (RemoteException e1) {
-				status = ConnectionStatus.DISCONNECTED;
+				status = Type.DISCONNECTED;
 			}
-			if (status != ConnectionStatus.DISCONNECTED) {
+			if (status != Type.DISCONNECTED) {
 				cli.getClientService().disconnect(connection);
 			}
 			

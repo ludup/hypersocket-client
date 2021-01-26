@@ -3,11 +3,7 @@ package com.logonbox.vpn.common.client;
 import java.io.Serializable;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.util.List;
-import java.util.Map;
-import java.util.ResourceBundle;
 
-import com.hypersocket.client.Prompt;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionPlace;
 
@@ -25,9 +21,8 @@ public interface GUICallback extends Serializable, Remote {
 	void unregistered() throws RemoteException;
 
 	void notify(String msg, int type) throws RemoteException;
-
-	Map<String, String> showPrompts(Connection connection, ResourceBundle resources, List<Prompt> prompts, int attempts, boolean success)
-			throws RemoteException;
+	
+	void showBrowser(Connection connection, String uri) throws RemoteException;
 
 	void disconnected(Connection connection, String errorMessage)
 			throws RemoteException;
@@ -43,7 +38,7 @@ public interface GUICallback extends Serializable, Remote {
 
 	void onUpdateInit(int expectedApps) throws RemoteException;
 	
-	void onUpdateStart(String app, long totalBytesExpected, Connection connection) throws RemoteException;
+	void onUpdateStart(String app, long totalBytesExpected) throws RemoteException;
 	
 	void onUpdateProgress(String app, long sincelastProgress, long totalSoFar, long totalBytesExpected) throws RemoteException;
 	

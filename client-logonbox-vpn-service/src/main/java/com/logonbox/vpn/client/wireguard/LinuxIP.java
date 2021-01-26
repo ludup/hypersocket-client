@@ -354,12 +354,12 @@ public class LinuxIP implements VirtualInetAddress {
 
 				if (tmtu == 0) {
 					/* Not found, try the default route */
-					for (String line : OSCommand.runCommandAndCaptureOutput("ip", "route", "show", "default")) {
+					for (String line : OSCommand.adminCommandAndCaptureOutput("ip", "route", "show", "default")) {
 						StringTokenizer t = new StringTokenizer(line);
 						while (t.hasMoreTokens()) {
 							String tk = t.nextToken();
 							if (tk.equals("dev")) {
-								for (String iline : OSCommand.runCommandAndCaptureOutput("ip", "link", "show", "dev",
+								for (String iline : OSCommand.adminCommandAndCaptureOutput("ip", "link", "show", "dev",
 										t.nextToken())) {
 									StringTokenizer it = new StringTokenizer(iline);
 									while (it.hasMoreTokens()) {

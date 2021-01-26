@@ -27,7 +27,7 @@ public interface PlatformService {
 
 	List<VirtualInetAddress> ips();
 
-	String genkey(String privateKey);
+	String pubkey(String privateKey);
 
 	Collection<LogonBoxVPNSession> start(LocalContext ctx);
 

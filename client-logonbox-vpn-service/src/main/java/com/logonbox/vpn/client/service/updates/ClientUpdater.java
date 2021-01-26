@@ -12,36 +12,32 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hypersocket.HypersocketVersion;
-import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.extensions.AbstractExtensionUpdater;
 import com.hypersocket.extensions.ExtensionHelper;
 import com.hypersocket.extensions.ExtensionPlace;
 import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.extensions.ExtensionVersion;
+import com.hypersocket.extensions.JsonExtensionPhase;
+import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.extensions.JsonExtensionUpdate;
 import com.hypersocket.utils.FileUtils;
 import com.hypersocket.utils.TrustModifier;
+import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.common.client.GUIRegistry;
-import com.logonbox.vpn.common.client.Connection;
 
 public class ClientUpdater extends AbstractExtensionUpdater {
 	static Logger log = LoggerFactory.getLogger(ClientUpdater.class);
 
 	private GUIRegistry gui;
-	private HypersocketClient<Connection> hypersocketClient;
 	private ExtensionTarget target;
 	private ExtensionPlace extensionPlace;
-	private Connection connection; // Will probably be used again
+	private LocalContext cctx;
 
-	public ClientUpdater(GUIRegistry gui, Connection connection,
-			HypersocketClient<Connection> hypersocketClient,
-			ExtensionPlace extensionPlace, ExtensionTarget target) {
+	public ClientUpdater(GUIRegistry gui, ExtensionPlace extensionPlace, ExtensionTarget target, LocalContext cctx) {
 		super();
-		this.connection = connection;
+		this.cctx = cctx;
 		this.gui = gui;
-		this.hypersocketClient = hypersocketClient;
 		this.extensionPlace = extensionPlace;
 		this.target = target;
 	}
@@ -57,15 +53,14 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 	@Override
 	protected void onUpdateStart(long totalBytesExpected) {
-		gui.onUpdateStart(extensionPlace.getApp(), totalBytesExpected, connection);
+		gui.onUpdateStart(extensionPlace.getApp(), totalBytesExpected);
 	}
 
 	@Override
 	protected void onUpdateProgress(long sincelastProgress, long totalSoFar, long totalBytesExpected) {
-		gui.onUpdateProgress(extensionPlace.getApp(), sincelastProgress,
-				totalSoFar,totalBytesExpected);
+		gui.onUpdateProgress(extensionPlace.getApp(), sincelastProgress, totalSoFar, totalBytesExpected);
 	}
-	
+
 	@Override
 	protected void onUpdateFailure(Throwable e) {
 		gui.onUpdateFailure(extensionPlace.getApp(), e);
@@ -88,29 +83,37 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 	@Override
 	protected Map<String, ExtensionVersion> onResolveExtensions(String version) throws IOException {
-		
-		ObjectMapper mapper = new ObjectMapper();
-		String update = hypersocketClient.getTransport().get("extensions/checkVersion");
-		JsonExtensionUpdate v =  mapper.readValue(update, JsonExtensionUpdate.class);
-		
-		return ExtensionHelper
-				.resolveExtensions(
-						true,
-						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
-						v.getResource().getRepos(),
-						v.getResource().getLatestVersion(),
-						HypersocketVersion.getSerial(),
-						"Hypersocket Client",
-						v.getResource().getCustomer(),
-						extensionPlace,
-						true,
-						null,
-						getUpdateTargets());
+		if (cctx.getClientService().isTrackServerVersion()) {
+			JsonExtensionUpdate v = cctx.getClientService().getUpdates();
+			return ExtensionHelper.resolveExtensions(true,
+					FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
+					v.getResource().getRepos(), v.getResource().getLatestVersion(), HypersocketVersion.getSerial(),
+					"Hypersocket Client", v.getResource().getCustomer(), extensionPlace, true, null,
+					getUpdateTargets());
+		} else {
+			JsonExtensionPhaseList v = cctx.getClientService().getPhases();
+			String configuredPhase = cctx.getConfigurationService().getValue("phase", "");
+			JsonExtensionPhase phase = null;
+			if (!configuredPhase.equals("")) {
+				phase = v.getResultByName(configuredPhase);
+			}
+			if (phase == null) {
+				phase = v.getFirstResult();
+			}
+			if (phase == null) {
+				throw new IOException("No extension phases discovered, updates will not be possible.");
+			}
+
+			return ExtensionHelper.resolveExtensions(true,
+					FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
+					new String[] { "hypersocket-client" }, phase.getVersion(), HypersocketVersion.getSerial(),
+					"Hypersocket Client", "Public", extensionPlace, true, null, getUpdateTargets());
+		}
 	}
 
 	@Override
 	protected void onExtensionUpdateComplete(ExtensionVersion def) {
-		
+
 	}
 
 	@Override
@@ -135,6 +138,6 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 	@Override
 	protected boolean getInstallMandatoryExtensions() {
-		return true;
+		return "true".equals(System.getProperty("logonbox.vpn.updater.installMandatoryExtensions", "true"));
 	}
 }

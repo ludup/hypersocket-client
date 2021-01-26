@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import java.lang.String?>
 <?import javafx.scene.control.Hyperlink?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
@@ -13,7 +14,7 @@
 	<children>
 		<BorderPane>
 			<top>
-				<BorderPane fx:id="header" styleClass="titleBar" BorderPane.alignment="CENTER">
+				<BorderPane fx:id="header" BorderPane.alignment="CENTER">
 					<right>
 						<HBox BorderPane.alignment="CENTER">
 							<children>
@@ -41,6 +42,10 @@
 					<center>
 						<Label alignment="CENTER" styleClass="title" text="%title" textAlignment="CENTER" BorderPane.alignment="CENTER" />
 					</center>
+               <styleClass>
+                  <String fx:value="titleBar" />
+                  <String fx:value="inverse" />
+               </styleClass>
 				</BorderPane>
 			</top>
          <center>
@@ -48,8 +53,11 @@
                <children>
       				<WebView fx:id="webView" prefHeight="400.0" prefWidth="400.0" />
       				<BorderPane fx:id="sidebar" maxWidth="-Infinity" minWidth="200.0" visible="false" StackPane.alignment="CENTER_LEFT">
-      					<bottom>
-      						<BorderPane BorderPane.alignment="CENTER">
+                     <center>
+								<ListView fx:id="connections" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+                     </center>
+                     <top>
+      						<BorderPane styleClass="inverse" BorderPane.alignment="CENTER">
       							<center>
       								<HBox>
       									<children>
@@ -58,14 +66,16 @@
                                           <FontIcon iconLiteral="fa-plus" iconSize="22" />
                                        </graphic>
       										</Hyperlink>
+                                    <Hyperlink fx:id="options" onAction="#evtOptions" text="%options">
+                                       <graphic>
+                                          <FontIcon iconLiteral="fa-gears" iconSize="22" />
+                                       </graphic>
+                                    </Hyperlink>
       									</children>
       								</HBox>
       							</center>
       						</BorderPane>
-      					</bottom>
-                     <center>
-								<ListView fx:id="connections" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
-                     </center>
+                     </top>
       				</BorderPane>
                </children>
             </StackPane>

@@ -32,7 +32,7 @@ public interface GUIRegistry {
 	void onUpdateProgress(String app, long sincelastProgress,
 			long totalSoFar, long totalBytesExpected);
 
-	void onUpdateStart(String app, long totalBytesExpected, Connection connection);
+	void onUpdateStart(String app, long totalBytesExpected);
 
 	void onUpdateInit(int apps) throws RemoteException;
 
@@ -42,5 +42,7 @@ public interface GUIRegistry {
 
 	void onUpdateDone(boolean restart, String failureMessage)
 			throws RemoteException;
+
+	void showBrowser(Connection connection, String string) throws RemoteException;
 
 }

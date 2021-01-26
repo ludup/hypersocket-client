@@ -36,7 +36,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 	}
 
 	@Override
-	public final  String genkey(String privateKey) {
+	public final  String pubkey(String privateKey) {
 		ForkerBuilder b = new ForkerBuilder(getWGCommand(), "pubkey");
 		b.effectiveUser(EffectiveUserFactory.getDefault().administrator());
 		b.redirectErrorStream(true);
@@ -148,7 +148,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		 * connected. When we find some, find the associated Peer Configuration /
 		 * Connection objects so we can populate the in-memory map of active sessions.
 		 */
-		LOG.info("Looking for existing wireguard interaces.");
+		LOG.info("Looking for existing wireguard interfaces.");
 		List<LogonBoxVPNSession> sessions = new ArrayList<>();
 		for (int i = 0; i < LogonBoxVPNSession.MAX_INTERFACES; i++) {
 			String name = getWGCommand() + i;

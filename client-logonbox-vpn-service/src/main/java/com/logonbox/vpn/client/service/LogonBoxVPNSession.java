@@ -80,7 +80,7 @@ public class LogonBoxVPNSession extends AbstractConnectionJob implements Closeab
 		}
 
 		LocalContext cctx = getLocalContext();
-		LogonBoxVPNClientServiceImpl clientServiceImpl = (LogonBoxVPNClientServiceImpl) cctx.getClientService();
+		ClientServiceImpl clientServiceImpl = (ClientServiceImpl) cctx.getClientService();
 
 		HypersocketClientListener<Connection> listener = new HypersocketClientAdapter<Connection>() {
 			@Override
@@ -114,22 +114,7 @@ public class LogonBoxVPNSession extends AbstractConnectionJob implements Closeab
 
 			start(connection);
 			cctx.getGuiRegistry().transportConnected(connection);
-
-			/*
-			 * Tell the GUI we are now completely connected. The GUI should NOT yet load any
-			 * resources, as we need to check if there are any updates to do firstContext
-			 */
 			cctx.getGuiRegistry().ready(connection);
-
-			/*
-			 * Now check for updates. If there are any, we don't start any plugins for this
-			 * connection
-			 */
-
-			clientServiceImpl.update(connection, client);
-//			if (!clientServiceImpl.update(connection, clientServiceImpl)) {
-//				clientServiceImpl.startPlugins(client);
-//			}
 			clientServiceImpl.finishedConnecting(connection, this);
 
 		} catch (Throwable e) {
@@ -242,7 +227,7 @@ public class LogonBoxVPNSession extends AbstractConnectionJob implements Closeab
 		/* Set routes from the known allowed-ips supplies by Wireguard. */
 		allows = new ArrayList<>();
 
-		for (String s : OSCommand.runCommandAndCaptureOutput("wg", "show", ip.getName(), "allowed-ips")) {
+		for (String s : OSCommand.adminCommandAndCaptureOutput("wg", "show", ip.getName(), "allowed-ips")) {
 			StringTokenizer t = new StringTokenizer(s);
 			if (t.hasMoreTokens()) {
 				t.nextToken();

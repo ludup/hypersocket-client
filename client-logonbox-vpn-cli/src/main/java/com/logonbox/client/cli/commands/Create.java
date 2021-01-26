@@ -9,8 +9,8 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.client.cli.CLI;
 import com.logonbox.client.cli.Command;
-import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 
 public class Create implements Command {
 	static Logger log = LoggerFactory.getLogger(CLI.class);
@@ -61,13 +61,13 @@ public class Create implements Command {
 		cli.getClientService().connect(cli.getConnectionService().save(connection));
 
 		if (!cli.getCommandLine().hasOption("b")) {
-			int status;
+			Type status;
 			do {
 				Thread.sleep(500);
 				status = cli.getClientService().getStatus(connection);
-			} while (status == ConnectionStatus.CONNECTING);
+			} while (status == Type.CONNECTING);
 
-			if (status == ConnectionStatus.DISCONNECTED) {
+			if (status == Type.DISCONNECTED) {
 				System.out.println(String.format("Error: Failed to authenticate to %s", connection.getHostname()));
 				cli.getConnectionService().delete(connection);
 			} else {

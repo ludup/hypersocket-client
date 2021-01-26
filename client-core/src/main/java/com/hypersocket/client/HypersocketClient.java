@@ -246,73 +246,6 @@ public abstract class HypersocketClient<T> {
 
 	}
 
-	public void login() throws IOException, UserCancelledException {
-
-		Map<String, String> params = new HashMap<String, String>();
-
-		/**
-		 * Reset authentication with client scheme
-		 */
-//		String json = transport.post("logon", params);
-		
-		int maxAttempts = 3;
-		int attempts = maxAttempts;
-		boolean attemptedCached = false;
-		List<Prompt> prompts = new ArrayList<Prompt>();
-		
-		while (!isLoggedOn()) {
-
-			if(attempts==0) {
-				if(log.isInfoEnabled()) {
-					log.info(String.format("%s too many authentication attempts", transport.getHost()));
-				}
-				disconnect(false);
-				throw new IOException("Too many failed authentication attempts");
-			}
-			
-			String json = transport.post("logon/hypersocketClient", params);
-			
-			params.clear();
-			boolean success = processLogon(json, params, prompts);
-			if(!success) {
-				if(!attemptedCached) {
-					attempts--;
-				}
-				attemptedCached = false;
-			}
-			if (!isLoggedOn() && prompts.size() > 0) {
-				
-				// If failed, and it's not the very first attempt (i.e. the one that triggers username and password entry), show an error
-				if(!success) {
-					showError("Incorrect username or password.");
-				}
-				
-				Map<String, String> results  = showLogin(this, prompts, attempts, success);
-				
-				if (results != null) {
-
-					params.putAll(results);
-					
-				} else {
-					if(log.isInfoEnabled()) {
-						log.info(String.format("%s user cancelled authentication", transport.getHost()));
-					}
-					disconnect(false);
-					throw new UserCancelledException("User has cancelled authentication");
-				}
-			}
-		}
-		
-		if (log.isInfoEnabled()) {
-			log.info("Logon complete sessionId=" + getSessionId());
-		}
-
-		postLogin();
-		
-		onConnected();
-	}
-	
-
 	protected abstract void onConnected();
 	
 	private void postLogin() {
@@ -441,8 +374,6 @@ public abstract class HypersocketClient<T> {
 
 		return transport.get("realm/" + name);
 	}
-	
-	protected abstract Map<String, String> showLogin(HypersocketClient<T> attached, List<Prompt> prompts, int attempt, boolean success) throws IOException;
 	
 	public abstract void showWarning(String msg);
 

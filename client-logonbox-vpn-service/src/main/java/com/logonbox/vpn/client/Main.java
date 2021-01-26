@@ -7,7 +7,7 @@ import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.logonbox.vpn.client.service.LogonBoxVPNClientServiceImpl;
+import com.logonbox.vpn.client.service.ClientServiceImpl;
 import com.logonbox.vpn.client.wireguard.LinuxPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.OSXPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
@@ -40,8 +40,8 @@ public class Main extends AbstractMain {
 	}
 
 	@Override
-	protected LogonBoxVPNClientServiceImpl createServiceImpl() {
-		return new LogonBoxVPNClientServiceImpl(this);
+	protected ClientServiceImpl createServiceImpl() {
+		return new ClientServiceImpl(this);
 	}
 
 	@Override
@@ -76,10 +76,10 @@ public class Main extends AbstractMain {
 		public void run() {
 
 			if (log.isInfoEnabled()) {
-				log.info("There is no restart mechanism available. Shutting down");
+				log.info("Shutting down with forker restart code.");
 			}
 
-			System.exit(0);
+			System.exit(90);
 		}
 
 	}
@@ -101,7 +101,7 @@ public class Main extends AbstractMain {
 	@Override
 	protected void startServices() {
 		try {
-			((LogonBoxVPNClientServiceImpl) getClientService()).start();
+			((ClientServiceImpl) getClientService()).start();
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to start client configuration service.", e);
 		}
@@ -114,7 +114,7 @@ public class Main extends AbstractMain {
 
 	@Override
 	public boolean start() {
-		return ((LogonBoxVPNClientServiceImpl) getClientService()).startService();
+		return ((ClientServiceImpl) getClientService()).startService();
 	}
 
 }

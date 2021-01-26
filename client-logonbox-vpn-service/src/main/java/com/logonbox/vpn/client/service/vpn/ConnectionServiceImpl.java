@@ -25,6 +25,16 @@ import com.logonbox.vpn.common.client.ConnectionService;
 import com.logonbox.vpn.common.client.Util;
 
 public class ConnectionServiceImpl implements ConnectionService {
+	
+	public interface Listener {
+		void connectionAdding(Connection connection, Session session);
+		
+		void connectionAdded(Connection connection, Session session);
+		
+		void connectionRemoving(Connection connection, Session session);
+
+		void connectionRemoved(Connection connection, Session session);
+	}
 
 	static Logger log = LoggerFactory.getLogger(ConnectionServiceImpl.class);
 	
@@ -47,21 +57,22 @@ public class ConnectionServiceImpl implements ConnectionService {
 //	}
 
 	@Override
-	public void add(Connection config) throws RemoteException {
-		if (config.getUserPublicKey() == null || config.getUserPublicKey().length() == 0) {
-			config.setUserPublicKey(context.getPlatformService().genkey(config.getUserPrivateKey()));
-		}
-
+	public Connection add(Connection config) throws RemoteException {
+		for(int i = listeners.size() - 1 ; i >= 0 ; i--)
+			listeners.get(i).connectionAdding(config, session);
 		Transaction trans = session.beginTransaction();
 		try {
 			session.save(config);
 			session.flush();
 			trans.commit();
+			for(int i = listeners.size() - 1 ; i >= 0 ; i--) 
+				listeners.get(i).connectionAdded(config, session);
 		} catch (Exception e) {
 			trans.rollback();
 			log.error("Failed to save.", e);
 			throw new RemoteException("Failed to save.", e);
 		}
+		return config;
 	}
 
 	@Override
@@ -78,14 +89,6 @@ public class ConnectionServiceImpl implements ConnectionService {
 		TypedQuery<Connection> typeQuery = session.createQuery(query);
 		List<Connection> results = typeQuery.getResultList();
 		return results.isEmpty() ? null : results.get(0);
-	}
-	
-
-
-	public interface Listener {
-		void connectionRemoving(Connection connection, Session session);
-
-		void connectionRemoved(Connection connection, Session session);
 	}
 
 	private List<Listener> listeners = new ArrayList<>();
@@ -119,7 +122,9 @@ public class ConnectionServiceImpl implements ConnectionService {
 
 	@Override
 	public Connection save(Connection connection) {
-
+		if (connection.getUserPublicKey() == null || connection.getUserPublicKey().length() == 0) {
+			connection.setUserPublicKey(context.getPlatformService().pubkey(connection.getUserPrivateKey()));
+		}
 		Transaction trans = session.beginTransaction();
 		Connection connectionSaved = null;
 

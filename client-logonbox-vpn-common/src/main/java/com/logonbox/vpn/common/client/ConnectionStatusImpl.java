@@ -6,10 +6,10 @@ public class ConnectionStatusImpl implements ConnectionStatus, Serializable {
 
 	private static final long serialVersionUID = 296406363321007200L;
 
-	int status;
+	Type status;
 	Connection connection;
 	
-	public ConnectionStatusImpl(Connection connection, int status) {
+	public ConnectionStatusImpl(Connection connection, Type status) {
 		this.connection = connection;
 		this.status = status;
 	}
@@ -20,7 +20,7 @@ public class ConnectionStatusImpl implements ConnectionStatus, Serializable {
 	}
 
 	@Override
-	public int getStatus() {
+	public Type getStatus() {
 		return status;
 	}
 

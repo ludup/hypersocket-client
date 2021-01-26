@@ -133,10 +133,10 @@ public class Main {
 		public void run() {
 
 			if (log.isInfoEnabled()) {
-				log.info("There is no restart mechanism available. Shutting down");
+				log.info("Shutting down with forker restart code.");
 			}
 
-			System.exit(0);
+			System.exit(90);
 		}
 
 	}

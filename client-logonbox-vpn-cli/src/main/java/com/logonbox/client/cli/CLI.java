@@ -10,12 +10,9 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Properties;
-import java.util.ResourceBundle;
 
 import javax.imageio.ImageIO;
 
@@ -28,16 +25,15 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.client.Prompt;
 import com.hypersocket.client.i18n.I18N;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.hypersocket.extensions.ExtensionPlace;
 import com.logonbox.vpn.common.client.CancelledException;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.ConfigurationService;
-import com.logonbox.vpn.common.client.GUICallback;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionService;
+import com.logonbox.vpn.common.client.GUICallback;
 
 public class CLI extends UnicastRemoteObject implements GUICallback {
 
@@ -305,28 +301,6 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public Map<String, String> showPrompts(Connection connection, ResourceBundle resources, final List<Prompt> prompts,
-			int attempts, boolean success) {
-		final Map<String, String> results = new HashMap<String, String>();
-		Logon logonDialog = new Logon(prompts, this);
-		try {
-			logonDialog.show();
-		} catch (IOException e) {
-			log.error(e.getMessage(), e);
-			return null;
-		}
-		Map<String, String> res = logonDialog.getResults();
-		if (res != null) {
-			results.putAll(res);
-		}
-		if (results.size() > 0) {
-			return results;
-		} else {
-			return null;
-		}
-	}
-
-	@Override
 	public void disconnected(Connection connection, String errorMessage) throws RemoteException {
 		if (log.isInfoEnabled()) {
 			log.info(String.format("Disconnected: %s", getUri(connection)));
@@ -355,7 +329,7 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	}
 
 	@Override
-	public void onUpdateStart(final String app, final long totalBytesExpected, Connection connection)
+	public void onUpdateStart(final String app, final long totalBytesExpected)
 			throws RemoteException {
 		if (isUpdateCancelled()) {
 			throw new CancelledException();
@@ -482,5 +456,10 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 
 	public ConnectionService getConnectionService() {
 		return connectionService;
+	}
+
+	@Override
+	public void showBrowser(Connection connection, String uri) throws RemoteException {
+		throw new UnsupportedOperationException();
 	}
 }

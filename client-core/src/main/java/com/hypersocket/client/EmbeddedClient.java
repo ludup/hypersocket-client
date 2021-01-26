@@ -8,9 +8,7 @@
 package com.hypersocket.client;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,11 +20,6 @@ public class EmbeddedClient extends HypersocketClient<Object> {
 	public EmbeddedClient(HypersocketClientTransport transport)
 			throws IOException {
 		super(transport, Locale.getDefault());
-	}
-
-	@Override
-	protected Map<String, String> showLogin(HypersocketClient<Object> attached, List<Prompt> prompts, int attempt, boolean success) {
-		throw new UnsupportedOperationException();
 	}
 
 	@Override

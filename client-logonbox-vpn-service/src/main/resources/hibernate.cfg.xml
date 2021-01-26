@@ -39,7 +39,6 @@
         <property name="hibernate.connection.autocommit">true</property>
 		
 		<mapping class="com.logonbox.vpn.common.client.ConnectionImpl"/>
-		<mapping class="com.logonbox.vpn.common.client.ConfigurationItemImpl"/>
 		
 		
     </session-factory>

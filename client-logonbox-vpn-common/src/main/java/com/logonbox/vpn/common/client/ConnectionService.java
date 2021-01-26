@@ -9,7 +9,7 @@ public interface ConnectionService extends Remote {
 
 	void start() throws Exception;
 
-	void add(Connection config) throws RemoteException;
+	Connection add(Connection config) throws RemoteException;
 
 	Connection getConfigurationForPublicKey(String publicKey) throws RemoteException;
 

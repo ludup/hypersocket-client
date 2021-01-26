@@ -8,8 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.client.cli.CLI;
-import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 
 public class Connect extends AbstractConnectionCommand {
 	static Logger log = LoggerFactory.getLogger(CLI.class);
@@ -55,23 +55,23 @@ public class Connect extends AbstractConnectionCommand {
 			throw new IllegalStateException ("Connection information is required");
 		}
 
-		int status;
+		Type status;
 		try {
 			status = cli.getClientService().getStatus(connection);
 		} catch (RemoteException e1) {
-			status = ConnectionStatus.DISCONNECTED;
+			status = Type.DISCONNECTED;
 		}
-		if (status == ConnectionStatus.DISCONNECTED) {
+		if (status == Type.DISCONNECTED) {
 			cli.getClientService().connect(connection);
 			System.out.println(String.format("Connecting to: %s", connection.getHostname()));
 			
-			while(cli.getClientService().getStatus(connection)==ConnectionStatus.CONNECTING) {
+			while(cli.getClientService().getStatus(connection)==Type.CONNECTING) {
 				Thread.sleep(500);
 			}
 			
 			status = cli.getClientService().getStatus(connection);
 			
-			if(status == ConnectionStatus.CONNECTED) {
+			if(status == Type.CONNECTED) {
 				System.out.println("Connected");
 				if(cli.getCommandLine().hasOption('s')) {
 					cli.getConnectionService().save(connection);
