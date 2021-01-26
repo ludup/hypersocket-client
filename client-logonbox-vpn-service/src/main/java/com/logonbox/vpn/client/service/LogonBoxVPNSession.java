@@ -253,18 +253,4 @@ public class LogonBoxVPNSession extends AbstractConnectionJob implements Closeab
 		/* Actually add routes */
 		ip.setRoutes(allows);
 	}
-
-	protected ForkerProcess runCommand(String... command) throws IOException {
-		ForkerBuilder builder = new ForkerBuilder().io(IO.NON_BLOCKING).redirectErrorStream(true).command(command);
-		return builder.start(new DefaultNonBlockingProcessListener() {
-			@Override
-			public void onStdout(NonBlockingProcess process, ByteBuffer buffer, boolean closed) {
-				if (!closed) {
-					byte[] bytes = new byte[buffer.remaining()];
-					buffer.get(bytes);
-					System.out.println(new String(bytes));
-				}
-			}
-		});
-	}
 }

@@ -23,8 +23,11 @@ import com.sshtools.forker.client.OSCommand;
 public abstract class AbstractPlatformServiceImpl implements PlatformService {
 
 	final static Logger LOG = LoggerFactory.getLogger(AbstractPlatformServiceImpl.class);
-
-	public static final String INTERFACE_PREFIX = "wg";
+	private String interfacePrefix;
+	
+	protected AbstractPlatformServiceImpl(String interfacePrefix) {
+		this.interfacePrefix = interfacePrefix;
+	}
 
 	@Override
 	public final boolean exists(String name) {
@@ -92,15 +95,21 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 			for (Enumeration<NetworkInterface> nifEn = NetworkInterface.getNetworkInterfaces(); nifEn
 					.hasMoreElements();) {
 				NetworkInterface nif = nifEn.nextElement();
-				if (nif.getName().startsWith(INTERFACE_PREFIX)) {
+				if (isWireGuardInterface(nif)) {
 					VirtualInetAddress vaddr = createVirtualInetAddress(nif);
 					if (vaddr != null)
 						ips.add(vaddr);
 				}
 			}
 		} catch (Exception e) {
+			// TODO throw
+			e.printStackTrace();
 		}
 		return ips;
+	}
+
+	protected boolean isWireGuardInterface(NetworkInterface nif) {
+		return nif.getName().startsWith(getInterfacePrefix());
 	}
 
 	protected abstract VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) throws IOException;
@@ -112,7 +121,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 			for (Enumeration<NetworkInterface> nifEn = NetworkInterface.getNetworkInterfaces(); nifEn
 					.hasMoreElements();) {
 				NetworkInterface nif = nifEn.nextElement();
-				if (!nif.getName().startsWith(INTERFACE_PREFIX) && !nif.isLoopback() && nif.isUp()) {
+				if (!isWireGuardInterface(nif) && !nif.isLoopback() && nif.isUp()) {
 					for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
 						InetAddress ipAddr = addr.getAddress();
 						if (!ipAddr.isAnyLocalAddress() && !ipAddr.isLinkLocalAddress()
@@ -126,6 +135,10 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		} catch (Exception e) {
 		}
 		return addrList;
+	}
+
+	protected String getInterfacePrefix() {
+		return System.getProperty("logonbox.vpn.interfacePrefix", interfacePrefix);
 	}
 
 	@Override
@@ -149,7 +162,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		LOG.info("Looking for existing wireguard interfaces.");
 		List<LogonBoxVPNSession> sessions = new ArrayList<>();
 		for (int i = 0; i < LogonBoxVPNSession.MAX_INTERFACES; i++) {
-			String name = INTERFACE_PREFIX + i;
+			String name = getInterfacePrefix() + i;
 			LOG.info(String.format("Checking %s.", name));
 			if (exists(name)) {
 				/*

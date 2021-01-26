@@ -22,6 +22,8 @@ import com.sshtools.forker.client.OSCommand;
 
 public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 
+	private static final String INTERFACE_PREFIX = "wg";
+
 	final static Logger LOG = LoggerFactory.getLogger(LinuxPlatformServiceImpl.class);
 
 	enum IpAddressState {
@@ -29,6 +31,10 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 
 	static Object lock = new Object();
+	
+	public LinuxPlatformServiceImpl() {
+		super(INTERFACE_PREFIX);
+	}
 
 	@Override
 	public VirtualInetAddress add(String name, String type) throws IOException {
@@ -38,6 +44,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 
 	@Override
 	public List<VirtualInetAddress> ips() {
+		/* TODO: Check if this is still needed, the pure Java version looks like it might be OK */
 		List<VirtualInetAddress> l = new ArrayList<>();
 		LinuxIP lastLink = null;
 		try {
