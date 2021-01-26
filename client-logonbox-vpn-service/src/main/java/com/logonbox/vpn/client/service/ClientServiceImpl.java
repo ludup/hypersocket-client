@@ -47,8 +47,8 @@ public class ClientServiceImpl implements ClientService, Listener {
 
 	protected ConfigurationService configurationService;
 	protected Set<Connection> authorizingClients = new HashSet<>();
-	protected Map<Connection, LogonBoxVPNSession> activeClients = new HashMap<>();
-	protected Map<Connection, LogonBoxVPNSession> connectingClients = new HashMap<>();
+	protected Map<Connection, VPNSession> activeClients = new HashMap<>();
+	protected Map<Connection, VPNSession> connectingClients = new HashMap<>();
 
 	private Timer timer;
 
@@ -111,11 +111,11 @@ public class ClientServiceImpl implements ClientService, Listener {
 			}
 		}
 
-		Collection<LogonBoxVPNSession> toStart = getContext().getPlatformService().start(getContext());
+		Collection<VPNSession> toStart = getContext().getPlatformService().start(getContext());
 		if (!toStart.isEmpty()) {
 			log.warn(String.format("Not starting %d connections until update is done.", toStart.size()));
 		}
-		for (LogonBoxVPNSession session : toStart) {
+		for (VPNSession session : toStart) {
 			activeClients.put(session.getConnection(), session);
 		}
 
@@ -123,7 +123,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 
 	protected void beforeDisconnectClient(Connection c) throws IOException {
 		synchronized (activeClients) {
-			LogonBoxVPNSession wireguardSession = activeClients.get(c);
+			VPNSession wireguardSession = activeClients.get(c);
 			if (wireguardSession != null)
 				wireguardSession.close();
 		}
@@ -145,8 +145,8 @@ public class ClientServiceImpl implements ClientService, Listener {
 		};
 	}
 
-	protected LogonBoxVPNSession createJob(Connection c) throws RemoteException {
-		return new LogonBoxVPNSession(c, getContext());
+	protected VPNSession createJob(Connection c) throws RemoteException {
+		return new VPNSession(c, getContext());
 	}
 
 	@Override
@@ -318,7 +318,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 				log.info("Scheduling connect for connection id " + c.getId() + "/" + c.getHostname());
 			}
 
-			LogonBoxVPNSession task = createJob(c);
+			VPNSession task = createJob(c);
 			connectingClients.put(c, task);
 			schedule(task, 500);
 		}
@@ -650,7 +650,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 	protected void onSave(Connection oldConnection, Connection newConnection) {
 	}
 
-	public void finishedConnecting(Connection connection, LogonBoxVPNSession job) {
+	public void finishedConnecting(Connection connection, VPNSession job) {
 		synchronized (activeClients) {
 			connectingClients.remove(connection);
 			activeClients.put(connection, job);

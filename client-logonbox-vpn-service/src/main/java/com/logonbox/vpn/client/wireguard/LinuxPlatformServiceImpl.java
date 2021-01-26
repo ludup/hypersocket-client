@@ -4,23 +4,32 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.Writer;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.logonbox.vpn.client.service.VPNSession;
+import com.logonbox.vpn.common.client.Connection;
 import com.sshtools.forker.client.OSCommand;
 
 public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
+
+	static Logger log = LoggerFactory.getLogger(LinuxPlatformServiceImpl.class);
 
 	private static final String INTERFACE_PREFIX = "wg";
 
@@ -36,14 +45,13 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 		super(INTERFACE_PREFIX);
 	}
 
-	@Override
-	public VirtualInetAddress add(String name, String type) throws IOException {
+	protected VirtualInetAddress add(String name, String type) throws IOException {
 		OSCommand.adminCommand("ip", "link", "add", "dev", name, "type", type);
-		return find(name, ips());
+		return find(name, ips(false));
 	}
 
 	@Override
-	public List<VirtualInetAddress> ips() {
+	protected List<VirtualInetAddress> ips(boolean wireguardOnly) {
 		/* TODO: Check if this is still needed, the pure Java version looks like it might be OK */
 		List<VirtualInetAddress> l = new ArrayList<>();
 		LinuxIP lastLink = null;
@@ -52,8 +60,11 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 			for (String r : OSCommand.runCommandAndCaptureOutput("ip", "address")) {
 				if (!r.startsWith(" ")) {
 					String[] a = r.split(":");
-					l.add(lastLink = new LinuxIP(a[1].trim(), Integer.parseInt(a[0].trim())));
-					state = IpAddressState.MAC;
+					String name = a[1].trim();
+					if(!wireguardOnly || (wireguardOnly && name.startsWith(getInterfacePrefix()))) {
+						l.add(lastLink = new LinuxIP(name, Integer.parseInt(a[0].trim())));
+						state = IpAddressState.MAC;
+					}
 				} else {
 					r = r.trim();
 					if (state == IpAddressState.MAC) {
@@ -82,7 +93,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 
 	public static void main(String[] args) throws Exception {
-		PlatformService link = new LinuxPlatformServiceImpl();
+		LinuxPlatformServiceImpl link = new LinuxPlatformServiceImpl();
 		VirtualInetAddress ip = link.add("wg0", "wireguard");
 		System.out.println("Added:" + link);
 		try {
@@ -142,7 +153,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	public String[] getMissingPackages() {
 		if (new File("/etc/debian_version").exists()) {
 			Set<String> missing = new LinkedHashSet<>(Arrays.asList("wireguard-tools"));
-			if (doesCommandExist("wg"))
+			if (doesCommandExist(getWGCommand()))
 				missing.remove("wireguard-tools");
 			return missing.toArray(new String[0]);
 		} else {
@@ -169,4 +180,109 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 		return ip;
 	}
 
+	@Override
+	public VirtualInetAddress connect(VPNSession session, Connection configuration) throws IOException {
+		VirtualInetAddress ip = null;
+
+		/*
+		 * Look for wireguard interfaces that are available but not connected. If we
+		 * find none, try to create one.
+		 */
+		int maxIface = -1;
+		for (int i = 0; i < MAX_INTERFACES; i++) {
+			String name = getInterfacePrefix() + i;
+			log.info(String.format("Looking for %s.", name));
+			if (exists(name, true)) {
+				/* Interface exists, is it connected? */
+				String publicKey = getPublicKey(name);
+				if (publicKey == null) {
+					/* No addresses, wireguard not using it */
+					log.info(String.format("%s is free.", name));
+					ip = get(name);
+					maxIface = i;
+					break;
+				} else if (publicKey.equals(configuration.getUserPublicKey())) {
+					throw new IllegalStateException(
+							String.format("Peer with public key %s on %s is already active.", publicKey, name));
+				} else {
+					log.info(String.format("%s is already in use.", name));
+				}
+			} else if (maxIface == -1) {
+				/* This one is the next free number */
+				maxIface = i;
+				log.info(String.format("%s is next free interface.", name));
+			}
+		}
+		if (maxIface == -1)
+			throw new IOException(String.format("Exceeds maximum of %d interfaces.", MAX_INTERFACES));
+		if (ip == null) {
+			String name = getInterfacePrefix() + maxIface;
+			log.info(String.format("No existing unused interfaces, creating new one (%s) for public key .", name,
+					configuration.getUserPublicKey()));
+			ip = add(name, "wireguard");
+			if (ip == null)
+				throw new IOException("Failed to create virtual IP address.");
+			log.info(String.format("Created %s", name));
+		} else
+			log.info(String.format("Using %s", ip.getName()));
+
+		/* Set the address reserved */
+		ip.setAddresses(configuration.getAddress());
+
+		Path tempFile = Files.createTempFile(getWGCommand(), "cfg");
+		try {
+			try (Writer writer = Files.newBufferedWriter(tempFile)) {
+				write(configuration, writer);
+			}
+			log.info(String.format("Activating Wireguard configuration for %s (in %s)", ip.getName(), tempFile));
+			OSCommand.runCommand("cat", tempFile.toString());
+			OSCommand.runCommand(getWGCommand(), "setconf", ip.getName(), tempFile.toString());
+			log.info(String.format("Activated Wireguard configuration for %s", ip.getName()));
+		} finally {
+			Files.delete(tempFile);
+		}
+
+		/* Bring up the interface (will set the given MTU) */
+		ip.setMtu(configuration.getMtu());
+		log.info(String.format("Bringing up %s", ip.getName()));
+		ip.up();
+
+		/* Set the routes */
+		log.info(String.format("Setting routes for %s", ip.getName()));
+		setRoutes(session, ip);
+		
+		return ip;
+	}
+
+	void setRoutes(VPNSession session, VirtualInetAddress ip) throws IOException {
+
+		/* Set routes from the known allowed-ips supplies by Wireguard. */
+		session.getAllows().clear();
+
+		for (String s : OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", ip.getName(), "allowed-ips")) {
+			StringTokenizer t = new StringTokenizer(s);
+			if (t.hasMoreTokens()) {
+				t.nextToken();
+				while (t.hasMoreTokens())
+					session.getAllows().add(t.nextToken());
+			}
+		}
+
+		/*
+		 * Sort by network subnet size (biggest first)
+		 */
+		Collections.sort(session.getAllows(), (a, b) -> {
+			String[] sa = a.split("/");
+			String[] sb = b.split("/");
+			Integer ia = Integer.parseInt(sa[1]);
+			Integer ib = Integer.parseInt(sb[1]);
+			int r = ia.compareTo(ib);
+			if (r == 0) {
+				return a.compareTo(b);
+			} else
+				return r * -1;
+		});
+		/* Actually add routes */
+		ip.setRoutes(session.getAllows());
+	}
 }
