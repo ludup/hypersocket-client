@@ -29,6 +29,8 @@ import com.sshtools.forker.client.OSCommand;
 public abstract class AbstractPlatformServiceImpl implements PlatformService {
 
 	final static Logger LOG = LoggerFactory.getLogger(AbstractPlatformServiceImpl.class);
+	
+	public static final String INTERFACE_PREFIX = "wg";
 
 	@Override
 	public final boolean exists(String name) {
@@ -108,13 +110,33 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 	}
 
 	@Override
+	public List<VirtualInetAddress> ips() {
+		List<VirtualInetAddress> ips = new ArrayList<>();
+		try {
+			for (Enumeration<NetworkInterface> nifEn = NetworkInterface.getNetworkInterfaces(); nifEn
+					.hasMoreElements();) {
+				NetworkInterface nif = nifEn.nextElement();
+				if (nif.getName().startsWith(INTERFACE_PREFIX)) {
+					VirtualInetAddress vaddr = createVirtualInetAddress(nif);
+					if(vaddr != null)
+						ips.add(vaddr);
+				}
+			}
+		} catch (Exception e) {
+		}
+		return ips;
+	}
+
+	protected abstract VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) throws IOException;
+
+	@Override
 	public final List<NetworkInterface> getBestLocalNic() {
 		List<NetworkInterface> addrList = new ArrayList<>();
 		try {
 			for (Enumeration<NetworkInterface> nifEn = NetworkInterface.getNetworkInterfaces(); nifEn
 					.hasMoreElements();) {
 				NetworkInterface nif = nifEn.nextElement();
-				if (!nif.getName().startsWith(getWGCommand()) && !nif.isLoopback() && nif.isUp()) {
+				if (!nif.getName().startsWith(INTERFACE_PREFIX) && !nif.isLoopback() && nif.isUp()) {
 					for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
 						InetAddress ipAddr = addr.getAddress();
 						if (!ipAddr.isAnyLocalAddress() && !ipAddr.isLinkLocalAddress()
@@ -151,7 +173,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		LOG.info("Looking for existing wireguard interfaces.");
 		List<LogonBoxVPNSession> sessions = new ArrayList<>();
 		for (int i = 0; i < LogonBoxVPNSession.MAX_INTERFACES; i++) {
-			String name = getWGCommand() + i;
+			String name = INTERFACE_PREFIX + i;
 			LOG.info(String.format("Checking %s.", name));
 			if (exists(name)) {
 				/*

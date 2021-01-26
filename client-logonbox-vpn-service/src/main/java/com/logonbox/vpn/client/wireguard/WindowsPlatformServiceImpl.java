@@ -1,8 +1,9 @@
 package com.logonbox.vpn.client.wireguard;
 
 import java.io.IOException;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,13 +39,18 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 
 	@Override
-	public List<VirtualInetAddress> ips() {
-		throw new UnsupportedOperationException("TODO");
+	public String[] getMissingPackages() {
+		return new String[0];
 	}
 
 	@Override
-	public String[] getMissingPackages() {
-		return new String[0];
+	protected VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) throws IOException {
+		LinuxIP ip = new LinuxIP(nif.getName(), nif.getIndex());
+		ip.setMac(IpUtil.toIEEE802(nif.getHardwareAddress()));
+		for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
+			ip.addresses.add(addr.getAddress().toString());
+		}
+		return ip;
 	}
 
 }

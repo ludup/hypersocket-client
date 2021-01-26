@@ -1,6 +1,7 @@
 package com.logonbox.vpn.client.wireguard;
 
 import java.io.IOException;
+import java.net.NetworkInterface;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -23,6 +24,11 @@ public class OSXPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	@Override
 	public String[] getMissingPackages() {
 		return new String[0];
+	}
+
+	@Override
+	protected VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) {
+		throw new UnsupportedOperationException("TODO");
 	}
 
 }

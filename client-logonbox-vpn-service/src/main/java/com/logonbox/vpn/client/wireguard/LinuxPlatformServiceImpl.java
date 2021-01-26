@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -148,6 +150,16 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 				return true;
 		}
 		return false;
+	}
+
+	@Override
+	protected VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) throws IOException {
+		LinuxIP ip = new LinuxIP(nif.getName(), nif.getIndex());
+		ip.setMac(IpUtil.toIEEE802(nif.getHardwareAddress()));
+		for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
+			ip.addresses.add(addr.getAddress().toString());
+		}
+		return ip;
 	}
 
 }
