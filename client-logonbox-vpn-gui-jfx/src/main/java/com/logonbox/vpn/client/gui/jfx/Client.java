@@ -356,7 +356,7 @@ public class Client extends Application implements X509TrustManager {
 	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
 		System.out.println("checkServerTrusted " + authType);
 		for(X509Certificate c : chain) {
-			System.out.println("  checkServerTrusted cert " + c.toString());
+			System.out.println("  checkServerTrusted cert " + c.getSubjectDN());
 			c.checkValidity();
 		}
 	}

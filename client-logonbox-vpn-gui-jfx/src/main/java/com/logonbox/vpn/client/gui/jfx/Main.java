@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.net.URL;
 
 import org.apache.commons.lang3.SystemUtils;
-import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,16 +41,19 @@ public class Main {
 			// Won't work on Windows or Linux.
 		}
 
-		try {
-			File dir = new File(System.getProperty("user.home"), ".logonbox");
-			dir.mkdirs();
 
-			PropertyConfigurator.configure("conf" + File.separator
-					+ "log4j-gui.properties");
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			BasicConfigurator.configure();
+		String logConfigPath = System.getProperty("hypersocket.logConfiguration", "");
+		if(logConfigPath.equals("")) {
+			/* Load default */
+			PropertyConfigurator.configure(Main.class.getResource("/default-log4j-gui.properties"));
+		}
+		else {
+			File logConfigFile = new File(logConfigPath);
+			if(logConfigFile.exists())
+				PropertyConfigurator.configureAndWatch(logConfigPath);
+			else
+				PropertyConfigurator.configure(Main.class.getResource("/default-log4j-gui.properties"));
 		}
 		
 		try {
@@ -131,10 +133,10 @@ public class Main {
 		public void run() {
 
 			if (log.isInfoEnabled()) {
-				log.info("There is no restart mechanism available. Shutting down");
+				log.info("Shutting down with forker restart code.");
 			}
 
-			System.exit(0);
+			System.exit(90);
 		}
 
 	}

@@ -19,11 +19,6 @@
 	<dependencies>
 		<dependency>
 			<groupId>com.hypersocket</groupId>
-			<artifactId>client-common</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>com.hypersocket</groupId>
 			<artifactId>client-logonbox-vpn-common</artifactId>
 			<version>${project.version}</version>
 		</dependency>

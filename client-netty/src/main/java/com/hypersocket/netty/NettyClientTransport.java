@@ -84,10 +84,24 @@ public class NettyClientTransport implements HypersocketClientTransport {
 		httpClient.removeStaticHeader(name);
 	}
 
+	public void connect(String uri) throws UnknownHostException, IOException {
+		try {
+			URI uriObj = new URI(uri);
+			boolean secure = uriObj.getScheme().equals("https");
+			connect(uriObj.getHost(), uriObj.getPort() == -1 ? (secure ? 443 : 80) : uriObj.getPort(), uriObj.getPath(), secure);
+		} catch (URISyntaxException e) {
+			throw new IOException("Invalid URI.", e);
+		}
+	}
+
 	@Override
 	public void connect(String host, int port, String path) throws UnknownHostException, IOException {
+		connect(host, port, path, true);
+	}
+	
+	public void connect(String host, int port, String path, boolean secure) throws UnknownHostException, IOException {
 
-		this.httpClient = new HttpClient(host, port, true);
+		this.httpClient = new HttpClient(host, port, secure);
 		this.httpClient.connect(bossExecutor, workerExecutor);
 
 		if (!path.endsWith("/")) {
@@ -120,9 +134,9 @@ public class NettyClientTransport implements HypersocketClientTransport {
 					if (redirects > 10)
 						throw new IOException("Too many redirects.");
 				} else {
-					log.warn(String.format("Could not discover path from %s:%d. Assuming /hypersocket. Error %d. %s",
+					log.warn(String.format("Could not discover path from %s:%d. Assuming /app. Error %d. %s",
 							host, port, response.getStatusCode(), response.getStatusText()));
-					path = "/hypersocket/";
+					path = "/app/";
 					break;
 				}
 			}

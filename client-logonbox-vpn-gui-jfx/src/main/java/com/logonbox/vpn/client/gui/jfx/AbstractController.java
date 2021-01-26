@@ -1,20 +1,15 @@
 package com.logonbox.vpn.client.gui.jfx;
 
 import java.net.URL;
-import java.util.List;
-import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.client.Prompt;
-import com.hypersocket.client.rmi.Connection;
-import com.hypersocket.client.rmi.GUICallback.ResourceUpdateType;
-import com.hypersocket.client.rmi.Resource;
 import com.hypersocket.extensions.ExtensionDefinition;
 import com.logonbox.vpn.client.gui.jfx.Bridge.Listener;
+import com.logonbox.vpn.common.client.Connection;
 
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -89,10 +84,6 @@ public class AbstractController implements FramedController, Listener {
 	}
 
 	@Override
-	public void loadResources(Connection connection) {
-	}
-
-	@Override
 	public void disconnecting(Connection connection) {
 	}
 
@@ -106,13 +97,7 @@ public class AbstractController implements FramedController, Listener {
 	}
 
 	@Override
-	public Map<String, String> showPrompts(Connection connection, ResourceBundle resources, List<Prompt> prompts,
-			int attempts, boolean success) {
-		return null;
-	}
-
-	@Override
-	public void startingUpdate(String app, long totalBytesExpected, Connection connection) {
+	public void startingUpdate(String app, long totalBytesExpected) {
 	}
 
 	@Override
@@ -139,10 +124,6 @@ public class AbstractController implements FramedController, Listener {
 	public void initDone(boolean restart, String errorMessage) {
 	}
 
-	@Override
-	public void updateResource(ResourceUpdateType type, Resource resource) {
-	}
-
 	protected void walkTree(Object node, Consumer<Object> visitor) {
 		if (node == null) {
 			return;
@@ -156,5 +137,11 @@ public class AbstractController implements FramedController, Listener {
 		} else if (node instanceof Parent) {
 			((Parent) node).getChildrenUnmodifiable().forEach(n -> walkTree(n, visitor));
 		}
+	}
+
+	@Override
+	public boolean showBrowser(Connection connection, String uri) {
+		// TODO
+		return false;
 	}
 }

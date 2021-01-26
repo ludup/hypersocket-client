@@ -3,13 +3,11 @@ package com.logonbox.vpn.client.gui.jfx;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.UUID;
-import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.hypersocket.client.rmi.Connection;
+import com.logonbox.vpn.common.client.Connection;
 
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
@@ -27,7 +25,6 @@ public class Configuration {
 	private IntegerProperty h = new SimpleIntegerProperty();
 	private IntegerProperty x = new SimpleIntegerProperty();
 	private IntegerProperty y = new SimpleIntegerProperty();
-	private UUID deviceUUID;
 
 	//
 	private final static Configuration DEFAULT_INSTANCE = new Configuration(
@@ -127,17 +124,7 @@ public class Configuration {
 		saveCredentialsConnections
 				.addListener(new StringPreferenceUpdateChangeListener(node, "saveCredentialsConnections"));
 
-		String deviceUUIDString = node.get("deviceUUID", "");
-		if (deviceUUIDString.equals("")) {
-			deviceUUID = UUID.randomUUID();
-			try {
-				node.put("deviceUUID", deviceUUID.toString());
-				node.flush();
-			} catch (BackingStoreException bse) {
-				throw new IllegalStateException("Failed to save device UUID.", bse);
-			}
-		} else
-			deviceUUID = UUID.fromString(deviceUUIDString);
+		
 	}
 
 	public static Configuration getDefault() {
@@ -154,10 +141,6 @@ public class Configuration {
 		String creds = saveCredentialsConnections.get();
 		saveCredentialsConnections.set(String.join(",",
 				new HashSet<>(StringUtils.isBlank(creds) ? Collections.emptyList() : Arrays.asList(creds.split(",")))));
-	}
-
-	public UUID getDeviceUUID() {
-		return deviceUUID;
 	}
 
 	public IntegerProperty wProperty() {

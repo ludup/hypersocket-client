@@ -18,9 +18,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.jgonian.ipmath.Ipv4;
-import com.logonbox.vpn.client.LogonBoxVPNContext;
+import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.LogonBoxVPNSession;
-import com.logonbox.vpn.common.client.PeerConfiguration;
+import com.logonbox.vpn.common.client.Connection;
 import com.sshtools.forker.client.EffectiveUserFactory;
 import com.sshtools.forker.client.ForkerBuilder;
 import com.sshtools.forker.client.ForkerProcess;
@@ -36,7 +36,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 	}
 
 	@Override
-	public final  String genkey(String privateKey) {
+	public final  String pubkey(String privateKey) {
 		ForkerBuilder b = new ForkerBuilder(getWGCommand(), "pubkey");
 		b.effectiveUser(EffectiveUserFactory.getDefault().administrator());
 		b.redirectErrorStream(true);
@@ -132,7 +132,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 
 	@Override
 	public final String getPublicKey(String interfaceName) throws IOException {
-		String pk = OSCommand.runCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key").iterator().next()
+		String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key").iterator().next()
 				.trim();
 		if (pk.equals("(none)") || pk.equals(""))
 			return null;
@@ -141,14 +141,14 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 	}
 
 	@Override
-	public final Collection<LogonBoxVPNSession> start(LogonBoxVPNContext ctx) {
+	public final Collection<LogonBoxVPNSession> start(LocalContext ctx) {
 
 		/*
 		 * Look for wireguard already existing interfaces, checking if they are
 		 * connected. When we find some, find the associated Peer Configuration /
 		 * Connection objects so we can populate the in-memory map of active sessions.
 		 */
-		LOG.info("Looking for existing wireguard interaces.");
+		LOG.info("Looking for existing wireguard interfaces.");
 		List<LogonBoxVPNSession> sessions = new ArrayList<>();
 		for (int i = 0; i < LogonBoxVPNSession.MAX_INTERFACES; i++) {
 			String name = getWGCommand() + i;
@@ -162,13 +162,13 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 					String publicKey = getPublicKey(name);
 					if (publicKey != null) {
 						LOG.info(String.format("%s has public key of %s.", name, publicKey));
-						PeerConfiguration peerConfig = ctx.getPeerConfigurationService()
+						Connection peerConfig = ctx.getConnectionService()
 								.getConfigurationForPublicKey(publicKey);
 						if (peerConfig != null) {
 							LOG.info(String.format(
 									"Existing wireguard session on %s for %s, adding back to internal map for %s:%s",
 									name, publicKey, peerConfig.getEndpointAddress(), peerConfig.getEndpointPort()));
-							sessions.add(new LogonBoxVPNSession(peerConfig.getConnection(), ctx, get(name)));
+							sessions.add(new LogonBoxVPNSession(peerConfig, ctx, get(name)));
 						} else
 							LOG.info(String.format(
 									"No known public key of %s on %s, so likely managed outside of LogonBox VPN.",

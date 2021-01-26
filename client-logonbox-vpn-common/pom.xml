@@ -18,15 +18,19 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>com.hypersocket</groupId>
-			<artifactId>client-common</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
 			<version>3.7</version>
 		</dependency>
-
+	    <dependency>
+			<groupId>com.hypersocket</groupId>
+			<artifactId>client-core</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.hibernate</groupId>
+			<artifactId>hibernate-entitymanager</artifactId>
+			<version>5.4.26.Final</version>
+		</dependency>
 	</dependencies>
 </project>
