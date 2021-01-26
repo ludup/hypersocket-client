@@ -44,10 +44,11 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		 */
 		LOG.info("Looking for existing wireguard interfaces.");
 		List<VPNSession> sessions = new ArrayList<>();
+		List<VirtualInetAddress> ips = ips(true);
 		for (int i = 0; i < MAX_INTERFACES; i++) {
 			String name = getInterfacePrefix() + i;
 			LOG.info(String.format("Checking %s.", name));
-			if (exists(name, true)) {
+			if (exists(name, ips)) {
 				/*
 				 * Interface exists, Find it's public key so we can match a peer configuration
 				 */
