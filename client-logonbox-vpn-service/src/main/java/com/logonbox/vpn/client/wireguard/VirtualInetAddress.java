@@ -1,6 +1,7 @@
 package com.logonbox.vpn.client.wireguard;
 
 import java.io.IOException;
+import java.net.NetworkInterface;
 import java.util.Collection;
 
 public interface VirtualInetAddress {
@@ -19,7 +20,14 @@ public interface VirtualInetAddress {
 
 	int getId();
 
-	String getMac();
+	default String getMac() {
+		try {
+			NetworkInterface iface = NetworkInterface.getByName(getName());
+			return iface == null ? null : IpUtil.toIEEE802(iface.getHardwareAddress());
+		} catch (IOException ioe) {
+			return null;
+		}
+	}
 
 	int getMtu();
 
@@ -36,8 +44,6 @@ public interface VirtualInetAddress {
 	void setAddresses(String... addresses);
 
 	void setId(int id);
-
-	void setMac(String mac);
 
 	void setMtu(int mtu);
 

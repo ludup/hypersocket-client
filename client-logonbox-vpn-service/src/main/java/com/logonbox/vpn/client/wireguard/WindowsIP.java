@@ -1,31 +1,20 @@
 package com.logonbox.vpn.client.wireguard;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringTokenizer;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.sshtools.forker.client.EffectiveUserFactory;
-import com.sshtools.forker.client.ForkerBuilder;
-import com.sshtools.forker.client.ForkerProcess;
 import com.sshtools.forker.client.OSCommand;
-import com.sshtools.forker.common.IO;
 
 public class WindowsIP implements VirtualInetAddress {
 	enum IpAddressState {
@@ -37,14 +26,13 @@ public class WindowsIP implements VirtualInetAddress {
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsIP.class);
 
-	private static final String END_HYPERSOCKET_WIREGUARD_RESOLVCONF = "###### END-HYPERSOCKET-WIREGUARD ######";
-	private static final String START_HYPERSOCKET_WIREGUARD_RESOLVECONF = "###### START-HYPERSOCKET-WIREGUARD ######";
+//	private static final String END_HYPERSOCKET_WIREGUARD_RESOLVCONF = "###### END-HYPERSOCKET-WIREGUARD ######";
+//	private static final String START_HYPERSOCKET_WIREGUARD_RESOLVECONF = "###### START-HYPERSOCKET-WIREGUARD ######";
 
 	Set<String> addresses = new LinkedHashSet<>();
 
-	private boolean dnsSet;
+//	private boolean dnsSet;
 	private int id;
-	private String mac;
 	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
 	private int mtu;
 	private String name;
@@ -148,11 +136,6 @@ public class WindowsIP implements VirtualInetAddress {
 			return false;
 		if (id != other.id)
 			return false;
-		if (mac == null) {
-			if (other.mac != null)
-				return false;
-		} else if (!mac.equals(other.mac))
-			return false;
 		if (name == null) {
 			if (other.name != null)
 				return false;
@@ -169,11 +152,6 @@ public class WindowsIP implements VirtualInetAddress {
 	@Override
 	public int getId() {
 		return id;
-	}
-
-	@Override
-	public String getMac() {
-		return mac;
 	}
 
 	@Override
@@ -207,7 +185,6 @@ public class WindowsIP implements VirtualInetAddress {
 		int result = super.hashCode();
 		result = prime * result + ((addresses == null) ? 0 : addresses.hashCode());
 		result = prime * result + id;
-		result = prime * result + ((mac == null) ? 0 : mac.hashCode());
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
 		result = prime * result + ((peer == null) ? 0 : peer.hashCode());
 		return result;
@@ -280,11 +257,6 @@ public class WindowsIP implements VirtualInetAddress {
 	}
 
 	@Override
-	public void setMac(String mac) {
-		this.mac = mac;
-	}
-
-	@Override
 	public void setMtu(int mtu) {
 		this.mtu = mtu;
 	}
@@ -329,7 +301,7 @@ public class WindowsIP implements VirtualInetAddress {
 
 	@Override
 	public String toString() {
-		return "Ip [name=" + name + ", id=" + id + ", mac=" + mac + ", addresses=" + addresses + ", peer=" + peer + "]";
+		return "Ip [name=" + name + ", id=" + id + ", addresses=" + addresses + ", peer=" + peer + "]";
 	}
 
 	@Override
@@ -423,24 +395,24 @@ public class WindowsIP implements VirtualInetAddress {
 		}
 	}
 
-	private DNSIntegrationMethod calcDnsMethod() {
-		if (method == DNSIntegrationMethod.AUTO) {
-			File f = new File("/etc/resolv.conf");
-			try {
-				String p = f.getCanonicalFile().getAbsolutePath();
-				if (p.equals(f.getAbsolutePath())) {
-					return DNSIntegrationMethod.RAW;
-				} else if (p.equals("/run/NetworkManager/resolv.conf")) {
-					return DNSIntegrationMethod.NETWORK_MANAGER;
-				} else if (p.equals("/run/resolvconf/resolv.conf")) {
-					return DNSIntegrationMethod.RESOLVCONF;
-				}
-			} catch (IOException ioe) {
-			}
-			return DNSIntegrationMethod.RAW;
-		} else
-			return method;
-	}
+//	private DNSIntegrationMethod calcDnsMethod() {
+//		if (method == DNSIntegrationMethod.AUTO) {
+//			File f = new File("/etc/resolv.conf");
+//			try {
+//				String p = f.getCanonicalFile().getAbsolutePath();
+//				if (p.equals(f.getAbsolutePath())) {
+//					return DNSIntegrationMethod.RAW;
+//				} else if (p.equals("/run/NetworkManager/resolv.conf")) {
+//					return DNSIntegrationMethod.NETWORK_MANAGER;
+//				} else if (p.equals("/run/resolvconf/resolv.conf")) {
+//					return DNSIntegrationMethod.RESOLVCONF;
+//				}
+//			} catch (IOException ioe) {
+//			}
+//			return DNSIntegrationMethod.RAW;
+//		} else
+//			return method;
+//	}
 
 //	private void unsetDns() throws IOException {
 //		try {

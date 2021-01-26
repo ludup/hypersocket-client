@@ -1,6 +1,7 @@
 package com.logonbox.vpn.client.wireguard;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.Writer;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
@@ -8,6 +9,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.prefs.BackingStoreException;
+import java.util.prefs.Preferences;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,8 +22,25 @@ import com.sun.jna.Native;
 
 public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 
+	private static final String PREF_MAC = "mac";
+	private static final String PREF_PUBLIC_KEY = "publicKey";
 	public static TunnelInterface INSTANCE;
 	private static final String INTERFACE_PREFIX = "net";
+
+	static Preferences PREFS = null;
+
+	static {
+		/* Test whether we can write to system preferences */
+		try {
+			PREFS = Preferences.systemRoot();
+			PREFS.put("test", "true");
+			PREFS.flush();
+			PREFS.remove("test");
+			PREFS.flush();
+		} catch (BackingStoreException bse) {
+			PREFS = Preferences.userRoot();
+		}
+	}
 
 	static {
 		try {
@@ -50,10 +70,30 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 
 	@Override
+	protected String getPublicKey(String interfaceName) throws IOException {
+		try {
+			if (getInterfacesNode().nodeExists(interfaceName)) {
+				Preferences ifNode = getInterfaceNode(interfaceName);
+				String mac = ifNode.get(PREF_MAC, "");
+				NetworkInterface iface = NetworkInterface.getByName(interfaceName);
+				if (iface != null) {
+					if (mac.equals(IpUtil.toIEEE802(iface.getHardwareAddress()))) {
+						return ifNode.get(PREF_PUBLIC_KEY, null);
+					} else
+						/* Mac, changed, might as well get rid */
+						ifNode.removeNode();
+				} else
+					return ifNode.get(PREF_PUBLIC_KEY, null);
+			}
+		} catch (BackingStoreException bse) {
+			throw new IOException("Failed to get public key.", bse);
+		}
+		return null;
+	}
+
+	@Override
 	protected VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) throws IOException {
 		WindowsIP ip = new WindowsIP(nif.getName(), nif.getIndex());
-		if (nif.getHardwareAddress() != null)
-			ip.setMac(IpUtil.toIEEE802(nif.getHardwareAddress()));
 		for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
 			ip.addresses.add(addr.getAddress().toString());
 		}
@@ -78,7 +118,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 			LOG.info(String.format("Looking for %s.", name));
 
 			/*
-			 * Get ALL the interfacecs because on Windows the interface name is netXXX, and
+			 * Get ALL the interfaces because on Windows the interface name is netXXX, and
 			 * 'net' isn't specific to wireguard, nor even to WinTun.
 			 */
 			if (exists(name, false)) {
@@ -126,7 +166,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 
 		Path tempDir = Paths.get(System.getProperty("java.io.tmpdir")).resolve(System.getProperty("user.name"))
 				.resolve("logonbox-wireguard");
-		if(!Files.exists(tempDir))
+		if (!Files.exists(tempDir))
 			Files.createDirectories(tempDir);
 		Path tempFile = tempDir.resolve(ip.getName() + ".conf");
 		try {
@@ -136,6 +176,22 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 			LOG.info(String.format("Activating Wireguard configuration for %s (in %s)", ip.getName(), tempFile));
 			if (INSTANCE.WireGuardTunnelService(tempFile.toString())) {
 				LOG.info(String.format("Activated Wireguard configuration for %s", ip.getName()));
+
+				// TODO might need to wait/sleep wait for this interface?
+				
+				/*
+				 * Store the public key being used for this interface name so we can later
+				 * retrieve it to determine this interface was started by LogonBox VPN (gets
+				 * around the fact there doesn't seem to be a 'wg show' command available).
+				 * 
+				 * Also record the mac, in case it changes and another interface takes that name
+				 * while LB VPN is not watching.
+				 */
+				Preferences ifNode = getInterfaceNode(ip.getName());
+				ifNode.put(PREF_PUBLIC_KEY, configuration.getPublicKey());
+				ifNode.put(PREF_MAC, ip.getMac());
+				LOG.info(String.format("Recording public key %s against MAC %s", configuration.getPublicKey(), ip.getMac()));
+
 			} else
 				throw new IOException(String.format("Failed to activate %s.", ip.getName()));
 		} finally {
@@ -152,5 +208,20 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 //		setRoutes(session, ip);
 
 		return ip;
+	}
+
+	@Override
+	protected void writeInterface(Connection configuration, Writer writer) {
+		PrintWriter pw = new PrintWriter(writer, true);
+		pw.println(String.format("Address = %s", configuration.getAddress()));
+		writeInterface(configuration, writer);
+	}
+
+	protected Preferences getInterfaceNode(String name) {
+		return getInterfacesNode().node(name);
+	}
+
+	protected Preferences getInterfacesNode() {
+		return PREFS.node("interfaces");
 	}
 }

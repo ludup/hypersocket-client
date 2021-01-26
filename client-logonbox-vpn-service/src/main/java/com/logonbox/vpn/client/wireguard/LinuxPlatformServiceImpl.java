@@ -50,6 +50,15 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 		return find(name, ips(false));
 	}
 
+	protected final String getPublicKey(String interfaceName) throws IOException {
+		String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
+				.iterator().next().trim();
+		if (pk.equals("(none)") || pk.equals(""))
+			return null;
+		else
+			return pk;
+	}
+	
 	@Override
 	protected List<VirtualInetAddress> ips(boolean wireguardOnly) {
 		/* TODO: Check if this is still needed, the pure Java version looks like it might be OK */
@@ -70,7 +79,8 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 					if (state == IpAddressState.MAC) {
 						String[] a = r.split("\\s+");
 						if (a.length > 1) {
-							lastLink.setMac(a[1]);
+							if(!lastLink.getMac().equals(a[1]))
+								throw new IllegalStateException("Unexpected MAC.");
 						}
 						state = IpAddressState.IP;
 					} else if (state == IpAddressState.IP) {
@@ -173,7 +183,6 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	@Override
 	protected VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) throws IOException {
 		LinuxIP ip = new LinuxIP(nif.getName(), nif.getIndex());
-		ip.setMac(IpUtil.toIEEE802(nif.getHardwareAddress()));
 		for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
 			ip.addresses.add(addr.getAddress().toString());
 		}

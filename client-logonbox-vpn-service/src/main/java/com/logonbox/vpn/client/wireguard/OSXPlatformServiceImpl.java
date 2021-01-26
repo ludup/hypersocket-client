@@ -35,4 +35,9 @@ public class OSXPlatformServiceImpl extends AbstractPlatformServiceImpl {
 		throw new UnsupportedOperationException("TODO");
 	}
 
+	@Override
+	protected String getPublicKey(String interfaceName) throws IOException {
+		throw new UnsupportedOperationException("TODO");
+	}
+
 }

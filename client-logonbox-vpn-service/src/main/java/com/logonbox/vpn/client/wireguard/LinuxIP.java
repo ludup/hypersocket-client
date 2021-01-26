@@ -44,14 +44,13 @@ public class LinuxIP implements VirtualInetAddress {
 
 	private boolean dnsSet;
 	private int id;
-	private String mac;
 	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
 	private int mtu;
 	private String name;
 	private String peer;
 	private LinuxPlatformServiceImpl platform;
 	private String table = TABLE_AUTO;
-	
+
 	public LinuxIP(LinuxPlatformServiceImpl platform) {
 		this.platform = platform;
 	}
@@ -148,11 +147,6 @@ public class LinuxIP implements VirtualInetAddress {
 			return false;
 		if (id != other.id)
 			return false;
-		if (mac == null) {
-			if (other.mac != null)
-				return false;
-		} else if (!mac.equals(other.mac))
-			return false;
 		if (name == null) {
 			if (other.name != null)
 				return false;
@@ -169,11 +163,6 @@ public class LinuxIP implements VirtualInetAddress {
 	@Override
 	public int getId() {
 		return id;
-	}
-
-	@Override
-	public String getMac() {
-		return mac;
 	}
 
 	@Override
@@ -207,7 +196,6 @@ public class LinuxIP implements VirtualInetAddress {
 		int result = super.hashCode();
 		result = prime * result + ((addresses == null) ? 0 : addresses.hashCode());
 		result = prime * result + id;
-		result = prime * result + ((mac == null) ? 0 : mac.hashCode());
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
 		result = prime * result + ((peer == null) ? 0 : peer.hashCode());
 		return result;
@@ -280,11 +268,6 @@ public class LinuxIP implements VirtualInetAddress {
 	}
 
 	@Override
-	public void setMac(String mac) {
-		this.mac = mac;
-	}
-
-	@Override
 	public void setMtu(int mtu) {
 		this.mtu = mtu;
 	}
@@ -329,7 +312,7 @@ public class LinuxIP implements VirtualInetAddress {
 
 	@Override
 	public String toString() {
-		return "Ip [name=" + name + ", id=" + id + ", mac=" + mac + ", addresses=" + addresses + ", peer=" + peer + "]";
+		return "Ip [name=" + name + ", id=" + id + ", addresses=" + addresses + ", peer=" + peer + "]";
 	}
 
 	@Override
@@ -444,8 +427,7 @@ public class LinuxIP implements VirtualInetAddress {
 
 	private void unsetDns() throws IOException {
 		try {
-			LOG.info(
-					String.format("Insetting DNS for %s (iface prefix %s)", name, platform.resolvconfIfacePrefix()));
+			LOG.info(String.format("Insetting DNS for %s (iface prefix %s)", name, platform.resolvconfIfacePrefix()));
 			switch (calcDnsMethod()) {
 			case RESOLVCONF:
 				OSCommand.adminCommand("resolvconf", "-d", platform.resolvconfIfacePrefix() + name, "-f");

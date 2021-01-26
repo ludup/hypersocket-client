@@ -252,7 +252,6 @@ public class Curve25519 {
 
     // feInvert sets out = z^-1.
     private static FieldElement feInvert(FieldElement z) {
-        FieldElement retVal = new FieldElement();
         FieldElement t0;
         FieldElement t1;
         FieldElement t2;

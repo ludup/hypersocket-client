@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
-import com.sshtools.forker.client.OSCommand;
 
 public abstract class AbstractPlatformServiceImpl implements PlatformService {
 
@@ -109,14 +108,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		return System.getProperty("logonbox.vpn.interfacePrefix", interfacePrefix);
 	}
 
-	protected final String getPublicKey(String interfaceName) throws IOException {
-		String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
-				.iterator().next().trim();
-		if (pk.equals("(none)") || pk.equals(""))
-			return null;
-		else
-			return pk;
-	}
+	protected abstract String getPublicKey(String interfaceName) throws IOException;
 
 	protected String getWGCommand() {
 		return "wg";
@@ -153,6 +145,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println("[Interface]");
 		pw.println(String.format("PrivateKey = %s", configuration.getUserPrivateKey()));
+		writeInterface(configuration, writer);
 		pw.println();
 		pw.println("[Peer]");
 		pw.println(String.format("PublicKey = %s", configuration.getPublicKey()));
@@ -163,5 +156,12 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		List<String> allowedIps = configuration.getAllowedIps();
 		if (!allowedIps.isEmpty())
 			pw.println(String.format("AllowedIPs = %s", String.join(", ", allowedIps)));
+		writePeer(configuration, writer);
+	}
+	
+	protected void writeInterface(Connection configuration, Writer writer) {
+	}
+	
+	protected void writePeer(Connection configuration, Writer writer) {
 	}
 }
