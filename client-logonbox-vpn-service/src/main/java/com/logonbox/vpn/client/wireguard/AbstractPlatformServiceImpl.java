@@ -1,9 +1,6 @@
 package com.logonbox.vpn.client.wireguard;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
@@ -21,15 +18,12 @@ import com.github.jgonian.ipmath.Ipv4;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.LogonBoxVPNSession;
 import com.logonbox.vpn.common.client.Connection;
-import com.sshtools.forker.client.EffectiveUserFactory;
-import com.sshtools.forker.client.ForkerBuilder;
-import com.sshtools.forker.client.ForkerProcess;
 import com.sshtools.forker.client.OSCommand;
 
 public abstract class AbstractPlatformServiceImpl implements PlatformService {
 
 	final static Logger LOG = LoggerFactory.getLogger(AbstractPlatformServiceImpl.class);
-	
+
 	public static final String INTERFACE_PREFIX = "wg";
 
 	@Override
@@ -38,26 +32,8 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 	}
 
 	@Override
-	public final  String pubkey(String privateKey) {
-		ForkerBuilder b = new ForkerBuilder(getWGCommand(), "pubkey");
-		b.effectiveUser(EffectiveUserFactory.getDefault().administrator());
-		b.redirectErrorStream(true);
-		try {
-			ForkerProcess p = b.start();
-			try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
-				try (PrintWriter pw = new PrintWriter(p.getOutputStream(), true)) {
-					pw.println(privateKey);
-				}
-				return r.readLine();
-			} finally {
-				if (p.waitFor() != 0)
-					throw new IllegalStateException("Failed to convert key. Exit code " + p.exitValue());
-			}
-		} catch (InterruptedException e) {
-			throw new IllegalStateException("Failed to convert key.", e);
-		} catch (IOException ioe) {
-			throw new IllegalStateException("Failed to convert key.");
-		}
+	public final String pubkey(String privateKey) {
+		return Keys.pubkey(privateKey).getBase64PublicKey();
 	}
 
 	protected String getWGCommand() {
@@ -118,7 +94,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 				NetworkInterface nif = nifEn.nextElement();
 				if (nif.getName().startsWith(INTERFACE_PREFIX)) {
 					VirtualInetAddress vaddr = createVirtualInetAddress(nif);
-					if(vaddr != null)
+					if (vaddr != null)
 						ips.add(vaddr);
 				}
 			}
@@ -154,8 +130,8 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 
 	@Override
 	public final String getPublicKey(String interfaceName) throws IOException {
-		String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key").iterator().next()
-				.trim();
+		String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
+				.iterator().next().trim();
 		if (pk.equals("(none)") || pk.equals(""))
 			return null;
 		else
@@ -184,8 +160,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 					String publicKey = getPublicKey(name);
 					if (publicKey != null) {
 						LOG.info(String.format("%s has public key of %s.", name, publicKey));
-						Connection peerConfig = ctx.getConnectionService()
-								.getConfigurationForPublicKey(publicKey);
+						Connection peerConfig = ctx.getConnectionService().getConfigurationForPublicKey(publicKey);
 						if (peerConfig != null) {
 							LOG.info(String.format(
 									"Existing wireguard session on %s for %s, adding back to internal map for %s:%s",
@@ -222,6 +197,5 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 				return link;
 		throw new IllegalArgumentException(String.format("No IP item %s", name));
 	}
-
 
 }
