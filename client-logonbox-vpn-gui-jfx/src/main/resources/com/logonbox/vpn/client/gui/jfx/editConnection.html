@@ -14,7 +14,7 @@
 	<div id="wrap">
 		<div id="main" class="container clear-top mt-3">
 			<h1 data-i18n="editConnection">Edit Connection</h1>
-			<form id="editConnectionForm" onsubmit="bridge.editConnection({'serverUrl':$('#serverUrl').val(),'connectOnStartup':$('#connectOnStartup').is(':checked')}); return false;">
+			<form id="editConnectionForm" onsubmit="bridge.editConnection({'serverUrl':$('#serverUrl').val(),'connectAtStartup':$('#connectAtStartup').is(':checked')}); return false;">
 				<div class="form-group">
 					<label for="serverUrl" data-i18n="serverAddress">Server address</label> 
 					<input type="text" class="form-control" id="serverUrl" data-attr-name="value" data-attr-value="serverUrl"
@@ -23,8 +23,8 @@
 				</div>
 				<div class="form-group mt-3 mb-3">
 					<div class="form-check">
-						<input type="checkbox" class="form-check-input" id="connectOnStartup" data-attr-name="checked" data-attr-value="connectOnStartup">
-						<label class="form-check-label" for="connectOnStartup" data-i18n="connectOnStartup">Connect to this network when LogonBox VPN Client starts.</label>
+						<input type="checkbox" class="form-check-input" id="connectAtStartup" data-attr-name="checked" data-attr-value="connectAtStartup">
+						<label class="form-check-label" for="connectAtStartup" data-i18n="connectAtStartup">Connect to this network when LogonBox VPN Client starts.</label>
 					</div>
 				</div>
 				<button type="submit" class="btn btn-primary" data-i18n="save">Save</button>

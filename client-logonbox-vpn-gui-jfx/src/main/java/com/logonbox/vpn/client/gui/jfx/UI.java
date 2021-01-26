@@ -116,13 +116,13 @@ public class UI extends AbstractController implements Listener {
 		}
 
 		public void addConnection(JSObject o) {
-			Boolean connectAtStartup = (Boolean) o.getMember("connectOnStartup");
+			Boolean connectAtStartup = (Boolean) o.getMember("connectAtStartup");
 			String server = (String) o.getMember("serverUrl");
 			UI.this.addConnection(connectAtStartup, server);
 		}
 
 		public void editConnection(JSObject o) {
-			Boolean connectAtStartup = (Boolean) o.getMember("connectOnStartup");
+			Boolean connectAtStartup = (Boolean) o.getMember("connectAtStartup");
 			String server = (String) o.getMember("serverUrl");
 			UI.this.editConnection(connectAtStartup, server, getSelectedConnection());
 		}
@@ -608,6 +608,7 @@ public class UI extends AbstractController implements Listener {
 		String publicKey = cfg == null ? "" : cfg.getPublicKey();
 		String address = cfg == null ? "" : cfg.getAddress();
 		String usernameHint = cfg == null ? "" : cfg.getUsernameHint();
+		String connectAtStartup = cfg == null ? "false" : String.valueOf(cfg.isConnectAtStartup());
 
 		NamedNodeMap attrs = node.getAttributes();
 		for (int i = 0; i < attrs.getLength(); i++) {
@@ -624,6 +625,8 @@ public class UI extends AbstractController implements Listener {
 						node.setAttribute(node.getAttribute("data-attr-name"), connectionUri);
 					else if (val.equals("port"))
 						node.setAttribute(node.getAttribute("data-attr-name"), port);
+					else if (val.equals("connectAtStartup"))
+						node.setAttribute(node.getAttribute("data-attr-connect-at-startup"), connectAtStartup);
 					else if (val.equals("address"))
 						node.setAttribute(node.getAttribute("data-attr-name"), address);
 					else if (val.equals("usernameHint"))
@@ -1221,6 +1224,7 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	private void editConnection(Connection connection) {
+		beans.put("connection", connection);
 		setHtmlPage("editConnection.html");
 		sidebar.setVisible(false);
 	}
