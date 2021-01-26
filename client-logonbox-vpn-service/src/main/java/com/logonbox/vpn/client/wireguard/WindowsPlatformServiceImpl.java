@@ -3,7 +3,6 @@ package com.logonbox.vpn.client.wireguard;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -19,8 +18,11 @@ import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
+import com.sun.jna.WString;
 
-public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
+public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<WindowsIP> {
+
+	final static Logger LOG = LoggerFactory.getLogger(WindowsPlatformServiceImpl.class);
 
 	private static final String PREF_MAC = "mac";
 	private static final String PREF_PUBLIC_KEY = "publicKey";
@@ -37,7 +39,8 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 			PREFS.flush();
 			PREFS.remove("test");
 			PREFS.flush();
-		} catch (BackingStoreException bse) {
+		} catch (Exception bse) {
+			LOG.warn("Fallback to usering user preferences for public key -> interface mapping.");
 			PREFS = Preferences.userRoot();
 		}
 	}
@@ -52,13 +55,11 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 
 	public static interface TunnelInterface extends Library {
-		boolean WireGuardTunnelService(String confFile);
+		boolean WireGuardTunnelService(WString confFile);
 
 		/** Unused, keys are generated using Java */
 		void WireGuardGenerateKeyPair(ByteBuffer publicKey, ByteBuffer privateKey);
 	}
-
-	final static Logger LOG = LoggerFactory.getLogger(WindowsPlatformServiceImpl.class);
 
 	public WindowsPlatformServiceImpl() {
 		super(INTERFACE_PREFIX);
@@ -92,11 +93,8 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 
 	@Override
-	protected VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) throws IOException {
+	protected WindowsIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
 		WindowsIP ip = new WindowsIP(nif.getName(), nif.getIndex());
-		for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
-			ip.addresses.add(addr.getAddress().toString());
-		}
 		return ip;
 	}
 
@@ -105,8 +103,8 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 
 	@Override
-	public VirtualInetAddress connect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
-		VirtualInetAddress ip = null;
+	public WindowsIP connect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
+		WindowsIP ip = null;
 
 		/*
 		 * Look for wireguard interfaces that are available but not connected. If we
@@ -161,9 +159,6 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 		} else
 			LOG.info(String.format("Using %s", ip.getName()));
 
-		/* Set the address reserved */
-		ip.setAddresses(configuration.getAddress());
-
 		Path tempDir = Paths.get(System.getProperty("java.io.tmpdir")).resolve(System.getProperty("user.name"))
 				.resolve("logonbox-wireguard");
 		if (!Files.exists(tempDir))
@@ -174,7 +169,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 				write(configuration, writer);
 			}
 			LOG.info(String.format("Activating Wireguard configuration for %s (in %s)", ip.getName(), tempFile));
-			if (INSTANCE.WireGuardTunnelService(tempFile.toString())) {
+			if (INSTANCE.WireGuardTunnelService(new WString(tempFile.toString()))) {
 				LOG.info(String.format("Activated Wireguard configuration for %s", ip.getName()));
 
 				// TODO might need to wait/sleep wait for this interface?
@@ -214,7 +209,6 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	protected void writeInterface(Connection configuration, Writer writer) {
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println(String.format("Address = %s", configuration.getAddress()));
-		writeInterface(configuration, writer);
 	}
 
 	protected Preferences getInterfaceNode(String name) {

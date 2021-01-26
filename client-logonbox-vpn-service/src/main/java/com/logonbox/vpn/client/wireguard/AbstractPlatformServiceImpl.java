@@ -17,7 +17,7 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
 
-public abstract class AbstractPlatformServiceImpl implements PlatformService {
+public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> implements PlatformService<I> {
 
 	protected static final int MAX_INTERFACES = Integer.parseInt(System.getProperty("logonbox.vpn.maxInterfaces", "250"));
 
@@ -43,11 +43,12 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		 */
 		LOG.info("Looking for existing wireguard interfaces.");
 		List<VPNSession> sessions = new ArrayList<>();
-		List<VirtualInetAddress> ips = ips(true);
+		List<I> ips = ips(true);
 		for (int i = 0; i < MAX_INTERFACES; i++) {
 			String name = getInterfacePrefix() + i;
-			LOG.info(String.format("Checking %s.", name));
 			if (exists(name, ips)) {
+				LOG.info(String.format("Checking %s.", name));
+				
 				/*
 				 * Interface exists, Find it's public key so we can match a peer configuration
 				 */
@@ -68,7 +69,7 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 									publicKey, name));
 					} else {
 						LOG.info(
-								String.format("%s has no public key, so it is a free wireguard interface.", publicKey));
+								String.format("%s has no public key, so it is a free wireguard interface.", name));
 					}
 				} catch (Exception e) {
 					LOG.error("Failed to get peer configuration for existing wireguard interface.", e);
@@ -78,13 +79,13 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		return sessions;
 	}
 
-	protected abstract VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) throws IOException;
+	protected abstract I createVirtualInetAddress(NetworkInterface nif) throws IOException;
 
 	protected final boolean exists(String name, boolean wireguardOnly) {
 		return exists(name, ips(wireguardOnly));
 	}
 
-	protected boolean exists(String name, Iterable<VirtualInetAddress> links) {
+	protected boolean exists(String name, Iterable<I> links) {
 		try {
 			find(name, links);
 			return true;
@@ -93,14 +94,14 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		}
 	}
 
-	protected VirtualInetAddress find(String name, Iterable<VirtualInetAddress> links) {
-		for (VirtualInetAddress link : links)
+	protected I find(String name, Iterable<I> links) {
+		for (I link : links)
 			if (Objects.equals(name, link.getName()))
 				return link;
 		throw new IllegalArgumentException(String.format("No IP item %s", name));
 	}
 
-	protected final VirtualInetAddress get(String name) {
+	protected final I get(String name) {
 		return find(name, ips(false));
 	}
 
@@ -114,14 +115,14 @@ public abstract class AbstractPlatformServiceImpl implements PlatformService {
 		return "wg";
 	}
 
-	protected List<VirtualInetAddress> ips(boolean wireguardInterface) {
-		List<VirtualInetAddress> ips = new ArrayList<>();
+	protected List<I> ips(boolean wireguardInterface) {
+		List<I> ips = new ArrayList<>();
 		try {
 			for (Enumeration<NetworkInterface> nifEn = NetworkInterface.getNetworkInterfaces(); nifEn
 					.hasMoreElements();) {
 				NetworkInterface nif = nifEn.nextElement();
 				if ((wireguardInterface && isWireGuardInterface(nif)) || (!wireguardInterface && isMatchesPrefix(nif))) {
-					VirtualInetAddress vaddr = createVirtualInetAddress(nif);
+					I vaddr = createVirtualInetAddress(nif);
 					if (vaddr != null)
 						ips.add(vaddr);
 				}

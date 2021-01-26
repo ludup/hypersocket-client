@@ -7,7 +7,7 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
 
-public interface PlatformService {
+public interface PlatformService<I extends VirtualInetAddress> {
 	
 	String[] getMissingPackages();
 
@@ -15,6 +15,6 @@ public interface PlatformService {
 
 	Collection<VPNSession> start(LocalContext ctx);
 
-	VirtualInetAddress connect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException;
+	I connect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException;
 
 }

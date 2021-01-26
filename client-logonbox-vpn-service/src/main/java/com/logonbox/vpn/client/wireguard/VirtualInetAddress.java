@@ -2,19 +2,12 @@ package com.logonbox.vpn.client.wireguard;
 
 import java.io.IOException;
 import java.net.NetworkInterface;
-import java.util.Collection;
 
 public interface VirtualInetAddress {
 
 	boolean isUp();
 
-	void addAddress(String address) throws IOException;
-
-	void setRoutes(Collection<String> allows) throws IOException;
-
 	void delete() throws IOException;
-
-	void dns(String[] dns) throws IOException;
 
 	void down() throws IOException;
 
@@ -36,12 +29,6 @@ public interface VirtualInetAddress {
 	String getPeer();
 
 	String getTable();
-
-	boolean hasAddress(String address);
-
-	void removeAddress(String address) throws IOException;
-
-	void setAddresses(String... addresses);
 
 	void setId(int id);
 

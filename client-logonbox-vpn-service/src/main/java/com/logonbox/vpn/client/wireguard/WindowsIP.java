@@ -1,13 +1,7 @@
 package com.logonbox.vpn.client.wireguard;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.StringTokenizer;
 
 import org.apache.commons.lang3.StringUtils;
@@ -29,8 +23,6 @@ public class WindowsIP implements VirtualInetAddress {
 //	private static final String END_HYPERSOCKET_WIREGUARD_RESOLVCONF = "###### END-HYPERSOCKET-WIREGUARD ######";
 //	private static final String START_HYPERSOCKET_WIREGUARD_RESOLVECONF = "###### START-HYPERSOCKET-WIREGUARD ######";
 
-	Set<String> addresses = new LinkedHashSet<>();
-
 //	private boolean dnsSet;
 	private int id;
 	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
@@ -39,7 +31,7 @@ public class WindowsIP implements VirtualInetAddress {
 	private String peer;
 	private WindowsPlatformServiceImpl platform;
 	private String table = TABLE_AUTO;
-	
+
 	public WindowsIP(WindowsPlatformServiceImpl platform) {
 		this.platform = platform;
 	}
@@ -50,47 +42,8 @@ public class WindowsIP implements VirtualInetAddress {
 	}
 
 	@Override
-	public void addAddress(String address) throws IOException {
-		if (addresses.contains(address))
-			throw new IllegalStateException(String.format("Interface %s already has address %s", name, address));
-		if (addresses.size() > 0 && StringUtils.isNotBlank(peer))
-			throw new IllegalStateException(String.format(
-					"Interface %s is configured to have a single peer %s, so cannot add a second address %s", name,
-					peer, address));
-
-		if (StringUtils.isNotBlank(peer))
-			OSCommand.adminCommand("ip", "address", "add", "dev", name, address, "peer", peer);
-		else
-			OSCommand.adminCommand("ip", "address", "add", "dev", name, address);
-		addresses.add(address);
-	}
-
-	@Override
 	public void delete() throws IOException {
 		OSCommand.adminCommand("ip", "link", "del", "dev", getName());
-	}
-
-	@Override
-	public void dns(String[] dns) throws IOException {
-//		if (dns == null || dns.length == 0) {
-//			if (dnsSet)
-//				unsetDns();
-//		} else {
-//			DNSIntegrationMethod method = calcDnsMethod();
-//			LOG.info(String.format("Setting DNS for %s (iface prefix %s) to %s using %s", name,
-//					platform.resolvconfIfacePrefix(), String.join(", ", dns), method));
-//			switch (method) {
-//			case RESOLVCONF:
-//				updateResolvConf(dns);
-//				break;
-//			case RAW:
-//				updateResolvDotConf(dns);
-//				break;
-//			default:
-//				/* TODO */
-//				throw new UnsupportedOperationException();
-//			}
-//		}
 	}
 
 	@Override
@@ -129,11 +82,6 @@ public class WindowsIP implements VirtualInetAddress {
 		if (getClass() != obj.getClass())
 			return false;
 		WindowsIP other = (WindowsIP) obj;
-		if (addresses == null) {
-			if (other.addresses != null)
-				return false;
-		} else if (!addresses.equals(other.addresses))
-			return false;
 		if (id != other.id)
 			return false;
 		if (name == null) {
@@ -175,15 +123,9 @@ public class WindowsIP implements VirtualInetAddress {
 	}
 
 	@Override
-	public boolean hasAddress(String address) {
-		return addresses.contains(address);
-	}
-
-	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = super.hashCode();
-		result = prime * result + ((addresses == null) ? 0 : addresses.hashCode());
 		result = prime * result + id;
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
 		result = prime * result + ((peer == null) ? 0 : peer.hashCode());
@@ -206,52 +148,6 @@ public class WindowsIP implements VirtualInetAddress {
 	}
 
 	@Override
-	public void removeAddress(String address) throws IOException {
-		if (!addresses.contains(address))
-			throw new IllegalStateException(String.format("Interface %s not not have address %s", name, address));
-		if (addresses.size() > 0 && StringUtils.isNotBlank(peer))
-			throw new IllegalStateException(String.format(
-					"Interface %s is configured to have a single peer %s, so cannot add a second address %s", name,
-					peer, address));
-
-		OSCommand.adminCommand("ip", "address", "del", address, "dev", getName());
-		addresses.remove(address);
-	}
-
-	@Override
-	public void setAddresses(String... addresses) {
-		List<String> addr = Arrays.asList(addresses);
-		List<Exception> exceptions = new ArrayList<>();
-		for (String a : addresses) {
-			if (!hasAddress(a)) {
-				try {
-					addAddress(a);
-				} catch (Exception e) {
-					exceptions.add(e);
-				}
-			}
-		}
-
-		for (String a : new ArrayList<>(this.addresses)) {
-			if (!addr.contains(a)) {
-				try {
-					removeAddress(a);
-				} catch (Exception e) {
-					exceptions.add(e);
-				}
-			}
-		}
-
-		if (!exceptions.isEmpty()) {
-			Exception e = exceptions.get(0);
-			if (e instanceof RuntimeException)
-				throw (RuntimeException) e;
-			else
-				throw new IllegalArgumentException("Failed to set addresses.", e);
-		}
-	}
-
-	@Override
 	public void setId(int id) {
 		this.id = id;
 	}
@@ -269,28 +165,7 @@ public class WindowsIP implements VirtualInetAddress {
 	@Override
 	public void setPeer(String peer) {
 		if (!Objects.equals(peer, this.peer)) {
-			if (StringUtils.isNotBlank(peer) && addresses.size() > 1)
-				throw new IllegalStateException(String.format(
-						"Interface %s is already configured to have multiple addresses, so cannot have a single peer %s",
-						name, peer));
 			this.peer = peer;
-		}
-	}
-
-	@Override
-	public void setRoutes(Collection<String> allows) throws IOException {
-
-		/* Remove all the current routes for this interface */
-		for (String row : OSCommand.adminCommandAndCaptureOutput("ip", "route", "show", "dev", name)) {
-			String[] l = row.split("\\s+");
-			if (l.length > 0) {
-				LOG.info(String.format("Removing route %s for %s", l[0], name));
-				OSCommand.adminCommand("ip", "route", "del", l[0], "dev", name);
-			}
-		}
-
-		for (String route : allows) {
-			addRoute(route);
 		}
 	}
 
@@ -301,7 +176,7 @@ public class WindowsIP implements VirtualInetAddress {
 
 	@Override
 	public String toString() {
-		return "Ip [name=" + name + ", id=" + id + ", addresses=" + addresses + ", peer=" + peer + "]";
+		return "Ip [name=" + name + ", id=" + id + ", peer=" + peer + "]";
 	}
 
 	@Override

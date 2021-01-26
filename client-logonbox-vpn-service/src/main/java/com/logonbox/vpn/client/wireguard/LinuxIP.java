@@ -60,7 +60,6 @@ public class LinuxIP implements VirtualInetAddress {
 		this.id = id;
 	}
 
-	@Override
 	public void addAddress(String address) throws IOException {
 		if (addresses.contains(address))
 			throw new IllegalStateException(String.format("Interface %s already has address %s", name, address));
@@ -81,7 +80,6 @@ public class LinuxIP implements VirtualInetAddress {
 		OSCommand.adminCommand("ip", "link", "del", "dev", getName());
 	}
 
-	@Override
 	public void dns(String[] dns) throws IOException {
 		if (dns == null || dns.length == 0) {
 			if (dnsSet)
@@ -128,6 +126,7 @@ public class LinuxIP implements VirtualInetAddress {
 		 * table main suppress_prefixlength 0 done fi cmd ip link delete dev
 		 * "$INTERFACE"
 		 */
+		setRoutes(new ArrayList<>());
 		delete();
 	}
 
@@ -185,7 +184,6 @@ public class LinuxIP implements VirtualInetAddress {
 		return table;
 	}
 
-	@Override
 	public boolean hasAddress(String address) {
 		return addresses.contains(address);
 	}
@@ -216,7 +214,6 @@ public class LinuxIP implements VirtualInetAddress {
 		return this;
 	}
 
-	@Override
 	public void removeAddress(String address) throws IOException {
 		if (!addresses.contains(address))
 			throw new IllegalStateException(String.format("Interface %s not not have address %s", name, address));
@@ -229,7 +226,6 @@ public class LinuxIP implements VirtualInetAddress {
 		addresses.remove(address);
 	}
 
-	@Override
 	public void setAddresses(String... addresses) {
 		List<String> addr = Arrays.asList(addresses);
 		List<Exception> exceptions = new ArrayList<>();
@@ -288,7 +284,6 @@ public class LinuxIP implements VirtualInetAddress {
 		}
 	}
 
-	@Override
 	public void setRoutes(Collection<String> allows) throws IOException {
 
 		/* Remove all the current routes for this interface */

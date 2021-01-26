@@ -27,7 +27,7 @@ import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
 import com.sshtools.forker.client.OSCommand;
 
-public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
+public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxIP> {
 
 	static Logger log = LoggerFactory.getLogger(LinuxPlatformServiceImpl.class);
 
@@ -45,7 +45,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 		super(INTERFACE_PREFIX);
 	}
 
-	protected VirtualInetAddress add(String name, String type) throws IOException {
+	protected LinuxIP add(String name, String type) throws IOException {
 		OSCommand.adminCommand("ip", "link", "add", "dev", name, "type", type);
 		return find(name, ips(false));
 	}
@@ -60,9 +60,9 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 	
 	@Override
-	protected List<VirtualInetAddress> ips(boolean wireguardOnly) {
+	protected List<LinuxIP> ips(boolean wireguardOnly) {
 		/* TODO: Check if this is still needed, the pure Java version looks like it might be OK */
-		List<VirtualInetAddress> l = new ArrayList<>();
+		List<LinuxIP> l = new ArrayList<>();
 		LinuxIP lastLink = null;
 		try {
 			IpAddressState state = IpAddressState.HEADER;
@@ -104,7 +104,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 
 	public static void main(String[] args) throws Exception {
 		LinuxPlatformServiceImpl link = new LinuxPlatformServiceImpl();
-		VirtualInetAddress ip = link.add("wg0", "wireguard");
+		LinuxIP ip = link.add("wg0", "wireguard");
 		System.out.println("Added:" + link);
 		try {
 			ip.addAddress("192.168.92.1/24");
@@ -126,7 +126,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 		System.out.println("Ips: " + IpUtil.optimizeIps("192.168.2.1", "10.0.0.0/16", "10.0.1.6"));
 	}
 
-	protected boolean exists(String name, Iterable<VirtualInetAddress> links) {
+	protected boolean exists(String name, Iterable<LinuxIP> links) {
 		try {
 			find(name, links);
 			return true;
@@ -135,8 +135,8 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 		}
 	}
 
-	protected VirtualInetAddress find(String name, Iterable<VirtualInetAddress> links) {
-		for (VirtualInetAddress link : links)
+	protected LinuxIP find(String name, Iterable<LinuxIP> links) {
+		for (LinuxIP link : links)
 			if (Objects.equals(name, link.getName()))
 				return link;
 		throw new IllegalArgumentException(String.format("No IP item %s", name));
@@ -181,7 +181,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 
 	@Override
-	protected VirtualInetAddress createVirtualInetAddress(NetworkInterface nif) throws IOException {
+	protected LinuxIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
 		LinuxIP ip = new LinuxIP(nif.getName(), nif.getIndex());
 		for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
 			ip.addresses.add(addr.getAddress().toString());
@@ -190,8 +190,8 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 	}
 
 	@Override
-	public VirtualInetAddress connect(VPNSession session, Connection configuration) throws IOException {
-		VirtualInetAddress ip = null;
+	public LinuxIP connect(VPNSession session, Connection configuration) throws IOException {
+		LinuxIP ip = null;
 
 		/*
 		 * Look for wireguard interfaces that are available but not connected. If we
@@ -263,7 +263,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl {
 		return ip;
 	}
 
-	void setRoutes(VPNSession session, VirtualInetAddress ip) throws IOException {
+	void setRoutes(VPNSession session, LinuxIP ip) throws IOException {
 
 		/* Set routes from the known allowed-ips supplies by Wireguard. */
 		session.getAllows().clear();

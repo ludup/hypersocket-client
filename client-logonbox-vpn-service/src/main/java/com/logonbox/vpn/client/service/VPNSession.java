@@ -52,11 +52,7 @@ public class VPNSession extends AbstractConnectionJob implements Closeable {
 	@Override
 	public void close() throws IOException {
 		log.info(String.format("Closing VPN session for %s", ip.getName()));
-		try {
-			ip.setRoutes(new ArrayList<>());
-		} finally {
-			ip.down();
-		}
+		ip.down();
 	}
 
 	@Override
