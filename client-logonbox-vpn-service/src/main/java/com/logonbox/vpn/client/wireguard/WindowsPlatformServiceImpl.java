@@ -142,14 +142,9 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			write(configuration, writer);
 		}
 
-//		Service Name:  "WireGuardTunnel$SomeTunnelName"
-//			Display Name:  "Some Service Name"
 //			Service Type:  SERVICE_WIN32_OWN_PROCESS
-//			Start Type:    StartAutomatic
 //			Error Control: ErrorNormal,
-//			Dependencies:  [ "Nsi", "TcpIp" ]
 //			Sid Type:      SERVICE_SID_TYPE_UNRESTRICTED
-//			Executable:    "C:\path\to\example\vpnclient.exe /service configfile.conf"
 
 //		commons-daemon\prunsrv //IS//OpenDataPusher --DisplayName="OpenData Pusher" --Description="OpenData Pusher"^
 //		     --Install="%cd%\commons-daemon\prunsrv.exe" --Jvm="%cd%\jre1.8.0_91\bin\client\jvm.dll" --StartMode=jvm --StopMode=jvm^
@@ -189,7 +184,9 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		builder.command().add("--StartParams=/service;" + confFile.toAbsolutePath());
 		builder.command().add("--Stop=stop");
 		builder.command().add("--StartMethod=main");
+		builder.command().add("--ServiceUser=LocalSystem");
 		builder.command().add("--StopMethod=main");
+		builder.command().add("--DependsOn=Nsi;TcpIp");
 		builder.redirectErrorStream(true);
 		
 		/* This makes it run via UAC as administrator (which works), rather than 'LogonAs' which
