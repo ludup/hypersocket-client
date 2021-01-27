@@ -3,7 +3,7 @@ package com.logonbox.vpn.client.db;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 
-import com.logonbox.vpn.client.AbstractMain;
+import com.logonbox.vpn.client.Main;
 
 public class HibernateSessionFactory {
 
@@ -12,7 +12,7 @@ public class HibernateSessionFactory {
 
 	public static SessionFactory getFactory() {
 		if (factory == null) {
-			synchronized (AbstractMain.class) {
+			synchronized (Main.class) {
 				if (factory == null) {
 					factory = new Configuration().configure()
 							.buildSessionFactory();

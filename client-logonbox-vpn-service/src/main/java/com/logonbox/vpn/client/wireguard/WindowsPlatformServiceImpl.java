@@ -1,65 +1,38 @@
 package com.logonbox.vpn.client.wireguard;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.net.MalformedURLException;
 import java.net.NetworkInterface;
-import java.nio.ByteBuffer;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
-import com.sun.jna.Library;
-import com.sun.jna.Native;
-import com.sun.jna.WString;
+import com.sshtools.forker.client.ForkerBuilder;
+import com.sshtools.forker.client.ForkerProcess;
 
 public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<WindowsIP> {
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsPlatformServiceImpl.class);
 
-	private static final String PREF_MAC = "mac";
-	private static final String PREF_PUBLIC_KEY = "publicKey";
-	public static TunnelInterface INSTANCE;
 	private static final String INTERFACE_PREFIX = "net";
-
-	static Preferences PREFS = null;
-
-	static {
-		/* Test whether we can write to system preferences */
-		try {
-			PREFS = Preferences.systemRoot();
-			PREFS.put("test", "true");
-			PREFS.flush();
-			PREFS.remove("test");
-			PREFS.flush();
-		} catch (Exception bse) {
-			LOG.warn("Fallback to usering user preferences for public key -> interface mapping.");
-			PREFS = Preferences.userRoot();
-		}
-	}
-
-	static {
-		try {
-			Native.extractFromResourcePath("tunnel.dll");
-			INSTANCE = Native.load("tunnel", TunnelInterface.class);
-		} catch (IOException e) {
-			throw new IllegalStateException("Failed to load support library.", e);
-		}
-	}
-
-	public static interface TunnelInterface extends Library {
-		boolean WireGuardTunnelService(WString confFile);
-
-		/** Unused, keys are generated using Java */
-		void WireGuardGenerateKeyPair(ByteBuffer publicKey, ByteBuffer privateKey);
-	}
 
 	public WindowsPlatformServiceImpl() {
 		super(INTERFACE_PREFIX);
@@ -73,18 +46,18 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	@Override
 	protected String getPublicKey(String interfaceName) throws IOException {
 		try {
-			if (getInterfacesNode().nodeExists(interfaceName)) {
-				Preferences ifNode = getInterfaceNode(interfaceName);
-				String mac = ifNode.get(PREF_MAC, "");
+			if (WindowsTunneler.getInterfacesNode().nodeExists(interfaceName)) {
+				Preferences ifNode = WindowsTunneler.getInterfaceNode(interfaceName);
+				String mac = ifNode.get(WindowsTunneler.PREF_MAC, "");
 				NetworkInterface iface = NetworkInterface.getByName(interfaceName);
 				if (iface != null) {
 					if (mac.equals(IpUtil.toIEEE802(iface.getHardwareAddress()))) {
-						return ifNode.get(PREF_PUBLIC_KEY, null);
+						return ifNode.get(WindowsTunneler.PREF_PUBLIC_KEY, null);
 					} else
 						/* Mac, changed, might as well get rid */
 						ifNode.removeNode();
 				} else
-					return ifNode.get(PREF_PUBLIC_KEY, null);
+					return ifNode.get(WindowsTunneler.PREF_PUBLIC_KEY, null);
 			}
 		} catch (BackingStoreException bse) {
 			throw new IOException("Failed to get public key.", bse);
@@ -159,39 +132,78 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		} else
 			LOG.info(String.format("Using %s", ip.getName()));
 
-		Path tempDir = Paths.get(System.getProperty("java.io.tmpdir")).resolve(System.getProperty("user.name"))
-				.resolve("logonbox-wireguard");
-		if (!Files.exists(tempDir))
-			Files.createDirectories(tempDir);
-		Path tempFile = tempDir.resolve(ip.getName() + ".conf");
-		try {
-			try (Writer writer = Files.newBufferedWriter(tempFile)) {
-				write(configuration, writer);
-			}
-			LOG.info(String.format("Activating Wireguard configuration for %s (in %s)", ip.getName(), tempFile));
-			if (INSTANCE.WireGuardTunnelService(new WString(tempFile.toString()))) {
-				LOG.info(String.format("Activated Wireguard configuration for %s", ip.getName()));
-
-				// TODO might need to wait/sleep wait for this interface?
-				
-				/*
-				 * Store the public key being used for this interface name so we can later
-				 * retrieve it to determine this interface was started by LogonBox VPN (gets
-				 * around the fact there doesn't seem to be a 'wg show' command available).
-				 * 
-				 * Also record the mac, in case it changes and another interface takes that name
-				 * while LB VPN is not watching.
-				 */
-				Preferences ifNode = getInterfaceNode(ip.getName());
-				ifNode.put(PREF_PUBLIC_KEY, configuration.getPublicKey());
-				ifNode.put(PREF_MAC, ip.getMac());
-				LOG.info(String.format("Recording public key %s against MAC %s", configuration.getPublicKey(), ip.getMac()));
-
-			} else
-				throw new IOException(String.format("Failed to activate %s.", ip.getName()));
-		} finally {
-			Files.delete(tempFile);
+		Path confDir = Paths.get("conf").resolve("connections");
+		if (!Files.exists(confDir))
+			Files.createDirectories(confDir);
+		Path confFile = confDir.resolve(ip.getName() + ".conf");
+		try (Writer writer = Files.newBufferedWriter(confFile)) {
+			write(configuration, writer);
 		}
+
+//		Service Name:  "WireGuardTunnel$SomeTunnelName"
+//			Display Name:  "Some Service Name"
+//			Service Type:  SERVICE_WIN32_OWN_PROCESS
+//			Start Type:    StartAutomatic
+//			Error Control: ErrorNormal,
+//			Dependencies:  [ "Nsi", "TcpIp" ]
+//			Sid Type:      SERVICE_SID_TYPE_UNRESTRICTED
+//			Executable:    "C:\path\to\example\vpnclient.exe /service configfile.conf"
+
+//		commons-daemon\prunsrv //IS//OpenDataPusher --DisplayName="OpenData Pusher" --Description="OpenData Pusher"^
+//		     --Install="%cd%\commons-daemon\prunsrv.exe" --Jvm="%cd%\jre1.8.0_91\bin\client\jvm.dll" --StartMode=jvm --StopMode=jvm^
+//		     --Startup=auto --StartClass=bg.government.opendatapusher.Pusher --StopClass=bg.government.opendatapusher.Pusher^
+//		     --StartParams=start --StopParams=stop --StartMethod=windowsService --StopMethod=windowsService^
+//		     --Classpath="%cd%\opendata-ckan-pusher.jar" --LogLevel=DEBUG^ --LogPath="%cd%\logs" --LogPrefix=procrun.log^
+//		     --StdOutput="%cd%\logs\stdout.log" --StdError="%cd%\logs\stderr.log"
+//		      
+
+//		     --Classpath="%cd%\opendata-ckan-pusher.jar"
+//		      
+
+		/* Install service for the network interface */
+		
+
+		LOG.info(String.format("Installing service for %s", ip.getName()));
+		ForkerBuilder builder = new ForkerBuilder();
+		builder.command().add(getPrunsrv().toString());
+		builder.command().add("//IS//LogonBoxVPNTunnel$" + ip.getName());
+		builder.command().add("--Install=" + getPrunsrv().toString());
+		builder.command().add("--DisplayName=LogonBox VPN Tunnel for " + ip.getName());
+		builder.command().add("--Description=Managed a single tunnel LogonBox VPN (" + ip.getName() + ")");
+		builder.command().add("--Jvm=" + System.getProperty("java.home") + "\\bin\\client\\jvm.dll");
+		builder.command().add("--StartMode=jvm");
+		builder.command().add("--StopMode=jvm");
+		builder.command().add("--Startup=auto");
+		builder.command().add("--StartClass=" + WindowsTunneler.class.getName());
+		builder.command().add("--StopClass=" + WindowsTunneler.class.getName());
+		builder.command().add("--LogLevel=" + toLevel());
+		builder.command().add("--Classpath=" + reconstructClassPath());
+		builder.command().add("--LogPath=" + System.getProperty("user.dir") + "\\logs");
+		builder.command().add("--LogPrefix=tunneler-" + ip.getName() + ".log");
+		builder.command()
+				.add("--StdOutput=" + System.getProperty("user.dir") + "\\log\\stdout-" + ip.getName() + ".log");
+		builder.command()
+				.add("--StdError=" + System.getProperty("user.dir") + "\\log\\stderr-" + ip.getName() + ".log");
+		builder.command().add("--StartParams=/service;" + confFile.toAbsolutePath());
+		builder.command().add("--Stop=stop");
+		builder.command().add("--StartMethod=main");
+		builder.command().add("--StopMethod=main");
+		builder.redirectErrorStream(true);
+
+		ForkerProcess process = builder.start();
+		try {
+			IOUtils.copy(process.getInputStream(), System.out);
+		} finally {
+			try {
+				if (process.waitFor() != 0)
+					throw new IOException(String.format("Failed to install tunnel service for %s, exited with code %d.",
+							ip.getName(), process.exitValue()));
+			} catch (InterruptedException e) {
+				throw new IOException("Interrupted waiting for process to finish.");
+			}
+		}
+
+		LOG.info(String.format("Installed service for %s", ip.getName()));
 
 //		/* Bring up the interface (will set the given MTU) */
 //		ip.setMtu(configuration.getMtu());
@@ -205,17 +217,84 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		return ip;
 	}
 
+	private String reconstructClassPath() {
+
+		Set<URL> urls = new LinkedHashSet<>();
+
+		/*
+		 * Get all of the locations on java.class.path and turn them into URL's
+		 */
+		for (String path : System.getProperty("java.class.path").split(File.pathSeparator)) {
+			try {
+				urls.add(new File(path).toURI().toURL());
+			} catch (MalformedURLException e) {
+			}
+		}
+
+		/*
+		 * Traverse the class loader heirarchy looking for URLClassLoader and adding
+		 * those as well
+		 */
+		reconstructFromClassLoader(WindowsPlatformServiceImpl.class.getClassLoader(), urls);
+		if (Thread.currentThread().getContextClassLoader() != null)
+			reconstructFromClassLoader(Thread.currentThread().getContextClassLoader(), urls);
+
+		/* Only include the jars we need for this tool */
+		StringBuilder path = new StringBuilder();
+		for (URL url : urls) {
+			try {
+				String fullPath = new File(url.toURI()).getAbsolutePath();
+				if (fullPath.matches(".*jna.*") || fullPath.matches("slf4j") || fullPath.matches("commons-io"))
+					if (path.length() > 0)
+						path.append(File.pathSeparator);
+				path.append(fullPath);
+			} catch (URISyntaxException e) {
+			}
+
+		}
+
+		return path.toString();
+	}
+
+	private void reconstructFromClassLoader(ClassLoader classLoader, Set<URL> urls) {
+		if (classLoader instanceof URLClassLoader) {
+			URLClassLoader ucl = (URLClassLoader) classLoader;
+			urls.addAll(Arrays.asList(ucl.getURLs()));
+		}
+		if (classLoader.getParent() != null)
+			reconstructFromClassLoader(classLoader.getParent(), urls);
+	}
+
+	private Path getPrunsrv() {
+		Path f = Paths.get("prunsrv.exe");
+		if (Files.exists(f)) {
+			/* Installed */
+			return f;
+		}
+
+		/* Development */
+		f = Paths.get("src").resolve("main").resolve("exe");
+		if (SystemUtils.OS_ARCH.equals("x86"))
+			f = f.resolve("win32-x86");
+		else
+			f = f.resolve("win32-x86-64");
+		return f.resolve("prunsrv.exe");
+	}
+
+	protected String toLevel() {
+		if (LOG.isDebugEnabled() || LOG.isTraceEnabled())
+			return "DEBUG";
+		else if (LOG.isInfoEnabled())
+			return "INFO";
+		else if (LOG.isWarnEnabled())
+			return "WARN";
+		else
+			return "ERROR";
+	}
+
 	@Override
 	protected void writeInterface(Connection configuration, Writer writer) {
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println(String.format("Address = %s", configuration.getAddress()));
-	}
-
-	protected Preferences getInterfaceNode(String name) {
-		return getInterfacesNode().node(name);
-	}
-
-	protected Preferences getInterfacesNode() {
-		return PREFS.node("interfaces");
 	}
 }

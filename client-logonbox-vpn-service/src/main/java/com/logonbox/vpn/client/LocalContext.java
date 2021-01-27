@@ -10,7 +10,7 @@ import com.logonbox.vpn.common.client.ConnectionService;
 
 public interface LocalContext {
 
-	PlatformService getPlatformService();
+	PlatformService<?> getPlatformService();
 	
 	ClientService getClientService();
 

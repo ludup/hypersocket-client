@@ -9,6 +9,10 @@ import com.logonbox.vpn.common.client.Connection;
 
 public interface PlatformService<I extends VirtualInetAddress> {
 	
+	default int processCLI(String[] args) {
+		return Integer.MIN_VALUE;
+	}
+	
 	String[] getMissingPackages();
 
 	String pubkey(String privateKey);
