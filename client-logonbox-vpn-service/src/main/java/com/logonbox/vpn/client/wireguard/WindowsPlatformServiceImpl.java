@@ -25,8 +25,10 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
+import com.sshtools.forker.client.EffectiveUserFactory;
 import com.sshtools.forker.client.ForkerBuilder;
 import com.sshtools.forker.client.ForkerProcess;
+import com.sshtools.forker.common.IO;
 
 public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<WindowsIP> {
 
@@ -189,6 +191,13 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		builder.command().add("--StartMethod=main");
 		builder.command().add("--StopMethod=main");
 		builder.redirectErrorStream(true);
+		
+		/* This makes it run via UAC as administrator (which works), rather than 'LogonAs' which
+		 * appears to have problems. Shouldn't be be needed when running as 
+		 * an administrative servic itself
+		 */
+		builder.effectiveUser(EffectiveUserFactory.getDefault().administrator());
+		builder.io(IO.SINK);
 
 		ForkerProcess process = builder.start();
 		try {
