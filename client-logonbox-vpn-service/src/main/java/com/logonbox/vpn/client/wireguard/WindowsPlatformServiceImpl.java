@@ -18,7 +18,6 @@ import java.util.Set;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -158,7 +157,6 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 //		      
 
 		/* Install service for the network interface */
-		
 
 		LOG.info(String.format("Installing service for %s", ip.getName()));
 		ForkerBuilder builder = new ForkerBuilder();
@@ -195,18 +193,16 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		 */
 		builder.effectiveUser(EffectiveUserFactory.getDefault().administrator());
 		builder.io(IO.SINK);
+		builder.redirectErrorStream(false);
+		LOG.info(String.format("Execute: %s", String.join(" ", builder.command())));
 
 		ForkerProcess process = builder.start();
 		try {
-			IOUtils.copy(process.getInputStream(), System.out);
-		} finally {
-			try {
-				if (process.waitFor() != 0)
-					throw new IOException(String.format("Failed to install tunnel service for %s, exited with code %d.",
-							ip.getName(), process.exitValue()));
-			} catch (InterruptedException e) {
-				throw new IOException("Interrupted waiting for process to finish.");
-			}
+			if (process.waitFor() != 0)
+				throw new IOException(String.format("Failed to install tunnel service for %s, exited with code %d.",
+						ip.getName(), process.exitValue()));
+		} catch (InterruptedException e) {
+			throw new IOException("Interrupted waiting for process to finish.");
 		}
 
 		LOG.info(String.format("Installed service for %s", ip.getName()));
@@ -271,20 +267,32 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			reconstructFromClassLoader(classLoader.getParent(), urls);
 	}
 
-	private Path getPrunsrv() {
+	private String getPrunsrv() {
+		
 		Path f = Paths.get("prunsrv.exe");
 		if (Files.exists(f)) {
 			/* Installed */
-			return f;
+			return f.toAbsolutePath().toString();
 		}
+		
+		/* In development, try to find the source location. We would
+		 * be running from a _run project, but the source will be elsewhere.
+		 * So examine the classpath and look for client-logonbox-vpn-service. 
+		 * From there we can look for the executable */
 
-		/* Development */
-		f = Paths.get("src").resolve("main").resolve("exe");
-		if (SystemUtils.OS_ARCH.equals("x86"))
-			f = f.resolve("win32-x86");
-		else
-			f = f.resolve("win32-x86-64");
-		return f.resolve("prunsrv.exe");
+		for (String path : System.getProperty("java.class.path").split(File.pathSeparator)) {
+			if(path.contains("\\client-logonbox-vpn-service\\")) {
+				f = Paths.get(path).getParent().getParent().resolve("src").resolve("main").resolve("exe");
+				if (SystemUtils.OS_ARCH.equals("x86"))
+					f = f.resolve("win32-x86");
+				else
+					f = f.resolve("win32-x86-64");
+				return f.resolve("prunsrv.exe").toAbsolutePath().toString();		
+			}
+		}
+		
+		/* Must be on PATH */
+		return "prunsrv.exe";
 	}
 
 	protected String toLevel() {

@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +13,6 @@ import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.client.HypersocketClientAdapter;
 import com.hypersocket.client.HypersocketClientListener;
 import com.hypersocket.client.UserCancelledException;
-import com.hypersocket.netty.NettyClientTransport;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
 import com.logonbox.vpn.common.client.Connection;
@@ -65,31 +63,22 @@ public class VPNSession extends AbstractConnectionJob implements Closeable {
 		LocalContext cctx = getLocalContext();
 		ClientServiceImpl clientServiceImpl = (ClientServiceImpl) cctx.getClientService();
 
-		HypersocketClientListener<Connection> listener = new HypersocketClientAdapter<Connection>() {
-			@Override
-			public void disconnected(HypersocketClient<Connection> client, boolean onError) {
-				clientServiceImpl.disconnected(connection, client);
-				log.info("Client has disconnected, informing GUI");
-				cctx.getGuiRegistry().disconnected(connection, onError ? "Error occured during connection." : null);
-				if (client.getAttachment().isStayConnected() && onError) {
-					try {
-						clientServiceImpl.scheduleConnect(connection);
-					} catch (RemoteException e1) {
-					}
-				}
-			}
-		};
+//		HypersocketClientListener<Connection> listener = new HypersocketClientAdapter<Connection>() {
+//			@Override
+//			public void disconnected(HypersocketClient<Connection> client, boolean onError) {
+//				clientServiceImpl.disconnected(connection, client);
+//				log.info("Client has disconnected, informing GUI");
+//				cctx.getGuiRegistry().disconnected(connection, onError ? "Error occured during connection." : null);
+//				if (client.getAttachment().isStayConnected() && onError) {
+//					try {
+//						clientServiceImpl.scheduleConnect(connection);
+//					} catch (RemoteException e1) {
+//					}
+//				}
+//			}
+//		};
 
-		ServiceClient client = null;
 		try {
-			/*
-			 * This is the HTTPs connection to the server, it is effectively now only used
-			 * to get the current version for updates.
-			 */
-			client = new ServiceClient(new NettyClientTransport(cctx.getBoss(), cctx.getWorker()), clientServiceImpl,
-					Locale.getDefault(), listener, connection, cctx.getGuiRegistry());
-
-			client.connect(connection.getHostname(), connection.getPort(), connection.getPath(), Locale.getDefault());
 
 			if (log.isInfoEnabled()) {
 				log.info("Connected to " + connection);
