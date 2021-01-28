@@ -9,12 +9,12 @@ import com.logonbox.vpn.client.wireguard.AbstractVirtualInetAddress;
 import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
 import com.sshtools.forker.client.OSCommand;
+import com.sshtools.forker.common.IO;
 
 public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInetAddress {
 	enum IpAddressState {
 		HEADER, IP, MAC
 	}
-
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsIP.class);
 
@@ -27,22 +27,42 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 		this.name = name;
 	}
 
+	public static void main(String[] args) throws Exception {
+		IO was = OSCommand.io(IO.SINK);
+		try {
+			OSCommand.adminCommand(WindowsPlatformServiceImpl.getPrunsrv(), "//DS",
+					WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + args[0]);
+		} finally {
+			OSCommand.io(was);
+		}
+	}
+
 	@Override
 	public void delete() throws IOException {
 		synchronized (lock) {
 			if (isUp()) {
 				down();
 			}
-			OSCommand.adminCommand(WindowsPlatformServiceImpl.getPrunsrv().toString(), "//DS",
-					WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name);
+			IO was = OSCommand.io(IO.SINK);
+			try {
+				OSCommand.adminCommand(WindowsPlatformServiceImpl.getPrunsrv(), "//DS",
+						WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name);
+			} finally {
+				OSCommand.io(was);
+			}
 		}
 	}
 
 	@Override
 	public void down() throws IOException {
 		synchronized (lock) {
-			OSCommand.adminCommand(WindowsPlatformServiceImpl.getPrunsrv().toString(), "//SS",
-					WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name);
+			IO was = OSCommand.io(IO.SINK);
+			try {
+				OSCommand.adminCommand(WindowsPlatformServiceImpl.getPrunsrv(), "//SS",
+						WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name);
+			} finally {
+				OSCommand.io(was);
+			}
 		}
 	}
 
@@ -59,7 +79,7 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	public boolean isUp() {
 		synchronized (lock) {
 			try {
-				for (String line : OSCommand.adminCommandAndCaptureOutput("sc", "query",
+				for (String line : OSCommand.runCommandAndCaptureOutput("sc", "query",
 						WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name)) {
 					line = line.trim();
 					if (line.startsWith("STATE") && line.endsWith("RUNNING"))
@@ -89,11 +109,14 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	@Override
 	public void up() throws IOException {
 		synchronized (lock) {
+			IO was = OSCommand.io(IO.SINK);
 			try {
 				OSCommand.adminCommand("sc", "start",
 						WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name);
 			} catch (IOException ioe) {
 				throw new IllegalStateException("Failed to test service state.");
+			} finally {
+				OSCommand.io(was);
 			}
 		}
 	}

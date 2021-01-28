@@ -161,6 +161,18 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 		/* Install service for the network interface */
 
+		installService(ip, confFile);
+		if (ip.isUp()) {
+			LOG.info(String.format("Service for %s is already up.", ip.getName()));
+		} else {
+			LOG.info(String.format("Bringing up %s", ip.getName()));
+			ip.up();
+		}
+
+		return ip;
+	}
+
+	protected void installService(WindowsIP ip, Path confFile) throws IOException {
 		LOG.info(String.format("Installing service for %s", ip.getName()));
 		ForkerBuilder builder = new ForkerBuilder();
 		builder.command().add(getPrunsrv().toString());
@@ -209,14 +221,6 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 
 		LOG.info(String.format("Installed service for %s", ip.getName()));
-		if (ip.isUp()) {
-			LOG.info(String.format("Service for %s is already up.", ip.getName()));
-		} else {
-			LOG.info(String.format("Bringing up %s", ip.getName()));
-			ip.up();
-		}
-
-		return ip;
 	}
 
 	private String reconstructClassPath() {
@@ -267,7 +271,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			reconstructFromClassLoader(classLoader.getParent(), urls);
 	}
 
-	private String getPrunsrv() {
+	static String getPrunsrv() {
 		
 		Path f = Paths.get("prunsrv.exe");
 		if (Files.exists(f)) {
