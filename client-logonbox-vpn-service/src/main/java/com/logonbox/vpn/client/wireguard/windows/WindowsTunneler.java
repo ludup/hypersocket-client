@@ -1,4 +1,4 @@
-package com.logonbox.vpn.client.wireguard;
+package com.logonbox.vpn.client.wireguard.windows;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

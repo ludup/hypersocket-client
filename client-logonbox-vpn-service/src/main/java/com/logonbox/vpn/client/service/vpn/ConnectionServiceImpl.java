@@ -122,9 +122,6 @@ public class ConnectionServiceImpl implements ConnectionService {
 
 	@Override
 	public Connection save(Connection connection) {
-		if (connection.getUserPublicKey() == null || connection.getUserPublicKey().length() == 0) {
-			connection.setUserPublicKey(context.getPlatformService().pubkey(connection.getUserPrivateKey()));
-		}
 		Transaction trans = session.beginTransaction();
 		Connection connectionSaved = null;
 

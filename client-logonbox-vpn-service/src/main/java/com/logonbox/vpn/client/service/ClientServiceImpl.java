@@ -14,6 +14,7 @@ import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 
+import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,7 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.updates.ClientUpdater;
 import com.logonbox.vpn.client.service.vpn.ConnectionServiceImpl;
 import com.logonbox.vpn.client.service.vpn.ConnectionServiceImpl.Listener;
+import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.ConfigurationService;
 import com.logonbox.vpn.common.client.Connection;
@@ -96,18 +98,22 @@ public class ClientServiceImpl implements ClientService, Listener {
 			 * Do updates if we are not tracking the server version or if there are some
 			 * connections we can get LogonBox VPN server version from
 			 */
-			if (automaticUpdates)
-				update(false);
-			else {
-				update(true);
-				if (needsUpdate) {
-					/*
-					 * If updates are manual, don't try to connect until the GUI connects and does
-					 * it's update
-					 */
-					log.info("GUI Needs update, awaiting GUI to connect.");
-					return;
+			try {
+				if (automaticUpdates)
+					update(false);
+				else {
+					update(true);
+					if (needsUpdate) {
+						/*
+						 * If updates are manual, don't try to connect until the GUI connects and does
+						 * it's update
+						 */
+						log.info("GUI Needs update, awaiting GUI to connect.");
+						return;
+					}
 				}
+			} catch (Exception e) {
+				log.info(String.format("Extension versions not checked."), e);
 			}
 		}
 
@@ -160,8 +166,18 @@ public class ClientServiceImpl implements ClientService, Listener {
 	@Override
 	public void connectionRemoving(Connection connection, Session session) {
 		try {
-			if (isConnected(connection))
-				disconnect(connection);
+			synchronized (activeClients) {
+				if (isConnected(connection)) {
+					if (StringUtils.isNotBlank(connection.getUserPublicKey())) {
+						VirtualInetAddress addr = getContext().getPlatformService()
+								.getByPublicKey(connection.getPublicKey());
+						if (addr != null) {
+							addr.delete();
+						}
+					}
+					disconnect(connection);
+				}
+			}
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to disconnect.", e);
 		}
@@ -266,7 +282,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 				deviceUUID = UUID.fromString(deviceUUIDString);
 
 			for (Connection c : context.getConnectionService().getConnections()) {
-				if (c.isConnectAtStartup()) {
+				if (c.isConnectAtStartup() && !isConnected(c)) {
 					connect(c);
 				}
 			}
@@ -391,8 +407,15 @@ public class ClientServiceImpl implements ClientService, Listener {
 	@Override
 	public void disconnect(Connection c) throws RemoteException {
 
+		
 		if (log.isInfoEnabled()) {
 			log.info("Disconnecting connection with id " + c.getId() + "/" + c.getHostname());
+			try {
+				throw new Exception();
+			}
+			catch(Exception e) {
+				e.printStackTrace();
+			}
 		}
 		boolean disconnect = false;
 		try {

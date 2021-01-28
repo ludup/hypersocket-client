@@ -1,4 +1,4 @@
-package com.logonbox.vpn.client.wireguard;
+package com.logonbox.vpn.client.wireguard.linux;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -24,6 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.service.VPNSession;
+import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
+import com.logonbox.vpn.client.wireguard.IpUtil;
 import com.logonbox.vpn.common.client.Connection;
 import com.sshtools.forker.client.OSCommand;
 
@@ -71,15 +73,16 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 					String[] a = r.split(":");
 					String name = a[1].trim();
 					if(!wireguardOnly || (wireguardOnly && name.startsWith(getInterfacePrefix()))) {
-						l.add(lastLink = new LinuxIP(name, Integer.parseInt(a[0].trim())));
+						l.add(lastLink = new LinuxIP(name, this));
 						state = IpAddressState.MAC;
 					}
-				} else {
+				} else if(lastLink != null) {
 					r = r.trim();
 					if (state == IpAddressState.MAC) {
 						String[] a = r.split("\\s+");
 						if (a.length > 1) {
-							if(!lastLink.getMac().equals(a[1]))
+							String mac = lastLink.getMac();
+							if(mac != null && !mac.equals(a[1]))
 								throw new IllegalStateException("Unexpected MAC.");
 						}
 						state = IpAddressState.IP;
@@ -182,7 +185,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 
 	@Override
 	protected LinuxIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
-		LinuxIP ip = new LinuxIP(nif.getName(), nif.getIndex());
+		LinuxIP ip = new LinuxIP(nif.getName(), this);
 		for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
 			ip.addresses.add(addr.getAddress().toString());
 		}
@@ -220,6 +223,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 				/* This one is the next free number */
 				maxIface = i;
 				log.info(String.format("%s is next free interface.", name));
+				break;
 			}
 		}
 		if (maxIface == -1)
@@ -244,8 +248,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 				write(configuration, writer);
 			}
 			log.info(String.format("Activating Wireguard configuration for %s (in %s)", ip.getName(), tempFile));
-			OSCommand.runCommand("cat", tempFile.toString());
-			OSCommand.runCommand(getWGCommand(), "setconf", ip.getName(), tempFile.toString());
+			OSCommand.adminCommand(getWGCommand(), "setconf", ip.getName(), tempFile.toString());
 			log.info(String.format("Activated Wireguard configuration for %s", ip.getName()));
 		} finally {
 			Files.delete(tempFile);
@@ -293,5 +296,11 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		});
 		/* Actually add routes */
 		ip.setRoutes(session.getAllows());
+	}
+
+	@Override
+	public LinuxIP getByPublicKey(String publicKey) {
+		// TODO Auto-generated method stub
+		throw new UnsupportedOperationException("TODO");
 	}
 }

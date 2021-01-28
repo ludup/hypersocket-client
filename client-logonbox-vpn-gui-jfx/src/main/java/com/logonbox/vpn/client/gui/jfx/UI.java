@@ -42,6 +42,7 @@ import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionService;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.GUICallback;
+import com.logonbox.vpn.common.client.Keys;
 import com.logonbox.vpn.common.client.Util;
 import com.sshtools.twoslices.Toast;
 import com.sshtools.twoslices.ToastType;
@@ -606,6 +607,7 @@ public class UI extends AbstractController implements Listener {
 		String port = connection == null ? "" : Integer.toString(connection.getPort());
 		String endpointAddress = cfg == null ? "" : cfg.getEndpointAddress() + ":" + cfg.getEndpointPort();
 		String publicKey = cfg == null ? "" : cfg.getPublicKey();
+		String userPublicKey = cfg == null ? "" : cfg.getUserPublicKey();
 		String address = cfg == null ? "" : cfg.getAddress();
 		String usernameHint = cfg == null ? "" : cfg.getUsernameHint();
 		String connectAtStartup = cfg == null ? "false" : String.valueOf(cfg.isConnectAtStartup());
@@ -635,6 +637,8 @@ public class UI extends AbstractController implements Listener {
 						node.setAttribute(node.getAttribute("data-attr-name"), endpointAddress);
 					else if (val.equals("publicKey"))
 						node.setAttribute(node.getAttribute("data-attr-name"), publicKey);
+					else if (val.equals("userPublicKey"))
+						node.setAttribute(node.getAttribute("data-attr-name"), userPublicKey);
 					else if (val.equals("exception"))
 						node.setAttribute(node.getAttribute("data-attr-name"), exceptionText);
 					else if (val.equals("errorMessage"))
@@ -658,6 +662,8 @@ public class UI extends AbstractController implements Listener {
 								args.add(endpointAddress);
 							else if (i18nArg.equals("publicKey"))
 								args.add(publicKey);
+							else if (i18nArg.equals("userPublicKey"))
+								args.add(userPublicKey);
 							else if (i18nArg.equals("exception"))
 								args.add(exceptionText);
 							else if (i18nArg.equals("errorMessage"))
@@ -703,6 +709,8 @@ public class UI extends AbstractController implements Listener {
 						node.setTextContent(endpointAddress);
 					else if (val.equals("publicKey"))
 						node.setTextContent(publicKey);
+					else if (val.equals("userPublicKey"))
+						node.setTextContent(userPublicKey);
 					else if (val.equals("exception"))
 						node.setTextContent(exceptionText);
 					else if (val.equals("errorMessage"))
@@ -985,12 +993,15 @@ public class UI extends AbstractController implements Listener {
 			config.setAddress(interfaceSection.get("Address"));
 			config.setDns(toStringList(interfaceSection, "DNS"));
 
-			/* TODO private key should be removed from server at this point */
+			/* TODO private key should be removed from server at this point or
+			 * preferably keep the key generation entirely on the client in this
+			 * case */
 			config.setUserPrivateKey(interfaceSection.get("PrivateKey"));
 
 			/* Peer (them) */
 			Section peerSection = ini.get("Peer");
 			config.setPublicKey(peerSection.get("PublicKey"));
+			config.setUserPublicKey(Keys.pubkey(config.getUserPrivateKey()).getBase64PublicKey());
 			String[] endpoint = peerSection.get("Endpoint").split(":");
 			config.setEndpointAddress(endpoint[0]);
 			config.setEndpointPort(Integer.parseInt(endpoint[1]));

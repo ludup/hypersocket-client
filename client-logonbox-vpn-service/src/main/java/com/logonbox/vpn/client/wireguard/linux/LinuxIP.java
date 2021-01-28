@@ -1,4 +1,4 @@
-package com.logonbox.vpn.client.wireguard;
+package com.logonbox.vpn.client.wireguard.linux;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -21,6 +21,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
+import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
 import com.sshtools.forker.client.EffectiveUserFactory;
 import com.sshtools.forker.client.ForkerBuilder;
 import com.sshtools.forker.client.ForkerProcess;
@@ -43,7 +45,6 @@ public class LinuxIP implements VirtualInetAddress {
 	Set<String> addresses = new LinkedHashSet<>();
 
 	private boolean dnsSet;
-	private int id;
 	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
 	private int mtu;
 	private String name;
@@ -51,13 +52,9 @@ public class LinuxIP implements VirtualInetAddress {
 	private LinuxPlatformServiceImpl platform;
 	private String table = TABLE_AUTO;
 
-	public LinuxIP(LinuxPlatformServiceImpl platform) {
+	public LinuxIP(String name, LinuxPlatformServiceImpl platform) {
 		this.platform = platform;
-	}
-
-	public LinuxIP(String name, int id) {
 		this.name = name;
-		this.id = id;
 	}
 
 	public void addAddress(String address) throws IOException {
@@ -144,8 +141,6 @@ public class LinuxIP implements VirtualInetAddress {
 				return false;
 		} else if (!addresses.equals(other.addresses))
 			return false;
-		if (id != other.id)
-			return false;
 		if (name == null) {
 			if (other.name != null)
 				return false;
@@ -157,11 +152,6 @@ public class LinuxIP implements VirtualInetAddress {
 		} else if (!peer.equals(other.peer))
 			return false;
 		return true;
-	}
-
-	@Override
-	public int getId() {
-		return id;
 	}
 
 	@Override
@@ -193,7 +183,6 @@ public class LinuxIP implements VirtualInetAddress {
 		final int prime = 31;
 		int result = super.hashCode();
 		result = prime * result + ((addresses == null) ? 0 : addresses.hashCode());
-		result = prime * result + id;
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
 		result = prime * result + ((peer == null) ? 0 : peer.hashCode());
 		return result;
@@ -259,11 +248,6 @@ public class LinuxIP implements VirtualInetAddress {
 	}
 
 	@Override
-	public void setId(int id) {
-		this.id = id;
-	}
-
-	@Override
 	public void setMtu(int mtu) {
 		this.mtu = mtu;
 	}
@@ -307,7 +291,7 @@ public class LinuxIP implements VirtualInetAddress {
 
 	@Override
 	public String toString() {
-		return "Ip [name=" + name + ", id=" + id + ", addresses=" + addresses + ", peer=" + peer + "]";
+		return "Ip [name=" + name + ", addresses=" + addresses + ", peer=" + peer + "]";
 	}
 
 	@Override
@@ -319,55 +303,50 @@ public class LinuxIP implements VirtualInetAddress {
 			 * First detect MTU, then bring up. First try from existing Wireguard
 			 * connections?
 			 */
-			OSCommand.elevate();
-			try {
-				int tmtu = 0;
-				// TODO
+			int tmtu = 0;
+			// TODO
 //				for (String line : OSCommand.runCommandAndCaptureOutput("wg", "show", name, "endpoints")) {
 //				 [[ $endpoint =~ ^\[?([a-z0-9:.]+)\]?:[0-9]+$ ]] || continue
 //	                output="$(ip route get "${BASH_REMATCH[1]}" || true)"
 //	                [[ ( $output =~ mtu\ ([0-9]+) || ( $output =~ dev\ ([^ ]+) && $(ip link show dev "${BASH_REMATCH[1]}") =~ mtu\ ([0-9]+) ) ) && ${BASH_REMATCH[1]} -gt $mtu ]] && mtu="${BASH_REMATCH[1]}"
-				// TODO
+			// TODO
 //				}
 
-				if (tmtu == 0) {
-					/* Not found, try the default route */
-					for (String line : OSCommand.adminCommandAndCaptureOutput("ip", "route", "show", "default")) {
-						StringTokenizer t = new StringTokenizer(line);
-						while (t.hasMoreTokens()) {
-							String tk = t.nextToken();
-							if (tk.equals("dev")) {
-								for (String iline : OSCommand.adminCommandAndCaptureOutput("ip", "link", "show", "dev",
-										t.nextToken())) {
-									StringTokenizer it = new StringTokenizer(iline);
-									while (it.hasMoreTokens()) {
-										String itk = it.nextToken();
-										if (itk.equals("mtu")) {
-											tmtu = Integer.parseInt(it.nextToken());
-											break;
-										}
+			if (tmtu == 0) {
+				/* Not found, try the default route */
+				for (String line : OSCommand.adminCommandAndCaptureOutput("ip", "route", "show", "default")) {
+					StringTokenizer t = new StringTokenizer(line);
+					while (t.hasMoreTokens()) {
+						String tk = t.nextToken();
+						if (tk.equals("dev")) {
+							for (String iline : OSCommand.adminCommandAndCaptureOutput("ip", "link", "show", "dev",
+									t.nextToken())) {
+								StringTokenizer it = new StringTokenizer(iline);
+								while (it.hasMoreTokens()) {
+									String itk = it.nextToken();
+									if (itk.equals("mtu")) {
+										tmtu = Integer.parseInt(it.nextToken());
+										break;
 									}
-									break;
 								}
 								break;
 							}
+							break;
 						}
-						break;
 					}
+					break;
 				}
-
-				/* Still not found, use generic default */
-				if (tmtu == 0)
-					tmtu = 1500;
-
-				/* Subtract 80, because .. */
-				tmtu -= 80;
-
-				/* Bring it up! */
-				OSCommand.runCommand("ip", "link", "set", "mtu", String.valueOf(tmtu), "up", "dev", getName());
-			} finally {
-				OSCommand.restrict();
 			}
+
+			/* Still not found, use generic default */
+			if (tmtu == 0)
+				tmtu = 1500;
+
+			/* Subtract 80, because .. */
+			tmtu -= 80;
+
+			/* Bring it up! */
+			OSCommand.adminCommand("ip", "link", "set", "mtu", String.valueOf(tmtu), "up", "dev", getName());
 		}
 	}
 
@@ -527,5 +506,4 @@ public class LinuxIP implements VirtualInetAddress {
 			}
 		}
 	}
-
 }

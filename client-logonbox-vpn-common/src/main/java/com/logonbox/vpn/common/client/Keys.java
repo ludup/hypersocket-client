@@ -1,4 +1,4 @@
-package com.logonbox.vpn.client.wireguard;
+package com.logonbox.vpn.common.client;
 
 import java.security.SecureRandom;
 

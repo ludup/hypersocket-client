@@ -7,11 +7,12 @@ public interface VirtualInetAddress {
 
 	boolean isUp();
 
+	/**
+	 * Entirely disconnect and delete the interface.
+	 */
 	void delete() throws IOException;
 
 	void down() throws IOException;
-
-	int getId();
 
 	default String getMac() {
 		try {
@@ -29,8 +30,6 @@ public interface VirtualInetAddress {
 	String getPeer();
 
 	String getTable();
-
-	void setId(int id);
 
 	void setMtu(int mtu);
 

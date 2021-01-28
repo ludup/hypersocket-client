@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.Keys;
 
 public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> implements PlatformService<I> {
 

@@ -49,8 +49,10 @@ public class VPNSession extends AbstractConnectionJob implements Closeable {
 
 	@Override
 	public void close() throws IOException {
-		log.info(String.format("Closing VPN session for %s", ip.getName()));
-		ip.down();
+		if (ip != null) {
+			log.info(String.format("Closing VPN session for %s", ip.getName()));
+			ip.down();
+		}
 	}
 
 	@Override
@@ -113,6 +115,6 @@ public class VPNSession extends AbstractConnectionJob implements Closeable {
 	}
 
 	void start(Connection configuration) throws IOException {
-		getLocalContext().getPlatformService().connect(this, configuration);
+		ip = getLocalContext().getPlatformService().connect(this, configuration);
 	}
 }

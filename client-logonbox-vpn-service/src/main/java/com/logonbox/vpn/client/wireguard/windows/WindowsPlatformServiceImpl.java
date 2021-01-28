@@ -1,4 +1,4 @@
-package com.logonbox.vpn.client.wireguard;
+package com.logonbox.vpn.client.wireguard.windows;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,6 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.service.VPNSession;
+import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
+import com.logonbox.vpn.client.wireguard.IpUtil;
 import com.logonbox.vpn.common.client.Connection;
 import com.sshtools.forker.client.EffectiveUserFactory;
 import com.sshtools.forker.client.ForkerBuilder;
@@ -30,6 +32,8 @@ import com.sshtools.forker.client.ForkerProcess;
 import com.sshtools.forker.common.IO;
 
 public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<WindowsIP> {
+
+	public static final String TUNNEL_SERVICE_NAME_PREFIX = "LogonBoxVPNTunnel";
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsPlatformServiceImpl.class);
 
@@ -68,8 +72,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 	@Override
 	protected WindowsIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
-		WindowsIP ip = new WindowsIP(nif.getName(), nif.getIndex());
-		return ip;
+		return new WindowsIP(nif.getName(), this);
 	}
 
 	protected boolean isWireGuardInterface(NetworkInterface nif) {
@@ -128,7 +131,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			String name = getInterfacePrefix() + maxIface;
 			LOG.info(String.format("No existing unused interfaces, creating new one (%s) for public key .", name,
 					configuration.getUserPublicKey()));
-			ip = new WindowsIP(name, maxIface);
+			ip = new WindowsIP(name, this);
 			LOG.info(String.format("Created %s", name));
 		} else
 			LOG.info(String.format("Using %s", ip.getName()));
@@ -161,7 +164,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		LOG.info(String.format("Installing service for %s", ip.getName()));
 		ForkerBuilder builder = new ForkerBuilder();
 		builder.command().add(getPrunsrv().toString());
-		builder.command().add("//IS//LogonBoxVPNTunnel$" + ip.getName());
+		builder.command().add("//IS//" + TUNNEL_SERVICE_NAME_PREFIX + "$" + ip.getName());
 		builder.command().add("--Install=" + getPrunsrv().toString());
 		builder.command().add("--DisplayName=LogonBox VPN Tunnel for " + ip.getName());
 		builder.command().add("--Description=Managed a single tunnel LogonBox VPN (" + ip.getName() + ")");
@@ -185,11 +188,11 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		builder.command().add("--ServiceUser=LocalSystem");
 		builder.command().add("--StopMethod=main");
 		builder.command().add("--DependsOn=Nsi;TcpIp");
-		builder.redirectErrorStream(true);
-		
-		/* This makes it run via UAC as administrator (which works), rather than 'LogonAs' which
-		 * appears to have problems. Shouldn't be be needed when running as 
-		 * an administrative servic itself
+
+		/*
+		 * This makes it run via UAC as administrator (which works), rather than
+		 * 'LogonAs' which appears to have problems. Shouldn't be be needed when running
+		 * as an administrative servic itself
 		 */
 		builder.effectiveUser(EffectiveUserFactory.getDefault().administrator());
 		builder.io(IO.SINK);
@@ -206,15 +209,12 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 
 		LOG.info(String.format("Installed service for %s", ip.getName()));
-
-//		/* Bring up the interface (will set the given MTU) */
-//		ip.setMtu(configuration.getMtu());
-//		LOG.info(String.format("Bringing up %s", ip.getName()));
-//		ip.up();
-
-		/* Set the routes */
-//		LOG.info(String.format("Setting routes for %s", ip.getName()));
-//		setRoutes(session, ip);
+		if (ip.isUp()) {
+			LOG.info(String.format("Service for %s is already up.", ip.getName()));
+		} else {
+			LOG.info(String.format("Bringing up %s", ip.getName()));
+			ip.up();
+		}
 
 		return ip;
 	}
@@ -310,5 +310,20 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	protected void writeInterface(Connection configuration, Writer writer) {
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println(String.format("Address = %s", configuration.getAddress()));
+	}
+
+	@Override
+	public WindowsIP getByPublicKey(String publicKey) {
+		try {
+			for (String ifaceName : WindowsTunneler.getInterfacesNode().childrenNames()) {
+				if (publicKey
+						.equals(WindowsTunneler.getInterfaceNode(ifaceName).get(WindowsTunneler.PREF_PUBLIC_KEY, ""))) {
+					return new WindowsIP(ifaceName, this);
+				}
+			}
+		} catch (BackingStoreException bse) {
+			throw new IllegalStateException("Failed to list interface names.", bse);
+		}
+		return null;
 	}
 }
