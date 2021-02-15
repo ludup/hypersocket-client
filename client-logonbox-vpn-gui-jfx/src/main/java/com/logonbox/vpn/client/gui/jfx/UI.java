@@ -628,7 +628,7 @@ public class UI extends AbstractController implements Listener {
 					else if (val.equals("port"))
 						node.setAttribute(node.getAttribute("data-attr-name"), port);
 					else if (val.equals("connectAtStartup"))
-						node.setAttribute(node.getAttribute("data-attr-connect-at-startup"), connectAtStartup);
+						node.setAttribute(node.getAttribute("data-attr-name"), connectAtStartup);
 					else if (val.equals("address"))
 						node.setAttribute(node.getAttribute("data-attr-name"), address);
 					else if (val.equals("usernameHint"))
@@ -786,7 +786,11 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	protected void setHtmlPage(String htmlPage) {
-		if (!Objects.equals(htmlPage, this.htmlPage)) {
+		setHtmlPage(htmlPage, false);
+	}
+	
+	protected void setHtmlPage(String htmlPage, boolean force) {
+		if (!Objects.equals(htmlPage, this.htmlPage) || force) {
 			this.htmlPage = htmlPage;
 			LOG.info(String.format("Loading page %s", htmlPage));
 			pageBundle = null;
@@ -1084,6 +1088,7 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	private void doDelete(Connection sel) throws RemoteException {
+		setHtmlPage("busy.html");
 		log.info(String.format("Deleting connection %s", sel));
 		context.getBridge().getConnectionService().delete(sel);
 		try {

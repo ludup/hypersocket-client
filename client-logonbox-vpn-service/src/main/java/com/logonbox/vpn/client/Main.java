@@ -39,6 +39,8 @@ import com.logonbox.vpn.common.client.ConfigurationService;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionService;
 import com.logonbox.vpn.common.client.GUIRegistry;
+import com.sshtools.forker.client.OSCommand;
+import com.sshtools.forker.common.OS;
 
 public class Main implements LocalContext {
 
@@ -112,6 +114,8 @@ public class Main implements LocalContext {
 		}
 		if (log.isInfoEnabled()) {
 			log.info("Writing RMI info to " + rmiPropertiesFile);
+			String username = System.getProperty("user.name");
+			log.info("Running as " + username);
 		}
 
 		rmiPropertiesFile.getParentFile().mkdirs();

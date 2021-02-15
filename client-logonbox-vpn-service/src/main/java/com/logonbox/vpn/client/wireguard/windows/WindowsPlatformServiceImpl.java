@@ -12,8 +12,11 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -25,11 +28,19 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.IpUtil;
+import com.logonbox.vpn.client.wireguard.windows.service.NetworkConfigurationService;
 import com.logonbox.vpn.common.client.Connection;
-import com.sshtools.forker.client.EffectiveUserFactory;
-import com.sshtools.forker.client.ForkerBuilder;
-import com.sshtools.forker.client.ForkerProcess;
-import com.sshtools.forker.common.IO;
+import com.sshtools.forker.client.impl.jna.win32.Kernel32;
+import com.sshtools.forker.common.XAdvapi32;
+import com.sshtools.forker.common.XWinsvc;
+import com.sshtools.forker.services.Services;
+import com.sshtools.forker.services.impl.Win32ServiceService;
+import com.sun.jna.Native;
+import com.sun.jna.platform.win32.Kernel32Util;
+import com.sun.jna.platform.win32.WinDef.DWORD;
+import com.sun.jna.platform.win32.WinNT;
+import com.sun.jna.platform.win32.Winsvc;
+import com.sun.jna.platform.win32.Winsvc.SC_HANDLE;
 
 public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<WindowsIP> {
 
@@ -38,6 +49,25 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	final static Logger LOG = LoggerFactory.getLogger(WindowsPlatformServiceImpl.class);
 
 	private static final String INTERFACE_PREFIX = "net";
+
+	public static void main(String[] args) throws IOException {
+		WindowsPlatformServiceImpl w = new WindowsPlatformServiceImpl();
+		try {
+			w.uninstall(TUNNEL_SERVICE_NAME_PREFIX + "$net7");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		try {
+			w.uninstall(TUNNEL_SERVICE_NAME_PREFIX + "$net1");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		try {
+			w.uninstall(TUNNEL_SERVICE_NAME_PREFIX + "$net8");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 
 	public WindowsPlatformServiceImpl() {
 		super(INTERFACE_PREFIX);
@@ -51,18 +81,18 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	@Override
 	protected String getPublicKey(String interfaceName) throws IOException {
 		try {
-			if (WindowsTunneler.getInterfacesNode().nodeExists(interfaceName)) {
-				Preferences ifNode = WindowsTunneler.getInterfaceNode(interfaceName);
-				String mac = ifNode.get(WindowsTunneler.PREF_MAC, "");
+			if (NetworkConfigurationService.getInterfacesNode().nodeExists(interfaceName)) {
+				Preferences ifNode = NetworkConfigurationService.getInterfaceNode(interfaceName);
+				String mac = ifNode.get(NetworkConfigurationService.PREF_MAC, "");
 				NetworkInterface iface = NetworkInterface.getByName(interfaceName);
 				if (iface != null) {
 					if (mac.equals(IpUtil.toIEEE802(iface.getHardwareAddress()))) {
-						return ifNode.get(WindowsTunneler.PREF_PUBLIC_KEY, null);
+						return ifNode.get(NetworkConfigurationService.PREF_PUBLIC_KEY, null);
 					} else
 						/* Mac, changed, might as well get rid */
 						ifNode.removeNode();
 				} else
-					return ifNode.get(WindowsTunneler.PREF_PUBLIC_KEY, null);
+					return ifNode.get(NetworkConfigurationService.PREF_PUBLIC_KEY, null);
 			}
 		} catch (BackingStoreException bse) {
 			throw new IOException("Failed to get public key.", bse);
@@ -77,7 +107,13 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 	protected boolean isWireGuardInterface(NetworkInterface nif) {
 		return super.isWireGuardInterface(nif) && nif.getDisplayName().equals("Wintun Userspace Tunnel");
-	}
+	} 
+	
+	// TODO this is how to communicate with Wireguard daemon
+//	public static NamedPipeClientStream GetPipe(String name)
+//        var pipepath = "ProtectedPrefix\\Administrators\\WireGuard\\" + name;
+//        return new NamedPipeClientStream(pipepath);
+//    }
 
 	@Override
 	public WindowsIP connect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
@@ -98,7 +134,8 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			 */
 			if (exists(name, false)) {
 				/* Get if this is actually a Wireguard interface. */
-				if (isWireGuardInterface(NetworkInterface.getByName(name))) {
+				NetworkInterface nicByName = NetworkInterface.getByName(name);
+				if (isWireGuardInterface(nicByName)) {
 					/* Interface exists and is wireguard, is it connected? */
 
 					// TODO check service state, we can't rely on the public key
@@ -117,11 +154,13 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 						LOG.info(String.format("%s is already in use.", name));
 					}
 				} else
-					LOG.info(String.format("%s is already in use by something other than WinTun.", name));
+					LOG.info(String.format("%s is already in use by something other than WinTun (%s).", name,
+							nicByName.getDisplayName()));
 			} else if (maxIface == -1) {
 				/* This one is the next free number */
 				maxIface = i;
 				LOG.info(String.format("%s is next free interface.", name));
+				break;
 			}
 		}
 		if (maxIface == -1)
@@ -143,25 +182,25 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		try (Writer writer = Files.newBufferedWriter(confFile)) {
 			write(configuration, writer);
 		}
-
-//			Service Type:  SERVICE_WIN32_OWN_PROCESS
-//			Error Control: ErrorNormal,
-//			Sid Type:      SERVICE_SID_TYPE_UNRESTRICTED
-
-//		commons-daemon\prunsrv //IS//OpenDataPusher --DisplayName="OpenData Pusher" --Description="OpenData Pusher"^
-//		     --Install="%cd%\commons-daemon\prunsrv.exe" --Jvm="%cd%\jre1.8.0_91\bin\client\jvm.dll" --StartMode=jvm --StopMode=jvm^
-//		     --Startup=auto --StartClass=bg.government.opendatapusher.Pusher --StopClass=bg.government.opendatapusher.Pusher^
-//		     --StartParams=start --StopParams=stop --StartMethod=windowsService --StopMethod=windowsService^
-//		     --Classpath="%cd%\opendata-ckan-pusher.jar" --LogLevel=DEBUG^ --LogPath="%cd%\logs" --LogPrefix=procrun.log^
-//		     --StdOutput="%cd%\logs\stdout.log" --StdError="%cd%\logs\stderr.log"
-//		      
-
-//		     --Classpath="%cd%\opendata-ckan-pusher.jar"
-//		      
+		Path logsDir = Paths.get("logs");
+		if (!Files.exists(logsDir))
+			Files.createDirectories(logsDir);
 
 		/* Install service for the network interface */
+		if (!Services.get().hasService(TUNNEL_SERVICE_NAME_PREFIX + "$" + ip.getName())) {
+			installService(ip.getName(), confFile, logsDir.resolve(ip.getName() + "-service.log"));
+		}
+		else
+			LOG.info(String.format("Service for %s already exists.", ip.getName()));
 
-		installService(ip, confFile);
+		/* TODO: Poll or something */
+		try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 		if (ip.isUp()) {
 			LOG.info(String.format("Service for %s is already up.", ip.getName()));
 		} else {
@@ -169,58 +208,164 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			ip.up();
 		}
 
+
+		// TODO might need to wait/sleep wait for this interface?
+
+		/*
+		 * Store the public key being used for this interface name so we can later
+		 * retrieve it to determine this interface was started by LogonBox VPN (gets
+		 * around the fact there doesn't seem to be a 'wg show' command available).
+		 * 
+		 * Also record the mac, in case it changes and another interface takes that name
+		 * while LB VPN is not watching.
+		 */
+//		Preferences ifNode = getInterfaceNode(name);
+//		ifNode.put(PREF_PUBLIC_KEY, configuration.getPublicKey());
+//		ifNode.put(PREF_MAC, ip.getMac());
+//		LOG.info(String.format("Recording public key %s against MAC %s", configuration.getPublicKey(),
+//				ip.getMac()));
+		
+		
 		return ip;
 	}
 
-	protected void installService(WindowsIP ip, Path confFile) throws IOException {
-		LOG.info(String.format("Installing service for %s", ip.getName()));
-		ForkerBuilder builder = new ForkerBuilder();
-		builder.command().add(getPrunsrv().toString());
-		builder.command().add("//IS//" + TUNNEL_SERVICE_NAME_PREFIX + "$" + ip.getName());
-		builder.command().add("--Install=" + getPrunsrv().toString());
-		builder.command().add("--DisplayName=LogonBox VPN Tunnel for " + ip.getName());
-		builder.command().add("--Description=Managed a single tunnel LogonBox VPN (" + ip.getName() + ")");
-		builder.command().add("--Jvm=" + System.getProperty("java.home") + "\\bin\\client\\jvm.dll");
-		builder.command().add("--StartMode=jvm");
-		builder.command().add("--StopMode=jvm");
-		builder.command().add("--Startup=auto");
-		builder.command().add("--StartClass=" + WindowsTunneler.class.getName());
-		builder.command().add("--StopClass=" + WindowsTunneler.class.getName());
-		builder.command().add("--LogLevel=" + toLevel());
-		builder.command().add("--Classpath=" + reconstructClassPath());
-		builder.command().add("--LogPath=" + System.getProperty("user.dir") + "\\logs");
-		builder.command().add("--LogPrefix=tunneler-" + ip.getName() + ".log");
-		builder.command()
-				.add("--StdOutput=" + System.getProperty("user.dir") + "\\log\\stdout-" + ip.getName() + ".log");
-		builder.command()
-				.add("--StdError=" + System.getProperty("user.dir") + "\\log\\stderr-" + ip.getName() + ".log");
-		builder.command().add("--StartParams=/service;" + confFile.toAbsolutePath());
-		builder.command().add("--Stop=stop");
-		builder.command().add("--StartMethod=main");
-		builder.command().add("--ServiceUser=LocalSystem");
-		builder.command().add("--StopMethod=main");
-		builder.command().add("--DependsOn=Nsi;TcpIp");
+	public void installService(String name, Path confFile, Path logFile) throws IOException {
+		LOG.info(String.format("Installing service for %s", name));
+		StringBuilder cmd = new StringBuilder();
+		cmd.append('"');
+		cmd.append(System.getProperty("java.home") + "\\bin\\java.exe");
+		cmd.append('"');
+		cmd.append(' ');
+		cmd.append("-cp");
+		cmd.append(' ');
+		cmd.append(reconstructClassPath());
+		cmd.append(' ');
+		//cmd.append(WindowsTunneler.class.getName());
+		cmd.append(NetworkConfigurationService.class.getName());
+		cmd.append(' ');
+		cmd.append("/service");
+		cmd.append(' ');
+		cmd.append('"');
+		cmd.append(confFile.toAbsolutePath().toString());
+		cmd.append('"');
+		cmd.append(' ');
+		cmd.append('"');
+		cmd.append(logFile.toAbsolutePath().toString());
+		cmd.append('"');
 
-		/*
-		 * This makes it run via UAC as administrator (which works), rather than
-		 * 'LogonAs' which appears to have problems. Shouldn't be be needed when running
-		 * as an administrative servic itself
-		 */
-		builder.effectiveUser(EffectiveUserFactory.getDefault().administrator());
-		builder.io(IO.SINK);
-		builder.redirectErrorStream(false);
-		LOG.info(String.format("Execute: %s", String.join(" ", builder.command())));
+		install(TUNNEL_SERVICE_NAME_PREFIX + "$" + name, "LogonBox VPN Tunnel for " + name,
+				"Manage a single tunnel LogonBox VPN (" + name + ")", new String[] { "Nsi", "TcpIp" },
+				"LocalSystem", null, cmd.toString(), WinNT.SERVICE_AUTO_START, false, null, false,
+				XWinsvc.SERVICE_SID_TYPE_UNRESTRICTED);
 
-		ForkerProcess process = builder.start();
+		LOG.info(String.format("Installed service for %s", name));
+	}
+
+	void install(String serviceName, String displayName, String description, String[] dependencies, String account,
+			String password, String command, int winStartType, boolean interactive,
+			Winsvc.SERVICE_FAILURE_ACTIONS failureActions, boolean delayedAutoStart, DWORD sidType) throws IOException {
+
+		XAdvapi32 advapi32 = XAdvapi32.INSTANCE;
+
+		XWinsvc.SERVICE_DESCRIPTION desc = new XWinsvc.SERVICE_DESCRIPTION();
+		desc.lpDescription = description;
+
+		SC_HANDLE serviceManager = Win32ServiceService.getManager(null, Winsvc.SC_MANAGER_ALL_ACCESS);
 		try {
-			if (process.waitFor() != 0)
-				throw new IOException(String.format("Failed to install tunnel service for %s, exited with code %d.",
-						ip.getName(), process.exitValue()));
-		} catch (InterruptedException e) {
-			throw new IOException("Interrupted waiting for process to finish.");
-		}
 
-		LOG.info(String.format("Installed service for %s", ip.getName()));
+			int dwServiceType = WinNT.SERVICE_WIN32_OWN_PROCESS;
+			if (interactive)
+				dwServiceType |= WinNT.SERVICE_INTERACTIVE_PROCESS;
+
+			SC_HANDLE service = advapi32.CreateService(serviceManager, serviceName, displayName,
+					Winsvc.SERVICE_ALL_ACCESS, dwServiceType, winStartType, WinNT.SERVICE_ERROR_NORMAL, command, null,
+					null, (dependencies == null ? "" : String.join("\0", dependencies)) + "\0", account, password);
+
+			if (service != null) {
+				try {
+					boolean success = false;
+					if (failureActions != null) {
+						success = advapi32.ChangeServiceConfig2(service, Winsvc.SERVICE_CONFIG_FAILURE_ACTIONS,
+								failureActions);
+						if (!success) {
+							int err = Native.getLastError();
+							throw new IOException(String.format("Failed to set failure actions. %d. %s", err,
+									Kernel32Util.formatMessageFromLastErrorCode(err)));
+						}
+					}
+
+					success = advapi32.ChangeServiceConfig2(service, Winsvc.SERVICE_CONFIG_DESCRIPTION, desc);
+					if (!success) {
+						int err = Native.getLastError();
+						throw new IOException(String.format("Failed to set description. %d. %s", err,
+								Kernel32Util.formatMessageFromLastErrorCode(err)));
+					}
+
+					if (SystemUtils.IS_OS_WINDOWS_VISTA && delayedAutoStart) {
+						XWinsvc.SERVICE_DELAYED_AUTO_START_INFO delayedDesc = new XWinsvc.SERVICE_DELAYED_AUTO_START_INFO();
+						delayedDesc.fDelayedAutostart = true;
+						success = advapi32.ChangeServiceConfig2(service, Winsvc.SERVICE_CONFIG_DELAYED_AUTO_START_INFO,
+								delayedDesc);
+						if (!success) {
+							int err = Native.getLastError();
+							throw new IOException(String.format("Failed to set autostart. %d. %s", err,
+									Kernel32Util.formatMessageFromLastErrorCode(err)));
+						}
+					}
+
+					/*
+					 * https://github.com/WireGuard/wireguard-windows/tree/master/embeddable-dll-
+					 * service
+					 */
+					if (sidType != null) {
+						XWinsvc.SERVICE_SID_INFO info = new XWinsvc.SERVICE_SID_INFO();
+						info.dwServiceSidType = sidType;
+						success = advapi32.ChangeServiceConfig2(service, XWinsvc.SERVICE_CONFIG_SERVICE_SID_INFO, info);
+						if (!success) {
+							int err = Native.getLastError();
+							throw new IOException(String.format("Failed to set SERVICE_SID_INFO. %d. %s", err,
+									Kernel32Util.formatMessageFromLastErrorCode(err)));
+						}
+					}
+
+				} finally {
+					advapi32.CloseServiceHandle(service);
+				}
+			} else {
+				int err = Kernel32.INSTANCE.GetLastError();
+				throw new IOException(String.format("Failed to install. %d. %s", err,
+						Kernel32Util.formatMessageFromLastErrorCode(err)));
+
+			}
+		} finally {
+			advapi32.CloseServiceHandle(serviceManager);
+		}
+	}
+
+	public void uninstall(String serviceName) throws IOException {
+		XAdvapi32 advapi32 = XAdvapi32.INSTANCE;
+		SC_HANDLE serviceManager, service;
+		serviceManager = Win32ServiceService.getManager(null, WinNT.GENERIC_ALL);
+		try {
+			service = advapi32.OpenService(serviceManager, serviceName, WinNT.GENERIC_ALL);
+			if (service != null) {
+				try {
+					if (!advapi32.DeleteService(service)) {
+						int err = Kernel32.INSTANCE.GetLastError();
+						throw new IOException(String.format("Failed to find service to uninstall '%s'. %d. %s",
+								serviceName, err, Kernel32Util.formatMessageFromLastErrorCode(err)));
+					}
+				} finally {
+					advapi32.CloseServiceHandle(service);
+				}
+			} else {
+				int err = Kernel32.INSTANCE.GetLastError();
+				throw new IOException(String.format("Failed to find service to uninstall '%s'. %d. %s", serviceName,
+						err, Kernel32Util.formatMessageFromLastErrorCode(err)));
+			}
+		} finally {
+			advapi32.CloseServiceHandle(serviceManager);
+		}
 	}
 
 	private String reconstructClassPath() {
@@ -245,15 +390,37 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		if (Thread.currentThread().getContextClassLoader() != null)
 			reconstructFromClassLoader(Thread.currentThread().getContextClassLoader(), urls);
 
+		/* Sort so that directories come first - helps with development */
+		List<URL> sortedUrls = new ArrayList<>(urls);
+		Collections.sort(sortedUrls, (o1, o2) -> {
+			int i1 = o1.getPath().indexOf("/target/classes") != -1 ? 1 : 0;
+			int i2 = o2.getPath().indexOf("/target/classes") != -1 ? 1 : 0;
+			if (i1 == i2) {
+				return o1.getPath().compareTo(o2.getPath());
+			} else {
+				return i1 > i2 ? -1 : 1;
+			}
+		});
+		urls.clear();
+		urls.addAll(sortedUrls);
+
 		/* Only include the jars we need for this tool */
 		StringBuilder path = new StringBuilder();
 		for (URL url : urls) {
 			try {
 				String fullPath = new File(url.toURI()).getAbsolutePath();
-				if (fullPath.matches(".*jna.*") || fullPath.matches("slf4j") || fullPath.matches("commons-io"))
-					if (path.length() > 0)
-						path.append(File.pathSeparator);
-				path.append(fullPath);
+				{
+					if (fullPath.matches(".*client-logonbox-vpn-service.*") || fullPath.matches(".*jna.*")
+							|| fullPath.matches(".*forker-common.*")
+							|| fullPath.matches(".*forker-client.*")
+							|| fullPath.matches(".*commons-io.*")) {
+						if (path.length() > 0)
+							path.append(File.pathSeparator);
+						path.append('"');
+						path.append(fullPath);
+						path.append('"');
+					}
+				}
 			} catch (URISyntaxException e) {
 			}
 
@@ -271,45 +438,6 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			reconstructFromClassLoader(classLoader.getParent(), urls);
 	}
 
-	static String getPrunsrv() {
-		
-		Path f = Paths.get("prunsrv.exe");
-		if (Files.exists(f)) {
-			/* Installed */
-			return f.toAbsolutePath().toString();
-		}
-		
-		/* In development, try to find the source location. We would
-		 * be running from a _run project, but the source will be elsewhere.
-		 * So examine the classpath and look for client-logonbox-vpn-service. 
-		 * From there we can look for the executable */
-
-		for (String path : System.getProperty("java.class.path").split(File.pathSeparator)) {
-			if(path.contains("\\client-logonbox-vpn-service\\")) {
-				f = Paths.get(path).getParent().getParent().resolve("src").resolve("main").resolve("exe");
-				if (SystemUtils.OS_ARCH.equals("x86"))
-					f = f.resolve("win32-x86");
-				else
-					f = f.resolve("win32-x86-64");
-				return f.resolve("prunsrv.exe").toAbsolutePath().toString();		
-			}
-		}
-		
-		/* Must be on PATH */
-		return "prunsrv.exe";
-	}
-
-	protected String toLevel() {
-		if (LOG.isDebugEnabled() || LOG.isTraceEnabled())
-			return "DEBUG";
-		else if (LOG.isInfoEnabled())
-			return "INFO";
-		else if (LOG.isWarnEnabled())
-			return "WARN";
-		else
-			return "ERROR";
-	}
-
 	@Override
 	protected void writeInterface(Connection configuration, Writer writer) {
 		PrintWriter pw = new PrintWriter(writer, true);
@@ -319,9 +447,9 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	@Override
 	public WindowsIP getByPublicKey(String publicKey) {
 		try {
-			for (String ifaceName : WindowsTunneler.getInterfacesNode().childrenNames()) {
+			for (String ifaceName : NetworkConfigurationService.getInterfacesNode().childrenNames()) {
 				if (publicKey
-						.equals(WindowsTunneler.getInterfaceNode(ifaceName).get(WindowsTunneler.PREF_PUBLIC_KEY, ""))) {
+						.equals(NetworkConfigurationService.getInterfaceNode(ifaceName).get(NetworkConfigurationService.PREF_PUBLIC_KEY, ""))) {
 					return new WindowsIP(ifaceName, this);
 				}
 			}
@@ -330,4 +458,5 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 		return null;
 	}
+
 }

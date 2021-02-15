@@ -8,8 +8,8 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.wireguard.AbstractVirtualInetAddress;
 import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
-import com.sshtools.forker.client.OSCommand;
-import com.sshtools.forker.common.IO;
+import com.sshtools.forker.services.Service;
+import com.sshtools.forker.services.Services;
 
 public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInetAddress {
 	enum IpAddressState {
@@ -27,41 +27,25 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 		this.name = name;
 	}
 
-	public static void main(String[] args) throws Exception {
-		IO was = OSCommand.io(IO.SINK);
-		try {
-			OSCommand.adminCommand(WindowsPlatformServiceImpl.getPrunsrv(), "//DS",
-					WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + args[0]);
-		} finally {
-			OSCommand.io(was);
-		}
-	}
-
 	@Override
 	public void delete() throws IOException {
 		synchronized (lock) {
 			if (isUp()) {
 				down();
 			}
-			IO was = OSCommand.io(IO.SINK);
-			try {
-				OSCommand.adminCommand(WindowsPlatformServiceImpl.getPrunsrv(), "//DS",
-						WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name);
-			} finally {
-				OSCommand.io(was);
-			}
+			platform.uninstall(getServiceName());
 		}
 	}
 
 	@Override
 	public void down() throws IOException {
 		synchronized (lock) {
-			IO was = OSCommand.io(IO.SINK);
 			try {
-				OSCommand.adminCommand(WindowsPlatformServiceImpl.getPrunsrv(), "//SS",
-						WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name);
-			} finally {
-				OSCommand.io(was);
+				Services.get().stopService(getService());
+			} catch (IOException ioe) {
+				throw ioe;
+			} catch (Exception e) {
+				throw new IOException("Failed to take interface down.", e);
 			}
 		}
 	}
@@ -79,17 +63,33 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	public boolean isUp() {
 		synchronized (lock) {
 			try {
-				for (String line : OSCommand.runCommandAndCaptureOutput("sc", "query",
-						WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name)) {
-					line = line.trim();
-					if (line.startsWith("STATE") && line.endsWith("RUNNING"))
-						return true;
-				}
-			} catch (IOException ioe) {
-				throw new IllegalStateException("Failed to test service state.");
+				return getService().getStatus().isRunning();
+			} catch (IOException e) {
+				return false;
 			}
 		}
-		return false;
+	}
+
+	protected Service getService() throws IOException {
+		Service service = Services.get().getService(getServiceName());
+		if (service == null)
+			throw new IOException(String.format("No service for interface %s.", name));
+		return service;
+	}
+
+	protected String getServiceName() {
+		return WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name;
+	}
+
+	public boolean isInstalled() {
+		synchronized (lock) {
+			try {
+				getService();
+				return true;
+			} catch (IOException ioe) {
+				return false;
+			}
+		}
 	}
 
 	public DNSIntegrationMethod method() {
@@ -109,14 +109,12 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	@Override
 	public void up() throws IOException {
 		synchronized (lock) {
-			IO was = OSCommand.io(IO.SINK);
 			try {
-				OSCommand.adminCommand("sc", "start",
-						WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name);
-			} catch (IOException ioe) {
-				throw new IllegalStateException("Failed to test service state.");
-			} finally {
-				OSCommand.io(was);
+				Services.get().startService(getService());
+			} catch (IOException e) {
+				throw e;
+			} catch (Exception e) {
+				throw new IOException("Failed to bring up interface service.", e);
 			}
 		}
 	}
