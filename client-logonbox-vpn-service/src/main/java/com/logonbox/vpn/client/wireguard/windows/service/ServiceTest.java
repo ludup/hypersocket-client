@@ -22,7 +22,7 @@ public class ServiceTest {
 					System.out.println("Uninstall net" + i);
 					try {
 						w.uninstall(WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$net" + i);
-						w.uninstall("WireGuard" + "$net" + i);
+						w.uninstall("WireGuardTunnel" + "$net" + i);
 					} catch (Exception e) {
 					}	
 				}
