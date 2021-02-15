@@ -21,7 +21,8 @@ public class ServiceTest {
 				for(int i = 0 ; i < 50; i++) {
 					System.out.println("Uninstall net" + i);
 					try {
-						w.uninstall(WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$net1");
+						w.uninstall(WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$net" + i);
+						w.uninstall("WireGuard" + "$net" + i);
 					} catch (Exception e) {
 					}	
 				}
