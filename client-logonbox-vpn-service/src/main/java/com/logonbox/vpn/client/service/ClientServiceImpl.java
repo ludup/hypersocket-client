@@ -410,18 +410,12 @@ public class ClientServiceImpl implements ClientService, Listener {
 		
 		if (log.isInfoEnabled()) {
 			log.info("Disconnecting connection with id " + c.getId() + "/" + c.getHostname());
-			try {
-				throw new Exception();
-			}
-			catch(Exception e) {
-				e.printStackTrace();
-			}
 		}
 		boolean disconnect = false;
 		try {
 			beforeDisconnectClient(c);
 		} catch (IOException e) {
-			throw new RemoteException("Failed to disconnect.");
+			throw new RemoteException("Failed to disconnect.", e);
 		}
 		synchronized (activeClients) {
 			if (activeClients.containsKey(c)) {

@@ -3,13 +3,12 @@ package com.logonbox.vpn.client.wireguard.windows.service;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
-import java.util.prefs.Preferences;
 
 import org.apache.commons.io.FilenameUtils;
 
+import com.sshtools.forker.common.XKernel32;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.WString;
@@ -26,42 +25,7 @@ public class NetworkConfigurationService {
 	public static TunnelInterface INSTANCE;
 
 	static {
-		try {
-			Native.extractFromResourcePath("tunnel.dll");
-			Native.extractFromResourcePath("wintun.dll");
-			INSTANCE = Native.load("tunnel", TunnelInterface.class);
-		} catch (IOException e) {
-			throw new IllegalStateException("Failed to load support library.", e);
-		}
-	}
-	public static final String PREF_MAC = "mac";
-
-	public static final String PREF_PUBLIC_KEY = "publicKey";
-	private static Preferences PREFS = null;
-
-	public static Preferences getPreferences() {
-		if (PREFS == null) {
-			/* Test whether we can write to system preferences */
-			try {
-				PREFS = Preferences.systemRoot();
-				PREFS.put("test", "true");
-				PREFS.flush();
-				PREFS.remove("test");
-				PREFS.flush();
-			} catch (Exception bse) {
-				System.out.println("Fallback to usering user preferences for public key -> interface mapping.");
-				PREFS = Preferences.userRoot();
-			}
-		}
-		return PREFS;
-	}
-
-	public static Preferences getInterfaceNode(String name) {
-		return getInterfacesNode().node(name);
-	}
-
-	public static Preferences getInterfacesNode() {
-		return getPreferences().node("interfaces");
+		INSTANCE = Native.load("tunnel", TunnelInterface.class);
 	}
 
 	private static void log(String msgFmt, Object... args) {
@@ -83,20 +47,32 @@ public class NetworkConfigurationService {
 					System.err.flush();
 				}
 			});
+			String cwd = args[1];
+			String name = args[2];
 
-			confFile = new File(args[1]);
-			File logFile = new File(args[2]);
-			FileOutputStream fos = new FileOutputStream(logFile);
+			/*
+			 * Set current directory (the .dlls are expected to be here so both Java can
+			 * find the embedded DLL, and the embedded DLL can find the wintun DLL)
+			 */
+			XKernel32.INSTANCE.SetCurrentDirectoryW(cwd);
+
+			/* Capture stdout and stderr to a log file */
+			FileOutputStream fos = new FileOutputStream(new File("logs" + File.separator + name + "-service.log"));
 			System.setErr(new PrintStream(fos, true));
 			System.setOut(new PrintStream(fos, true));
+
+			/* Configuration path */
+			confFile = new File("conf" + File.separator + "connections" + File.separator + name + ".conf");
+
+			System.out
+					.println(String.format("Running from %s for interface %s (configuration %s)", cwd, name, confFile));
 			if (!confFile.exists())
 				throw new FileNotFoundException(String.format("No configuration file %s", confFile));
 
 		} else if (args.length == 1) {
 			confFile = new File(args[0]);
 		} else {
-			System.err.println(String.format(
-					"%s: Unexpected arguments (%d supplied). Use /service <interface-name>.conf <logFile>",
+			System.err.println(String.format("%s: Unexpected arguments (%d supplied). Use /service <dir> <name>",
 					NetworkConfigurationService.class.getName(), args.length));
 			System.exit(1);
 		}
@@ -120,7 +96,7 @@ public class NetworkConfigurationService {
 	private int startNetworkService() {
 		log("Activating Wireguard configuration for %s (in %s)", name, confFile);
 		if (INSTANCE.WireGuardTunnelService(new WString(confFile.getPath()))) {
-			log("Activated Wireguard configuration for %s", name);
+			log("Wireguard shutdown cleanly for %s", name);
 			return 0;
 		} else {
 			log("%s: Failed to activate %s", NetworkConfigurationService.class.getName(), name);

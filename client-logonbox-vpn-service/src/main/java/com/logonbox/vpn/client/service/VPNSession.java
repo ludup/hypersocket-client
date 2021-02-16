@@ -52,6 +52,7 @@ public class VPNSession extends AbstractConnectionJob implements Closeable {
 		if (ip != null) {
 			log.info(String.format("Closing VPN session for %s", ip.getName()));
 			ip.down();
+			ip.delete();
 		}
 	}
 

@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
-import com.logonbox.vpn.client.wireguard.IpUtil;
 import com.logonbox.vpn.client.wireguard.windows.service.NetworkConfigurationService;
 import com.logonbox.vpn.common.client.Connection;
 import com.sshtools.forker.client.impl.jna.win32.Kernel32;
@@ -44,76 +43,50 @@ import com.sun.jna.platform.win32.Winsvc.SC_HANDLE;
 
 public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<WindowsIP> {
 
-	public static final String TUNNEL_SERVICE_NAME_PREFIX = "LogonBoxVPNTunnel";
+	private static final String INTERFACE_PREFIX = "net";
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsPlatformServiceImpl.class);
 
-	private static final String INTERFACE_PREFIX = "net";
+	public static final String PREF_PUBLIC_KEY = "publicKey";
 
-	public static void main(String[] args) throws IOException {
-		WindowsPlatformServiceImpl w = new WindowsPlatformServiceImpl();
-		try {
-			w.uninstall(TUNNEL_SERVICE_NAME_PREFIX + "$net7");
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		try {
-			w.uninstall(TUNNEL_SERVICE_NAME_PREFIX + "$net1");
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		try {
-			w.uninstall(TUNNEL_SERVICE_NAME_PREFIX + "$net8");
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+	private static Preferences PREFS = null;
+
+	public static final String TUNNEL_SERVICE_NAME_PREFIX = "LogonBoxVPNTunnel";
+
+	public static Preferences getInterfaceNode(String name) {
+		return getInterfacesNode().node(name);
 	}
 
-	public WindowsPlatformServiceImpl() {
-		super(INTERFACE_PREFIX);
+	public static Preferences getInterfacesNode() {
+		return getPreferences().node("interfaces");
 	}
 
-	@Override
-	public String[] getMissingPackages() {
-		return new String[0];
-	}
-
-	@Override
-	protected String getPublicKey(String interfaceName) throws IOException {
-		try {
-			if (NetworkConfigurationService.getInterfacesNode().nodeExists(interfaceName)) {
-				Preferences ifNode = NetworkConfigurationService.getInterfaceNode(interfaceName);
-				String mac = ifNode.get(NetworkConfigurationService.PREF_MAC, "");
-				NetworkInterface iface = NetworkInterface.getByName(interfaceName);
-				if (iface != null) {
-					if (mac.equals(IpUtil.toIEEE802(iface.getHardwareAddress()))) {
-						return ifNode.get(NetworkConfigurationService.PREF_PUBLIC_KEY, null);
-					} else
-						/* Mac, changed, might as well get rid */
-						ifNode.removeNode();
-				} else
-					return ifNode.get(NetworkConfigurationService.PREF_PUBLIC_KEY, null);
+	public static Preferences getPreferences() {
+		if (PREFS == null) {
+			/* Test whether we can write to system preferences */
+			try {
+				PREFS = Preferences.systemRoot();
+				PREFS.put("test", "true");
+				PREFS.flush();
+				PREFS.remove("test");
+				PREFS.flush();
+			} catch (Exception bse) {
+				System.out.println("Fallback to usering user preferences for public key -> interface mapping.");
+				PREFS = Preferences.userRoot();
 			}
-		} catch (BackingStoreException bse) {
-			throw new IOException("Failed to get public key.", bse);
 		}
-		return null;
+		return PREFS;
 	}
 
-	@Override
-	protected WindowsIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
-		return new WindowsIP(nif.getName(), this);
-	}
-
-	protected boolean isWireGuardInterface(NetworkInterface nif) {
-		return super.isWireGuardInterface(nif) && nif.getDisplayName().equals("Wintun Userspace Tunnel");
-	} 
-	
 	// TODO this is how to communicate with Wireguard daemon
 //	public static NamedPipeClientStream GetPipe(String name)
 //        var pipepath = "ProtectedPrefix\\Administrators\\WireGuard\\" + name;
 //        return new NamedPipeClientStream(pipepath);
 //    }
+
+	public WindowsPlatformServiceImpl() {
+		super(INTERFACE_PREFIX);
+	}
 
 	@Override
 	public WindowsIP connect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
@@ -175,41 +148,43 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		} else
 			LOG.info(String.format("Using %s", ip.getName()));
 
-		Path confDir = Paths.get("conf").resolve("connections");
+		Path cwd = Paths.get(System.getProperty("user.dir"));
+		Path confDir = cwd.resolve("conf").resolve("connections");
 		if (!Files.exists(confDir))
 			Files.createDirectories(confDir);
 		Path confFile = confDir.resolve(ip.getName() + ".conf");
 		try (Writer writer = Files.newBufferedWriter(confFile)) {
 			write(configuration, writer);
 		}
-		Path logsDir = Paths.get("logs");
-		if (!Files.exists(logsDir))
-			Files.createDirectories(logsDir);
 
 		/* Install service for the network interface */
 		if (!Services.get().hasService(TUNNEL_SERVICE_NAME_PREFIX + "$" + ip.getName())) {
-			installService(ip.getName(), confFile, logsDir.resolve(ip.getName() + "-service.log"));
-		}
-		else
+			installService(ip.getName(), cwd);
+		} else
 			LOG.info(String.format("Service for %s already exists.", ip.getName()));
 
-		/* TODO: Poll or something */
-		try {
-			Thread.sleep(5000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		/* The service may take a short while to appear */
+		int i = 0;
+		for (; i < 10; i++) {
+			if (Services.get().hasService(TUNNEL_SERVICE_NAME_PREFIX + "$" + ip.getName()))
+				break;
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				throw new IOException("Interrupted.", e);
+			}
 		}
-		
+		if (i == 10)
+			throw new IOException(
+					String.format("Service for %s cannot be found, suggesting installation failed, please check logs.",
+							ip.getName()));
+
 		if (ip.isUp()) {
 			LOG.info(String.format("Service for %s is already up.", ip.getName()));
 		} else {
 			LOG.info(String.format("Bringing up %s", ip.getName()));
 			ip.up();
 		}
-
-
-		// TODO might need to wait/sleep wait for this interface?
 
 		/*
 		 * Store the public key being used for this interface name so we can later
@@ -219,58 +194,51 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		 * Also record the mac, in case it changes and another interface takes that name
 		 * while LB VPN is not watching.
 		 */
-//		Preferences ifNode = getInterfaceNode(name);
-//		ifNode.put(PREF_PUBLIC_KEY, configuration.getPublicKey());
-//		ifNode.put(PREF_MAC, ip.getMac());
-//		LOG.info(String.format("Recording public key %s against MAC %s", configuration.getPublicKey(),
-//				ip.getMac()));
-		
-		
+		Preferences ifNode = getInterfaceNode(ip.getName());
+		ifNode.put(PREF_PUBLIC_KEY, configuration.getPublicKey());
+		LOG.info(String.format("Up. Recording public key %s against %s", configuration.getPublicKey(), ip.getName()));
+
 		return ip;
 	}
+	@Override
+	protected WindowsIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
+		return new WindowsIP(nif.getName(), this);
+	}
 
-	public void installService(String name, Path confFile, Path logFile) throws IOException {
-		LOG.info(String.format("Installing service for %s", name));
-		StringBuilder cmd = new StringBuilder();
-		cmd.append('"');
-		cmd.append(System.getProperty("java.home") + "\\bin\\java.exe");
-		cmd.append('"');
-		cmd.append(' ');
-		cmd.append('"');
-		cmd.append("-Djava.io.tmpdir=" + System.getProperty("user.dir") + File.separator + "tmp");
-		cmd.append('"');
-		cmd.append(' ');
-		cmd.append('"');
-		cmd.append("-Djava.library.path=C:\\Users\\brett\\Documents\\Git\\HS_2_4_X\\hypersocket-client\\client-logonbox-vpn-service\\src\\main\\resources\\win32-x86-64");
-		cmd.append('"');
-		cmd.append(' ');
-		cmd.append("-Djna.debug_load=true");
-		cmd.append(' ');
-		cmd.append("-Djna.debug_load.jna=true");
-		cmd.append(' ');
-		cmd.append("-cp");
-		cmd.append(' ');
-		cmd.append(reconstructClassPath());
-		cmd.append(' ');
-		//cmd.append(WindowsTunneler.class.getName());
-		cmd.append(NetworkConfigurationService.class.getName());
-		cmd.append(' ');
-		cmd.append("/service");
-		cmd.append(' ');
-		cmd.append('"');
-		cmd.append(confFile.toAbsolutePath().toString());
-		cmd.append('"');
-		cmd.append(' ');
-		cmd.append('"');
-		cmd.append(logFile.toAbsolutePath().toString());
-		cmd.append('"');
+	@Override
+	public WindowsIP getByPublicKey(String publicKey) {
+		try {
+			for (String ifaceName : getInterfacesNode().childrenNames()) {
+				if (publicKey.equals(getInterfaceNode(ifaceName).get(PREF_PUBLIC_KEY, ""))) {
+					return new WindowsIP(ifaceName, this);
+				}
+			}
+		} catch (BackingStoreException bse) {
+			throw new IllegalStateException("Failed to list interface names.", bse);
+		}
+		return null;
+	}
 
-		install(TUNNEL_SERVICE_NAME_PREFIX + "$" + name, "LogonBox VPN Tunnel for " + name,
-				"Manage a single tunnel LogonBox VPN (" + name + ")", new String[] { "Nsi", "TcpIp" },
-				"LocalSystem", null, cmd.toString(), WinNT.SERVICE_AUTO_START, false, null, false,
-				XWinsvc.SERVICE_SID_TYPE_UNRESTRICTED);
+	@Override
+	public String[] getMissingPackages() {
+		return new String[0];
+	}
 
-		LOG.info(String.format("Installed service for %s", name));
+	@Override
+	protected String getPublicKey(String interfaceName) throws IOException {
+		try {
+			if (getInterfacesNode().nodeExists(interfaceName)) {
+				Preferences ifNode = getInterfaceNode(interfaceName);
+				NetworkInterface iface = NetworkInterface.getByName(interfaceName);
+				if (iface != null) {
+					return ifNode.get(PREF_PUBLIC_KEY, null);
+				} else
+					return ifNode.get(PREF_PUBLIC_KEY, null);
+			}
+		} catch (BackingStoreException bse) {
+			throw new IOException("Failed to get public key.", bse);
+		}
+		return null;
 	}
 
 	void install(String serviceName, String displayName, String description, String[] dependencies, String account,
@@ -354,30 +322,40 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 	}
 
-	public void uninstall(String serviceName) throws IOException {
-		XAdvapi32 advapi32 = XAdvapi32.INSTANCE;
-		SC_HANDLE serviceManager, service;
-		serviceManager = Win32ServiceService.getManager(null, WinNT.GENERIC_ALL);
-		try {
-			service = advapi32.OpenService(serviceManager, serviceName, WinNT.GENERIC_ALL);
-			if (service != null) {
-				try {
-					if (!advapi32.DeleteService(service)) {
-						int err = Kernel32.INSTANCE.GetLastError();
-						throw new IOException(String.format("Failed to find service to uninstall '%s'. %d. %s",
-								serviceName, err, Kernel32Util.formatMessageFromLastErrorCode(err)));
-					}
-				} finally {
-					advapi32.CloseServiceHandle(service);
-				}
-			} else {
-				int err = Kernel32.INSTANCE.GetLastError();
-				throw new IOException(String.format("Failed to find service to uninstall '%s'. %d. %s", serviceName,
-						err, Kernel32Util.formatMessageFromLastErrorCode(err)));
-			}
-		} finally {
-			advapi32.CloseServiceHandle(serviceManager);
-		}
+	public void installService(String name, Path cwd) throws IOException {
+		LOG.info(String.format("Installing service for %s", name));
+		StringBuilder cmd = new StringBuilder();
+		cmd.append('"');
+		cmd.append(System.getProperty("java.home") + "\\bin\\java.exe");
+		cmd.append('"');
+		cmd.append(' ');
+		cmd.append("-cp");
+		cmd.append(' ');
+		cmd.append(reconstructClassPath());
+		cmd.append(' ');
+		// cmd.append(WindowsTunneler.class.getName());
+		cmd.append(NetworkConfigurationService.class.getName());
+		cmd.append(' ');
+		cmd.append("/service");
+		cmd.append(' ');
+		cmd.append('"');
+		cmd.append(cwd);
+		cmd.append('"');
+		cmd.append(' ');
+		cmd.append('"');
+		cmd.append(name);
+		cmd.append('"');
+
+		install(TUNNEL_SERVICE_NAME_PREFIX + "$" + name, "LogonBox VPN Tunnel for " + name,
+				"Manage a single tunnel LogonBox VPN (" + name + ")", new String[] { "Nsi", "TcpIp" }, "LocalSystem",
+				null, cmd.toString(), WinNT.SERVICE_DEMAND_START, false, null, false,
+				XWinsvc.SERVICE_SID_TYPE_UNRESTRICTED);
+
+		LOG.info(String.format("Installed service for %s", name));
+	}
+
+	protected boolean isWireGuardInterface(NetworkInterface nif) {
+		return super.isWireGuardInterface(nif) && nif.getDisplayName().equals("Wintun Userspace Tunnel");
 	}
 
 	private String reconstructClassPath() {
@@ -423,8 +401,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 				String fullPath = new File(url.toURI()).getAbsolutePath();
 				{
 					if (fullPath.matches(".*client-logonbox-vpn-service.*") || fullPath.matches(".*jna.*")
-							|| fullPath.matches(".*forker-common.*")
-							|| fullPath.matches(".*forker-client.*")
+							|| fullPath.matches(".*forker-common.*") || fullPath.matches(".*forker-client.*")
 							|| fullPath.matches(".*commons-io.*")) {
 						if (path.length() > 0)
 							path.append(File.pathSeparator);
@@ -450,25 +427,36 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			reconstructFromClassLoader(classLoader.getParent(), urls);
 	}
 
+	public void uninstall(String serviceName) throws IOException {
+		XAdvapi32 advapi32 = XAdvapi32.INSTANCE;
+		SC_HANDLE serviceManager, service;
+		serviceManager = Win32ServiceService.getManager(null, WinNT.GENERIC_ALL);
+		try {
+			service = advapi32.OpenService(serviceManager, serviceName, WinNT.GENERIC_ALL);
+			if (service != null) {
+				try {
+					if (!advapi32.DeleteService(service)) {
+						int err = Kernel32.INSTANCE.GetLastError();
+						throw new IOException(String.format("Failed to find service to uninstall '%s'. %d. %s",
+								serviceName, err, Kernel32Util.formatMessageFromLastErrorCode(err)));
+					}
+				} finally {
+					advapi32.CloseServiceHandle(service);
+				}
+			} else {
+				int err = Kernel32.INSTANCE.GetLastError();
+				throw new IOException(String.format("Failed to find service to uninstall '%s'. %d. %s", serviceName,
+						err, Kernel32Util.formatMessageFromLastErrorCode(err)));
+			}
+		} finally {
+			advapi32.CloseServiceHandle(serviceManager);
+		}
+	}
+
 	@Override
 	protected void writeInterface(Connection configuration, Writer writer) {
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println(String.format("Address = %s", configuration.getAddress()));
-	}
-
-	@Override
-	public WindowsIP getByPublicKey(String publicKey) {
-		try {
-			for (String ifaceName : NetworkConfigurationService.getInterfacesNode().childrenNames()) {
-				if (publicKey
-						.equals(NetworkConfigurationService.getInterfaceNode(ifaceName).get(NetworkConfigurationService.PREF_PUBLIC_KEY, ""))) {
-					return new WindowsIP(ifaceName, this);
-				}
-			}
-		} catch (BackingStoreException bse) {
-			throw new IllegalStateException("Failed to list interface names.", bse);
-		}
-		return null;
 	}
 
 }
