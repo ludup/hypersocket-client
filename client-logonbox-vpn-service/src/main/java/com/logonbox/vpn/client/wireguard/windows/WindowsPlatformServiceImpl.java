@@ -236,6 +236,18 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		cmd.append(System.getProperty("java.home") + "\\bin\\java.exe");
 		cmd.append('"');
 		cmd.append(' ');
+		cmd.append('"');
+		cmd.append("-Djava.io.tmpdir=" + System.getProperty("user.dir") + File.separator + "tmp");
+		cmd.append('"');
+		cmd.append(' ');
+		cmd.append('"');
+		cmd.append("-Djava.library.path=C:\\Users\\brett\\Documents\\Git\\HS_2_4_X\\hypersocket-client\\client-logonbox-vpn-service\\src\\main\\resources\\win32-x86-64");
+		cmd.append('"');
+		cmd.append(' ');
+		cmd.append("-Djna.debug_load=true");
+		cmd.append(' ');
+		cmd.append("-Djna.debug_load.jna=true");
+		cmd.append(' ');
 		cmd.append("-cp");
 		cmd.append(' ');
 		cmd.append(reconstructClassPath());

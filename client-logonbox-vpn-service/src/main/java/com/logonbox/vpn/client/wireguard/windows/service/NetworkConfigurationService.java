@@ -138,13 +138,13 @@ public class NetworkConfigurationService {
 	public static TunnelInterface INSTANCE;
 
 	static {
-		try {
-			Native.extractFromResourcePath("tunnel.dll");
-			Native.extractFromResourcePath("wintun.dll");
+//		try {
+//			Native.extractFromResourcePath("tunnel.dll");
+//			Native.extractFromResourcePath("wintun.dll");
 			INSTANCE = Native.load("tunnel", TunnelInterface.class);
-		} catch (IOException e) {
-			throw new IllegalStateException("Failed to load support library.", e);
-		}
+//		} catch (IOException e) {
+//			throw new IllegalStateException("Failed to load support library.", e);
+//		}
 	}
 	public static final String PREF_MAC = "mac";
 
@@ -214,11 +214,12 @@ public class NetworkConfigurationService {
 		}
 
 		NetworkConfigurationService service = new NetworkConfigurationService(confFile);
-		if (args.length == 1) {
-			service.startNetworkService();
-		} else {
-			service.init();
-		}
+		System.exit(service.startNetworkService());
+//		if (args.length == 1) {
+//			service.startNetworkService();
+//		} else {
+//			service.init();
+//		}
 	}
 
 	private final Object waitObject = new Object();
@@ -309,15 +310,16 @@ public class NetworkConfigurationService {
 		Advapi32.INSTANCE.SetServiceStatus(serviceStatusHandle, serviceStatus);
 	}
 
-	private void startNetworkService() {
+	private int startNetworkService() {
 		log("Activating Wireguard configuration for %s (in %s)", name, confFile);
 		if (INSTANCE.WireGuardTunnelService(new WString(confFile.getPath()))) {
 			log("Activated Wireguard configuration for %s", name);
-
+			return 0;
 		} else {
 			log("%s: Failed to activate %s", NetworkConfigurationService.class.getName(), name);
 			log("Err: %d. %s", Native.getLastError(),
 					Kernel32Util.formatMessageFromLastErrorCode(Native.getLastError()));
+			return 1;
 		}
 	}
 }
