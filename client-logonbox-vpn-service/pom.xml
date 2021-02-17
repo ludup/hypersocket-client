@@ -87,11 +87,11 @@
 			<artifactId>forker-client</artifactId>
 			<version>1.7-SNAPSHOT</version>
 		</dependency>
-		<dependency>
+		<!-- <dependency>
 			<groupId>com.sshtools</groupId>
 			<artifactId>forker-wrapped</artifactId>
 			<version>1.7-SNAPSHOT</version>
-		</dependency>
+		</dependency> -->
 		<dependency>
 			<groupId>com.sshtools</groupId>
 			<artifactId>forker-services</artifactId>
