@@ -49,16 +49,20 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 public class Client extends Application implements X509TrustManager {
-	
+
 	/**
 	 * There seems to be some problem with runtimes later than 11 and loading
-	 * resources in the embededded browser from the classpath.
+	 * resources in the embedded browser from the classpath.
 	 * 
 	 * This switch activates a work around that opens a local HTTP server and
 	 * directs the browser to that instead.
 	 * 
 	 * Attempts are made to secure this with the use of a private cookie, but this
 	 * doesn't always work (not sure why!)
+	 * 
+	 * NOTE: This is now OFF by default as we are using Java 11. When we switch back
+	 * to Java 15 or higher this may need to be revisted unless the underlying back
+	 * has been fixed.b
 	 */
 	static boolean useLocalHTTPService = System.getProperty("logonbox.vpn.useLocalHTTPService", "false").equals("true");
 
@@ -85,7 +89,7 @@ public class Client extends Application implements X509TrustManager {
 	private Stage primaryStage;
 	private MiniHttpServer miniHttp;
 	private static Client instance;
-	
+
 	public static Client get() {
 		return instance;
 	}
@@ -355,7 +359,7 @@ public class Client extends Application implements X509TrustManager {
 	@Override
 	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
 		System.out.println("checkServerTrusted " + authType);
-		for(X509Certificate c : chain) {
+		for (X509Certificate c : chain) {
 			System.out.println("  checkServerTrusted cert " + c.getSubjectDN());
 			c.checkValidity();
 		}

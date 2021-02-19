@@ -71,10 +71,6 @@ import javafx.util.Callback;
 import javafx.util.Duration;
 import netscape.javascript.JSObject;
 
-/**
- * Controller for the "Sign In" window, where connections are managed and
- * credentials prompted for.
- */
 public class UI extends AbstractController implements Listener {
 
 	static Logger LOG = LoggerFactory.getLogger(UI.class);
@@ -186,10 +182,6 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	/*
-	 * Class methods
-	 */
-
-	/*
 	 * The following are all events from the {@link Bridge}, and will come in on the
 	 * RMI thread.
 	 */
@@ -207,11 +199,6 @@ public class UI extends AbstractController implements Listener {
 				disconnecting.remove(connection);
 				rebuildConnections(connection);
 			}
-//			if (Objects.equals(connection, foregroundConnection)) {
-//				log.info("Clearing foreground connection");
-//				foregroundConnection = null;
-//			}
-
 			if (deleteOnDisconnect) {
 				try {
 					doDelete(connection);
@@ -230,7 +217,6 @@ public class UI extends AbstractController implements Listener {
 	public void started(final Connection connection) {
 		Platform.runLater(() -> {
 			log.info("Started " + connection);
-//			waitingForUpdatesOrResources.remove(connection);
 			initUi(connection);
 		});
 	}
@@ -239,18 +225,9 @@ public class UI extends AbstractController implements Listener {
 	public void finishedConnecting(final Connection connection, Exception e) {
 		Platform.runLater(() -> {
 			log.info("Finished connecting " + connection + ". "
-					+ (e == null ? "No error" : "Error occured." + e.getMessage()) + " Foreground is "
-			/* + foregroundConnection */);
-
-//			if (e != null) {
-//				waitingForUpdatesOrResources.remove(connection);
-//			}
+					+ (e == null ? "No error" : "Error occured." + e.getMessage()) + " Foreground is ");
 
 			connecting.remove(connection);
-
-//			if (Objects.equals(connection, foregroundConnection)) {
-//				foregroundConnection = null;
-//			}
 
 			rebuildConnections(connection);
 			if (e != null) {
@@ -397,8 +374,6 @@ public class UI extends AbstractController implements Listener {
 		return mode;
 	}
 
-	// Overrides
-
 	@Override
 	protected void onInitialize() {
 		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
@@ -487,7 +462,6 @@ public class UI extends AbstractController implements Listener {
 		configureWebEngine();
 
 		/* Make various components completely hide from layout when made invisible */
-//		spinner.managedProperty().bind(spinner.visibleProperty());
 		sidebar.managedProperty().bind(sidebar.visibleProperty());
 
 	}
@@ -788,7 +762,7 @@ public class UI extends AbstractController implements Listener {
 	protected void setHtmlPage(String htmlPage) {
 		setHtmlPage(htmlPage, false);
 	}
-	
+
 	protected void setHtmlPage(String htmlPage, boolean force) {
 		if (!Objects.equals(htmlPage, this.htmlPage) || force) {
 			this.htmlPage = htmlPage;
@@ -997,9 +971,10 @@ public class UI extends AbstractController implements Listener {
 			config.setAddress(interfaceSection.get("Address"));
 			config.setDns(toStringList(interfaceSection, "DNS"));
 
-			/* TODO private key should be removed from server at this point or
-			 * preferably keep the key generation entirely on the client in this
-			 * case */
+			/*
+			 * TODO private key should be removed from server at this point or preferably
+			 * keep the key generation entirely on the client in this case
+			 */
 			config.setUserPrivateKey(interfaceSection.get("PrivateKey"));
 
 			/* Peer (them) */
