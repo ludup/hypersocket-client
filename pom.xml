@@ -87,15 +87,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>3.2.0</version>
-				<configuration>
-					<encoding>UTF-8</encoding>
-					<excludePackageNames>**.impl.*</excludePackageNames>
-
-					<!-- https://bugs.openjdk.java.net/browse/JDK-8212233 -->
-					<source>8</source>
-					<additionalparam>-Xdoclint:none</additionalparam>
-				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -173,17 +164,17 @@
 		<pluginManagement>
 			<plugins>
 				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-javadoc-plugin</artifactId>
-					<version>3.2.0</version>
-					<configuration>
+				    <groupId>org.apache.maven.plugins</groupId>
+				    <artifactId>maven-javadoc-plugin</artifactId>
+				    <version>3.2.0</version>
+				    <configuration>
 						<encoding>UTF-8</encoding>
 						<excludePackageNames>**.impl.*</excludePackageNames>
-
 						<!-- https://bugs.openjdk.java.net/browse/JDK-8212233 -->
+						<detectJavaApiLink>false</detectJavaApiLink>
 						<source>8</source>
 						<additionalparam>-Xdoclint:none</additionalparam>
-					</configuration>
+                	</configuration>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
