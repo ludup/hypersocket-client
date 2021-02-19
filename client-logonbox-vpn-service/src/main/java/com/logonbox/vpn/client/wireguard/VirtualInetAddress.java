@@ -1,11 +1,8 @@
 package com.logonbox.vpn.client.wireguard;
 
 import java.io.IOException;
-import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
-import java.util.Collections;
 import java.util.Enumeration;
-import java.util.List;
 
 import org.apache.commons.lang3.SystemUtils;
 
@@ -13,9 +10,6 @@ public interface VirtualInetAddress {
 
 	boolean isUp();
 
-	/**
-	 * Entirely disconnect and delete the interface.
-	 */
 	void delete() throws IOException;
 
 	void down() throws IOException;

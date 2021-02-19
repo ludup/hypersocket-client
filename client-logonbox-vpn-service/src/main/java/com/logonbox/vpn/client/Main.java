@@ -470,9 +470,6 @@ public class Main implements LocalContext {
 		publishService(ClientService.class, getClientService());
 	}
 
-	/**
-	 * @param args
-	 */
 	public static void main(String[] args) throws Exception {
 		instance = new Main(new DefaultRestartCallback(), new DefaultShutdownCallback(), args);
 		instance.run();

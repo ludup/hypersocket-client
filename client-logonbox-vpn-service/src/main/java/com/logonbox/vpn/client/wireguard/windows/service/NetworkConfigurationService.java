@@ -16,7 +16,7 @@ import com.sun.jna.WString;
 public class NetworkConfigurationService {
 
 	public static interface TunnelInterface extends Library {
-		/** Unused, keys are generated using Java */
+		/* Unused, keys are generated using Java */
 		void WireGuardGenerateKeyPair(ByteBuffer publicKey, ByteBuffer privateKey);
 
 		boolean WireGuardTunnelService(WString confFile);
@@ -32,11 +32,6 @@ public class NetworkConfigurationService {
 		System.out.println(String.format(msgFmt, args));
 	}
 
-	/**
-	 * main.
-	 *
-	 * @param args arguments
-	 */
 	public static void main(String[] args) throws Exception {
 		File confFile = null;
 		if (args.length == 3 && args[0].equals("/service")) {
