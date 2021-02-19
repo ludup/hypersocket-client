@@ -279,6 +279,14 @@
 			<url>https://oss.sonatype.org/content/repositories/snapshots/</url>
 		</repository>
 		<repository>
+			<id>opensource-snapshots</id>
+			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<snapshots />
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+		</repository>
+		<repository>
 			<id>opensource-releases</id>
 			<url>http://artifactory.javassh.com/opensource-releases</url>
 			<releases />
