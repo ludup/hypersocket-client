@@ -1,0 +1,84 @@
+.inverse {
+  -fx-background-color: #1e0c51;
+  -fx-text-fill: white;
+}
+
+.inverse Label, .inverse Hyperlink {
+  -fx-text-fill: white;
+}
+
+.inverse FontIcon, .inverse FontIcon {
+  -fx-icon-color: white;
+}
+
+#sidebar {
+}
+
+.iconButton, .icon, .smallIcon {	
+    -fx-font-family: FontAwesome;
+}
+
+.iconButton, .icon {	
+    -fx-font-size: 32px;
+}
+
+.iconButton, .smallIcon {	
+    -fx-font-size: 16px;
+}
+
+.title {
+    -fx-font-family: 'Arial Rounded MT Bold';
+    -fx-font-size: 24px;
+}
+
+/** Add your own styling to this stylesheet **/
+#header FontIcon {
+	-fx-icon-color: white;
+}
+
+#header img {
+    /*-fx-preferrheight: 35px;*/
+}
+
+.navbar-brand {
+  -fx-padding: 7px 10px; 
+} 
+
+.navbar-inverse {
+  -fx-background-color: #1e0c51;
+}
+
+#footer, #header { 
+}
+
+#footer Label, #header Label,  #header Hyperlink,  #footer Hyperlink {
+  -fx-text-fill: white;
+}
+
+.large-button-active {
+   -fx-text-fill: #1e0c51 !important;
+}
+
+.large-button:hover {
+  -fx-text-fill: #1e0c51 !important;
+}
+
+.progress-bar {
+  -fx-background-color: #1e0c51; 
+}
+
+/*
+.slider-handle {
+    -fx-background-color: #1e0c51;
+    background-image: linear-gradient(to bottom, #1e0c51, #1e0c51);
+} */
+
+a:focus, a:hover {
+    -fx-text-fill: #1e0c51;
+    /*text-decoration: underline;*/
+}
+
+a {
+    -fx-text-fill: #1e0c51;
+}
+

@@ -56,13 +56,12 @@
 	</properties>
 
 	<modules>
-		<module>client-common</module>
 		<module>client-core</module>
-		<module>client-gui</module>
-		<module>client-gui-jfx</module>
+		<module>client-logonbox-vpn-cli</module>
+		<module>client-logonbox-vpn-common</module>
+		<module>client-logonbox-vpn-gui-jfx</module>
+		<module>client-logonbox-vpn-service</module>
 		<module>client-netty</module>
-		<module>client-service</module>
-		<module>client-cli</module>
 		<module>credentials-wizard-jfx</module>
 	</modules>
 
@@ -102,8 +101,8 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
-					<source>1.8</source>
-					<target>1.8</target>
+					<source>11</source>
+					<target>11</target>
 					<encoding>UTF-8</encoding>
 				</configuration>
 			</plugin>

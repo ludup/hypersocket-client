@@ -32,7 +32,6 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hypersocket.client.CredentialCache.Credential;
 import com.hypersocket.client.i18n.I18N;
 import com.hypersocket.json.JsonPrincipal;
 
@@ -247,86 +246,6 @@ public abstract class HypersocketClient<T> {
 
 	}
 
-	public void login() throws IOException, UserCancelledException {
-
-		Map<String, String> params = new HashMap<String, String>();
-
-		/**
-		 * Reset authentication with client scheme
-		 */
-//		String json = transport.post("logon", params);
-		
-		int maxAttempts = 3;
-		int attempts = maxAttempts;
-		boolean attemptedCached = false;
-		List<Prompt> prompts = new ArrayList<Prompt>();
-		Credential credential = CredentialCache.getInstance().getCredentials(transport.getHost());
-		if(credential!=null) {
-			params.put("username", credential.username);
-			params.put("password", credential.password);
-			attemptedCached = true;
-		}
-		
-		while (!isLoggedOn()) {
-
-			if(attempts==0) {
-				if(log.isInfoEnabled()) {
-					log.info(String.format("%s too many authentication attempts", transport.getHost()));
-				}
-				disconnect(false);
-				throw new IOException("Too many failed authentication attempts");
-			}
-			
-			String json = transport.post("logon/hypersocketClient", params);
-			
-			params.clear();
-			boolean success = processLogon(json, params, prompts);
-			if(!success) {
-				if(!attemptedCached) {
-					attempts--;
-				}
-				attemptedCached = false;
-			}
-			if (!isLoggedOn() && prompts.size() > 0) {
-				
-				// If failed, and it's not the very first attempt (i.e. the one that triggers username and password entry), show an error
-				if(!success) {
-					showError("Incorrect username or password.");
-				}
-				
-				Map<String, String> results  = showLogin(this, prompts, attempts, success);
-				
-				if (results != null) {
-
-					params.putAll(results);
-					
-					if(params.containsKey("username") && params.containsKey("password") &&
-							!"false".equals(params.get("saveCredentials"))) {
-						CredentialCache.getInstance().saveCredentials(transport.getHost(), 
-								params.get("username"), 
-								params.get("password"));
-					}
-					
-				} else {
-					if(log.isInfoEnabled()) {
-						log.info(String.format("%s user cancelled authentication", transport.getHost()));
-					}
-					disconnect(false);
-					throw new UserCancelledException("User has cancelled authentication");
-				}
-			}
-		}
-		
-		if (log.isInfoEnabled()) {
-			log.info("Logon complete sessionId=" + getSessionId());
-		}
-
-		postLogin();
-		
-		onConnected();
-	}
-	
-
 	protected abstract void onConnected();
 	
 	private void postLogin() {
@@ -455,8 +374,6 @@ public abstract class HypersocketClient<T> {
 
 		return transport.get("realm/" + name);
 	}
-	
-	protected abstract Map<String, String> showLogin(HypersocketClient<T> attached, List<Prompt> prompts, int attempt, boolean success) throws IOException;
 	
 	public abstract void showWarning(String msg);
 
