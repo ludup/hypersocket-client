@@ -34,6 +34,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import com.hypersocket.HypersocketVersion;
 import com.hypersocket.extensions.JsonExtensionPhase;
 import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.logonbox.vpn.client.gui.jfx.Bridge.Listener;
@@ -43,6 +44,7 @@ import com.logonbox.vpn.common.client.ConnectionService;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.GUICallback;
 import com.logonbox.vpn.common.client.Keys;
+import com.logonbox.vpn.common.client.Keys.KeyPair;
 import com.logonbox.vpn.common.client.Util;
 import com.sshtools.twoslices.Toast;
 import com.sshtools.twoslices.ToastType;
@@ -74,11 +76,16 @@ import netscape.javascript.JSObject;
 public class UI extends AbstractController implements Listener {
 
 	static Logger LOG = LoggerFactory.getLogger(UI.class);
+	static final String PRIVATE_KEY_NOT_AVAILABLE = "PRIVATE_KEY_NOT_AVAILABLE";
 
 	/**
 	 * This object is exposed to the local HTML/Javascript that runs in the browse.
 	 */
 	public class UIBridge {
+		
+		public Connection getConnection() {
+			return UI.this.getSelectedConnection();
+		}
 
 		public void reload() {
 			UI.this.initUi(getSelectedConnection());
@@ -486,6 +493,7 @@ public class UI extends AbstractController implements Listener {
 
 	protected void configureWebEngine() {
 		WebEngine engine = webView.getEngine();
+		engine.setUserAgent("LogonBox VPN Client " + HypersocketVersion.getVersion());
 		engine.setOnAlert((e) -> {
 			Alert alert = new Alert(AlertType.ERROR);
 			alert.setTitle("Alert");
@@ -889,6 +897,17 @@ public class UI extends AbstractController implements Listener {
 			}
 			connection.setName(server);
 			connection.setConnectAtStartup(connectAtStartup);
+			
+			/* If enabled, generate the private key now on the client, to save
+			 * the server having to do so (and also storing it). 
+			 */
+			if(Client.generateKeysClientSide) { 
+				log.info("Generating private key");
+				KeyPair key = Keys.genkey();
+				connection.setUserPrivateKey(key.getBase64PrivateKey());
+				connection.setUserPublicKey(key.getBase64PublicKey());
+				log.info(String.format("Public key is %s", connection.getUserPublicKey()));
+			}
 
 			Connection connectionSaved = connectionService.add(connection);
 			connections.getItems().add(connectionSaved);
@@ -971,16 +990,21 @@ public class UI extends AbstractController implements Listener {
 			config.setAddress(interfaceSection.get("Address"));
 			config.setDns(toStringList(interfaceSection, "DNS"));
 
-			/*
-			 * TODO private key should be removed from server at this point or preferably
-			 * keep the key generation entirely on the client in this case
-			 */
-			config.setUserPrivateKey(interfaceSection.get("PrivateKey"));
+			String privateKey = interfaceSection.get("PrivateKey");
+			if(privateKey != null && config.getUserPrivateKey().length() > 0 && !privateKey.equals(PRIVATE_KEY_NOT_AVAILABLE)) {
+				/*
+				 * TODO private key should be removed from server at this point
+				 */
+				config.setUserPrivateKey(privateKey);
+				config.setUserPublicKey(Keys.pubkey(config.getUserPrivateKey()).getBase64PublicKey());
+			}
+			else if(config.getUserPrivateKey() == null || config.getUserPrivateKey().length() == 0) {
+				throw new IllegalStateException("Did not receive private key from server, and we didn't generate one on the client. Connection impossible.");
+			}
 
 			/* Peer (them) */
 			Section peerSection = ini.get("Peer");
 			config.setPublicKey(peerSection.get("PublicKey"));
-			config.setUserPublicKey(Keys.pubkey(config.getUserPrivateKey()).getBase64PublicKey());
 			String[] endpoint = peerSection.get("Endpoint").split(":");
 			config.setEndpointAddress(endpoint[0]);
 			config.setEndpointPort(Integer.parseInt(endpoint[1]));

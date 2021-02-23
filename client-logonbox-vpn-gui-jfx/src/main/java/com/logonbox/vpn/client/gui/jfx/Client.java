@@ -62,12 +62,15 @@ public class Client extends Application implements X509TrustManager {
 	 * 
 	 * NOTE: This is now OFF by default as we are using Java 11. When we switch back
 	 * to Java 15 or higher this may need to be revisted unless the underlying back
-	 * has been fixed.b
+	 * has been fixed.
 	 */
-	static boolean useLocalHTTPService = System.getProperty("logonbox.vpn.useLocalHTTPService", "false").equals("true");
+	static final boolean useLocalHTTPService = System.getProperty("logonbox.vpn.useLocalHTTPService", "false").equals("true");
 
 	/* Security can be turned off for this, useful for debugging */
-	static boolean secureLocalHTTPService = System.getProperty("logonbox.vpn.secureLocalHTTPService", "true")
+	static final boolean secureLocalHTTPService = System.getProperty("logonbox.vpn.secureLocalHTTPService", "true")
+			.equals("true");
+
+	static final boolean generateKeysClientSide = System.getProperty("logonbox.vpn.generateKeyClientSide", "true")
 			.equals("true");
 
 	/**
