@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
 import java.rmi.RemoteException;
@@ -23,6 +24,8 @@ import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.controlsfx.control.action.Action;
 import org.ini4j.Ini;
 import org.ini4j.Profile.Section;
@@ -82,6 +85,29 @@ public class UI extends AbstractController implements Listener {
 	 * This object is exposed to the local HTML/Javascript that runs in the browse.
 	 */
 	public class UIBridge {
+		
+		public String getDeviceName() {
+			String hostname = SystemUtils.getHostName();
+			if(StringUtils.isBlank(hostname)) {
+				try {
+					hostname = InetAddress.getLocalHost().getHostName();
+				}
+				catch(Exception e) {
+					hostname = "Unknown Host";
+				}
+			}
+			String os = System.getProperty("os.name");
+			if(SystemUtils.IS_OS_WINDOWS) {
+				os = "Windows";
+			}
+			else if(SystemUtils.IS_OS_LINUX) {
+				os = "Linux";
+			}
+			else if(SystemUtils.IS_OS_MAC_OSX) {
+				os = "Linux";
+			}
+			return os + " " + hostname;
+		}
 		
 		public Connection getConnection() {
 			return UI.this.getSelectedConnection();
