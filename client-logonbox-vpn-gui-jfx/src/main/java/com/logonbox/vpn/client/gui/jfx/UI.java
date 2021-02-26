@@ -109,6 +109,10 @@ public class UI extends AbstractController implements Listener {
 			return os + " " + hostname;
 		}
 		
+		public String getUserPublicKey() {
+			return getConnection() == null ? null : getConnection().getPublicKey();
+		}
+		
 		public Connection getConnection() {
 			return UI.this.getSelectedConnection();
 		}
