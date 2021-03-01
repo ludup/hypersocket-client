@@ -38,9 +38,6 @@ import javafx.application.Platform;
 
 public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.jfx.Bridge.Listener, Tray {
 
-	final static System.Logger LOG = System.getLogger(DorkBoxTray.class.getName());
-
-
 	private Client context;
 	private SystemTray systemTray;
 	private List<Entry> menuEntries = new ArrayList<>();
@@ -48,7 +45,6 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 
 	public DorkBoxTray(Client context) throws Exception {
 		this.context = context;
-
 		context.getBridge().addListener(this);
 		adjustTray();
 
