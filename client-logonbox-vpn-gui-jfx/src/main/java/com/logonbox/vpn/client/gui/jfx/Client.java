@@ -24,6 +24,7 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -261,7 +262,13 @@ public class Client extends Application implements X509TrustManager {
 
 		bridge.start();
 
-		tray = new Tray(this);
+		/* TODO: Waiting for a new release of DorkBox than can use a newer JNA like we
+		 * need for other components. https://github.com/dorkbox/SystemTray/issues/121
+		 */
+		if(SystemUtils.IS_OS_WINDOWS)
+			tray = new WindowsTray(this);
+		else
+			tray = new DorkBoxTray(this);
 	}
 
 	public Stage getStage() {
