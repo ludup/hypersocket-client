@@ -404,4 +404,42 @@ public class GUIRegistryImpl implements GUIRegistry {
 		}
 	}
 
+	@Override
+	public void connectionAdded(Connection connection) throws RemoteException {
+		synchronized (lock) {
+			if (gui != null && guiAttached) {
+				gui.onConnectionAdded(connection);
+			}
+		}
+		
+	}
+
+	@Override
+	public void connectionRemoved(Connection connection) throws RemoteException {
+		synchronized (lock) {
+			if (gui != null && guiAttached) {
+				gui.onConnectionRemoved(connection);
+			}
+		}
+	}
+
+	@Override
+	public void connectionUpdated(Connection connection) throws RemoteException {
+		synchronized (lock) {
+			if (gui != null && guiAttached) {
+				gui.onConnectionUpdated(connection);
+			}
+		}
+		
+	}
+
+	@Override
+	public void configurationUpdated(String name, String value) throws RemoteException {
+		synchronized (lock) {
+			if (gui != null && guiAttached) {
+				gui.onConfigurationUpdated(name, value);
+			}
+		}
+	}
+
 }

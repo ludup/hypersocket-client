@@ -91,6 +91,7 @@ public class Main {
 			// :(
 			com.sun.javafx.application.LauncherImpl.launchApplication(
 					Client.class, null, new String[0]);
+			System.out.println("Exiting");
 		} catch (Exception e) {
 			e.printStackTrace();
 			log.error("Failed to start client", e);

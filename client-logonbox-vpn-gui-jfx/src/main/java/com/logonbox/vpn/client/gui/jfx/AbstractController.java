@@ -141,7 +141,22 @@ public class AbstractController implements FramedController, Listener {
 
 	@Override
 	public boolean showBrowser(Connection connection, String uri) {
-		// TODO
 		return false;
+	}
+
+	@Override
+	public void connectionAdded(Connection connection) {
+	}
+
+	@Override
+	public void connectionRemoved(Connection connection) {
+	}
+
+	@Override
+	public void connectionUpdated(Connection connection) {
+	}
+
+	@Override
+	public void configurationUpdated(String name, String value) {
 	}
 }

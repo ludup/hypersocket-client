@@ -55,4 +55,12 @@ public interface GUICallback extends Serializable, Remote {
 	boolean isInteractive() throws RemoteException;
 	
 	void ping() throws RemoteException;
+
+	void onConnectionAdded(Connection connection)  throws RemoteException;
+
+	void onConnectionRemoved(Connection connection)  throws RemoteException;
+
+	void onConnectionUpdated(Connection connection)  throws RemoteException;
+
+	void onConfigurationUpdated(String name, String value)  throws RemoteException;
 }

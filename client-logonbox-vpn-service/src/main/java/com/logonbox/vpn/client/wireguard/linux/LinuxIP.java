@@ -190,7 +190,6 @@ public class LinuxIP implements VirtualInetAddress {
 
 	@Override
 	public boolean isUp() {
-		// TODO does mere prescence mean it's up?
 		return true;
 	}
 

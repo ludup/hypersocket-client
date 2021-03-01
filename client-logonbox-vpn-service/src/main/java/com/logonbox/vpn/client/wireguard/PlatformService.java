@@ -61,4 +61,14 @@ public interface PlatformService<I extends VirtualInetAddress> {
 	 */
 	I getByPublicKey(String publicKey);
 
+	/**
+	 * Get if a session is actually an active connect (handshake has occured and has not timed out).
+	 * 
+	 * @param logonBoxVPNSession the session
+	 * @param configuration      the configuration
+	 * @return up
+	 * @throws IOException on any error
+	 */
+	boolean isAlive(VPNSession logonBoxVPNSession, Connection configuration) throws IOException;
+
 }

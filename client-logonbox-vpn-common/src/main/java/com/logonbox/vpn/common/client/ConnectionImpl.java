@@ -328,7 +328,7 @@ public class ConnectionImpl implements Connection, Serializable {
 
 	@Override
 	public boolean isAuthorized() {
-		return StringUtils.isNotBlank(endpointAddress) && StringUtils.isNotBlank(publicKey);
+		return StringUtils.isNotBlank(endpointAddress);
 	}
 
 	@Override
@@ -342,7 +342,6 @@ public class ConnectionImpl implements Connection, Serializable {
 		dns = null;
 		peristentKeepalive = 0;
 		allowedIps = null;
-
 	}
 
 }

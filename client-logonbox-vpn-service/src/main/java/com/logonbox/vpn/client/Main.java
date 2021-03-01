@@ -39,50 +39,110 @@ import com.logonbox.vpn.common.client.ConfigurationService;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionService;
 import com.logonbox.vpn.common.client.GUIRegistry;
-import com.sshtools.forker.client.OSCommand;
-import com.sshtools.forker.common.OS;
 
 public class Main implements LocalContext {
 
-	static Logger log = LoggerFactory.getLogger(Main.class);
+	static class DefaultRestartCallback implements Runnable {
+
+		@Override
+		public void run() {
+
+			if (log.isInfoEnabled()) {
+				log.info("Shutting down with forker restart code.");
+			}
+
+			System.exit(90);
+		}
+
+	}
 	
-	private PlatformService<?> platform;
+	static class DefaultShutdownCallback implements Runnable {
 
-	private ConnectionService connectionService;
-	private ConfigurationServiceImpl configurationService;
-	private ClientService clientService;
-	private Properties properties = new Properties();
-	private Registry registry;
-	private int port;
-	private String[] args;
+		@Override
+		public void run() {
 
-	private Runnable restartCallback;
-	private Runnable shutdownCallback;
-	private GUIRegistry guiRegistry;
+			if (log.isInfoEnabled()) {
+				log.info("Shutting down using default shutdown mechanism");
+			}
 
-	private ExecutorService bossExecutor;
-	private ExecutorService workerExecutor;
+			System.exit(0);
+		}
+
+	}
 
 	protected static Main instance;
-
-	@Override
-	public Runnable getRestartCallback() {
-		return restartCallback;
+	static Logger log = LoggerFactory.getLogger(Main.class);
+	
+	public static Main getInstance() {
+		return instance;
 	}
-
-	@Override
-	public GUIRegistry getGuiRegistry() {
-		return guiRegistry;
+	
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) throws Exception {
+		instance = new Main(new DefaultRestartCallback(), new DefaultShutdownCallback(), args);
+		instance.run();
 	}
+	
+	public static int randInt(int min, int max) {
+		Random rand = new Random();
+		int randomNum = rand.nextInt((max - min) + 1) + min;
+		return randomNum;
+	}
+	
+	public static void runApplication(Runnable restartCallback, Runnable shutdownCallback, String[] args)
+			throws IOException {
+		new Main(restartCallback, shutdownCallback, args).run();
+	}
+	
+	private String[] args;
+	private ExecutorService bossExecutor;
+	private ClientServiceImpl clientService;
+	private ConfigurationServiceImpl configurationService;
+	private ConnectionService connectionService;
+	private GUIRegistry guiRegistry;
+	private PlatformService<?> platform;
+	private int port;
+	private Properties properties = new Properties();
+	private Registry registry;
+	private Runnable restartCallback;
+	private Runnable shutdownCallback;
+	private ExecutorService workerExecutor;
 
-	@Override
-	public ExecutorService getWorker() {
-		return workerExecutor;
+	public Main(Runnable restartCallback, Runnable shutdownCallback, String[] args) {
+		this.restartCallback = restartCallback;
+		this.shutdownCallback = shutdownCallback;
+		this.args = args;
+		this.guiRegistry = new GUIRegistryImpl();
+
+		bossExecutor = Executors.newCachedThreadPool();
+		workerExecutor = Executors.newCachedThreadPool();
+		
+		if (SystemUtils.IS_OS_LINUX) {
+			platform = new LinuxPlatformServiceImpl();
+		} else if (SystemUtils.IS_OS_WINDOWS) {
+			platform = new WindowsPlatformServiceImpl();
+		} else if (SystemUtils.IS_OS_MAC_OSX) {
+			platform = new OSXPlatformServiceImpl();
+		} else
+			throw new UnsupportedOperationException(
+					String.format("%s not currently supported.", System.getProperty("os.name")));
+
 	}
 
 	@Override
 	public ExecutorService getBoss() {
 		return bossExecutor;
+	}
+
+	public ClientService getClientService() {
+		return clientService;
+	}
+
+	@Override
+	public ConfigurationService getConfigurationService() {
+		return configurationService;
 	}
 
 	@Override
@@ -91,8 +151,126 @@ public class Main implements LocalContext {
 	}
 
 	@Override
-	public ConfigurationService getConfigurationService() {
-		return configurationService;
+	public GUIRegistry getGuiRegistry() {
+		return guiRegistry;
+	}
+
+	@Override
+	public PlatformService<?> getPlatformService() {
+		return platform;
+	}
+
+	@Override
+	public Runnable getRestartCallback() {
+		return restartCallback;
+	}
+
+	@Override
+	public ExecutorService getWorker() {
+		return workerExecutor;
+	}
+
+	public void restart() {
+		close();
+		restartCallback.run();
+	}
+
+	/**
+	 */
+	public void run() {
+		
+		int ret = platform.processCLI(args);
+		if(ret != Integer.MIN_VALUE) {
+			System.exit(ret);
+		}
+
+		File logs = new File("logs");
+		logs.mkdirs();
+
+		String logConfigPath = System.getProperty("hypersocket.logConfiguration", "");
+		if(logConfigPath.equals("")) {
+			/* Load default */
+			PropertyConfigurator.configure(Main.class.getResource("/default-log4j-service.properties"));
+		}
+		else {
+			File logConfigFile = new File(logConfigPath);
+			if(logConfigFile.exists())
+				PropertyConfigurator.configureAndWatch(logConfigPath);
+			else
+				PropertyConfigurator.configure(Main.class.getResource("/default-log4j-service.properties"));
+		}
+
+		System.setProperty("java.rmi.server.hostname", "localhost");
+
+		if (System.getSecurityManager() == null) {
+			System.setSecurityManager(new SecurityManager());
+		}
+
+		while (true) {
+			try {
+				if (!buildServices()) {
+					System.exit(3);
+				}
+
+				if (!publishDefaultServices()) {
+					System.exit(1);
+				}
+
+				if (!clientService.startSavedConnections()) {
+					System.exit(2);
+				}
+
+				poll();
+			} catch (Exception e) {
+				log.error("Failed to start", e);
+				try {
+					Thread.sleep(2500L);
+				} catch (InterruptedException e1) {
+				}
+			}
+		}
+	}
+
+	public void shutdown() {
+		close();
+		shutdownCallback.run();
+	}
+
+	protected void close() {
+		bossExecutor.shutdown();
+		workerExecutor.shutdown();
+	}
+
+	protected Registry getRegistry() {
+		return registry;
+	}
+
+	protected <T extends Remote> void publishService(Class<T> type, T obj) throws Exception {
+
+		String name = Introspector.decapitalize(type.getSimpleName());
+
+		if (log.isInfoEnabled()) {
+			log.info(String.format("Publishing service %s (%s)", name, type.getName()));
+		}
+
+		Remote stub = UnicastRemoteObject.exportObject(obj, port);
+		registry.rebind(name, stub);
+
+		if (log.isInfoEnabled()) {
+			log.info(String.format("Published service %s (%s)", name, type.getName()));
+		}
+
+	}
+
+	protected void publishServices() throws Exception {
+		publishService(ClientService.class, getClientService());
+	}
+
+	protected void unpublishServices() {
+		try {
+			getRegistry().unbind("connectionService");
+		} catch (Exception e) {
+		}
 	}
 
 	boolean buildServices() throws RemoteException {
@@ -213,7 +391,7 @@ public class Main implements LocalContext {
 			log.info("Creating ConfigurationService");
 		}
 
-		configurationService = new ConfigurationServiceImpl();
+		configurationService = new ConfigurationServiceImpl(this);
 
 		if (log.isInfoEnabled()) {
 			log.info("Creating ClientService");
@@ -221,70 +399,22 @@ public class Main implements LocalContext {
 
 		buildDefaultConnections();
 
-		clientService = createServiceImpl();
+		clientService = new ClientServiceImpl(this);
 
 		try {
 			connectionService.start();
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to start peer configuration service.", e);
 		}
-		
-		startServices();
+
+		try {
+			clientService.start();
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to start client configuration service.", e);
+		}
 
 		return true;
 
-	}
-
-	protected Registry getRegistry() {
-		return registry;
-	}
-
-	private void buildDefaultConnections() {
-
-		for (String arg : args) {
-
-			if (arg.startsWith("url=")) {
-				try {
-					URL url = new URL(arg.substring(4));
-
-					Connection con = connectionService.getConnection(url.getHost());
-					if (con == null) {
-						con = connectionService.createNew();
-						String name = url.getHost();
-						if (url.getPort() > 0 && url.getPort() != 443)
-							name += ":" + url.getPort();
-						con.setName(name);
-						con.setStayConnected(true);
-
-						con.setConnectAtStartup(false);
-						con.setHostname(url.getHost());
-						con.setPort(url.getPort() <= 0 ? 443 : url.getPort());
-
-						String path = url.getPath();
-						if (path.equals("") || path.equals("/")) {
-							path = "/hypersocket";
-						} else if (path.indexOf('/', 1) > -1) {
-							path = path.substring(0, path.indexOf('/', 1));
-						}
-						con.setPath(path);
-
-						connectionService.save(con);
-					}
-				} catch (Exception e) {
-					log.error("Failed to process url app parameter", e);
-				}
-			}
-		}
-	}
-
-	public ClientService getClientService() {
-		return clientService;
-	}
-
-	public static int randInt(int min, int max) {
-		Random rand = new Random();
-		int randomNum = rand.nextInt((max - min) + 1) + min;
-		return randomNum;
 	}
 
 	void poll() {
@@ -342,190 +472,44 @@ public class Main implements LocalContext {
 		}
 	}
 
-	protected <T extends Remote> void publishService(Class<T> type, T obj) throws Exception {
 
-		String name = Introspector.decapitalize(type.getSimpleName());
+	private void buildDefaultConnections() {
 
-		if (log.isInfoEnabled()) {
-			log.info(String.format("Publishing service %s (%s)", name, type.getName()));
-		}
+		for (String arg : args) {
 
-		Remote stub = UnicastRemoteObject.exportObject(obj, port);
-		registry.rebind(name, stub);
-
-		if (log.isInfoEnabled()) {
-			log.info(String.format("Published service %s (%s)", name, type.getName()));
-		}
-
-	}
-
-	/**
-	 */
-	public void run() {
-		
-		int ret = platform.processCLI(args);
-		if(ret != Integer.MIN_VALUE) {
-			System.exit(ret);
-		}
-
-		File logs = new File("logs");
-		logs.mkdirs();
-
-		String logConfigPath = System.getProperty("hypersocket.logConfiguration", "");
-		if(logConfigPath.equals("")) {
-			/* Load default */
-			PropertyConfigurator.configure(Main.class.getResource("/default-log4j-service.properties"));
-		}
-		else {
-			File logConfigFile = new File(logConfigPath);
-			if(logConfigFile.exists())
-				PropertyConfigurator.configureAndWatch(logConfigPath);
-			else
-				PropertyConfigurator.configure(Main.class.getResource("/default-log4j-service.properties"));
-		}
-
-		System.setProperty("java.rmi.server.hostname", "localhost");
-
-		if (System.getSecurityManager() == null) {
-			System.setSecurityManager(new SecurityManager());
-		}
-
-		while (true) {
-			try {
-				if (!buildServices()) {
-					System.exit(3);
-				}
-
-				if (!publishDefaultServices()) {
-					System.exit(1);
-				}
-
-				if (!start()) {
-					System.exit(2);
-				}
-
-				poll();
-			} catch (Exception e) {
-				log.error("Failed to start", e);
+			if (arg.startsWith("url=")) {
 				try {
-					Thread.sleep(2500L);
-				} catch (InterruptedException e1) {
+					URL url = new URL(arg.substring(4));
+
+					Connection con = connectionService.getConnection(url.getHost());
+					if (con == null) {
+						con = connectionService.createNew();
+						String name = url.getHost();
+						if (url.getPort() > 0 && url.getPort() != 443)
+							name += ":" + url.getPort();
+						con.setName(name);
+						con.setStayConnected(true);
+
+						con.setConnectAtStartup(false);
+						con.setHostname(url.getHost());
+						con.setPort(url.getPort() <= 0 ? 443 : url.getPort());
+
+						String path = url.getPath();
+						if (path.equals("") || path.equals("/")) {
+							path = "/hypersocket";
+						} else if (path.indexOf('/', 1) > -1) {
+							path = path.substring(0, path.indexOf('/', 1));
+						}
+						con.setPath(path);
+
+						connectionService.save(con);
+					}
+				} catch (Exception e) {
+					log.error("Failed to process url app parameter", e);
 				}
 			}
 		}
 	}
 
-	public static Main getInstance() {
-		return instance;
-	}
-
-	public void restart() {
-		close();
-		restartCallback.run();
-	}
-
-	public void shutdown() {
-		close();
-		shutdownCallback.run();
-	}
-
-	protected void close() {
-		bossExecutor.shutdown();
-		workerExecutor.shutdown();
-	}
-
-	public Main(Runnable restartCallback, Runnable shutdownCallback, String[] args) {
-		this.restartCallback = restartCallback;
-		this.shutdownCallback = shutdownCallback;
-		this.args = args;
-		this.guiRegistry = new GUIRegistryImpl();
-
-		bossExecutor = Executors.newCachedThreadPool();
-		workerExecutor = Executors.newCachedThreadPool();
-		
-		if (SystemUtils.IS_OS_LINUX) {
-			platform = new LinuxPlatformServiceImpl();
-		} else if (SystemUtils.IS_OS_WINDOWS) {
-			platform = new WindowsPlatformServiceImpl();
-		} else if (SystemUtils.IS_OS_MAC_OSX) {
-			platform = new OSXPlatformServiceImpl();
-		} else
-			throw new UnsupportedOperationException(
-					String.format("%s not currently supported.", System.getProperty("os.name")));
-
-	}
-
-	protected ClientServiceImpl createServiceImpl() {
-		return new ClientServiceImpl(this);
-	}
-
-	protected void unpublishServices() {
-		try {
-			getRegistry().unbind("connectionService");
-		} catch (Exception e) {
-		}
-	}
-
-	protected void publishServices() throws Exception {
-		publishService(ClientService.class, getClientService());
-	}
-
-	/**
-	 * @param args
-	 */
-	public static void main(String[] args) throws Exception {
-		instance = new Main(new DefaultRestartCallback(), new DefaultShutdownCallback(), args);
-		instance.run();
-	}
-
-	public static void runApplication(Runnable restartCallback, Runnable shutdownCallback, String[] args)
-			throws IOException {
-		new Main(restartCallback, shutdownCallback, args).run();
-	}
-
-	static class DefaultRestartCallback implements Runnable {
-
-		@Override
-		public void run() {
-
-			if (log.isInfoEnabled()) {
-				log.info("Shutting down with forker restart code.");
-			}
-
-			System.exit(90);
-		}
-
-	}
-
-	static class DefaultShutdownCallback implements Runnable {
-
-		@Override
-		public void run() {
-
-			if (log.isInfoEnabled()) {
-				log.info("Shutting down using default shutdown mechanism");
-			}
-
-			System.exit(0);
-		}
-
-	}
-
-	protected void startServices() {
-		try {
-			((ClientServiceImpl) getClientService()).start();
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to start client configuration service.", e);
-		}
-	}
-
-	@Override
-	public PlatformService<?> getPlatformService() {
-		return platform;
-	}
-
-	public boolean start() {
-		return ((ClientServiceImpl) getClientService()).startService();
-	}
 
 }

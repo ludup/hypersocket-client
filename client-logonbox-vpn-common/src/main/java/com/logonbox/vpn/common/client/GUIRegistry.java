@@ -45,4 +45,12 @@ public interface GUIRegistry {
 
 	void showBrowser(Connection connection, String string) throws RemoteException;
 
+	void connectionAdded(Connection connection) throws RemoteException;
+
+	void connectionRemoved(Connection connection) throws RemoteException;
+
+	void connectionUpdated(Connection connection) throws RemoteException;
+
+	void configurationUpdated(String name, String value) throws RemoteException;
+
 }

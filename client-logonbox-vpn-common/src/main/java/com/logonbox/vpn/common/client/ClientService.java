@@ -10,6 +10,9 @@ import com.hypersocket.extensions.JsonExtensionUpdate;
 
 public interface ClientService extends Remote {
 	
+	int CONNECT_TIMEOUT = 10;
+	int HANDSHAKE_TIMEOUT = 180;
+
 	default String[] getMissingPackages() throws RemoteException {
 		return new String[0];
 	}
@@ -59,4 +62,6 @@ public interface ClientService extends Remote {
 	JsonExtensionUpdate getUpdates() throws RemoteException;
 
 	void update() throws RemoteException;
+
+	void deauthorize(Connection connection) throws RemoteException;
 }

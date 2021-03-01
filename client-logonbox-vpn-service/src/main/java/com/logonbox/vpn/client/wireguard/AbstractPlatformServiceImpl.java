@@ -63,7 +63,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 							LOG.info(String.format(
 									"Existing wireguard session on %s for %s, adding back to internal map for %s:%s",
 									name, publicKey, peerConfig.getEndpointAddress(), peerConfig.getEndpointPort()));
-							sessions.add(new VPNSession(peerConfig, ctx, get(name)));
+							sessions.add(new VPNSession(peerConfig.getId(), ctx, get(name)));
 						} else
 							LOG.info(String.format(
 									"No known public key of %s on %s, so likely managed outside of LogonBox VPN.",

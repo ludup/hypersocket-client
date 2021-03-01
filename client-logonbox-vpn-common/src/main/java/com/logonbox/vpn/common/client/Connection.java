@@ -25,6 +25,14 @@ public interface Connection {
 	String getHostname();
 
 	String getName();
+	
+	default String getDisplayName() {
+		String un = getUsernameHint();
+		if(un == null || un.length() == 0)
+			return getName();
+		else
+			return un + "@" + getName();
+	}
 
 	void setName(String name);
 

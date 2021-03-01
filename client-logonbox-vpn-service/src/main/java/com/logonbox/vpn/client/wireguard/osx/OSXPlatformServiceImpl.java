@@ -46,4 +46,9 @@ public class OSXPlatformServiceImpl extends AbstractPlatformServiceImpl<OSXIP> {
 		throw new UnsupportedOperationException("TODO");
 	}
 
+	@Override
+	public boolean isAlive(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
+		throw new UnsupportedOperationException("TODO");
+	}
+
 }
