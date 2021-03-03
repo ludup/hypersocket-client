@@ -52,7 +52,7 @@ public class WindowsTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		this.context = context;
 
 		context.getBridge().addListener(this);
-		adjustTray();
+		Platform.runLater(() -> adjustTray());
 
 	}
 
@@ -288,33 +288,33 @@ public class WindowsTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 
 	@Override
 	public void started(Connection connection) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		Platform.runLater(() -> rebuildMenu());
 	}
 
 	@Override
 	public void disconnected(Connection connection, Exception e) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		Platform.runLater(() -> rebuildMenu());
 	}
 
 	@Override
 	public void connectionAdded(Connection connection) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		Platform.runLater(() -> rebuildMenu());
 	}
 
 	@Override
 	public void connectionRemoved(Connection connection) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		Platform.runLater(() -> rebuildMenu());
 	}
 
 	@Override
 	public void connectionUpdated(Connection connection) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		Platform.runLater(() -> rebuildMenu());
 	}
 
 	@Override
 	public void configurationUpdated(String name, String value) {
 		if (name.equals(ConfigurationService.TRAY_ICON)) {
-			SwingUtilities.invokeLater(() -> rebuildMenu());
+			Platform.runLater(() -> rebuildMenu());
 		}
 	}
 
