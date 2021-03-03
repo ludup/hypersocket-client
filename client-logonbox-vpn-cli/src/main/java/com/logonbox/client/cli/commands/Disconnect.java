@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.client.cli.CLI;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 
 public class Disconnect extends AbstractConnectionCommand {
 	static Logger log = LoggerFactory.getLogger(CLI.class);
@@ -20,7 +21,7 @@ public class Disconnect extends AbstractConnectionCommand {
 		} else {
 			String pattern = getPattern(cli);
 			for (Connection c : getConnectionsMatching(pattern, cli)) {
-				if (cli.getClientService().isConnected(c)) {
+				if (cli.getClientService().getStatus(c) == Type.CONNECTED) {
 					disconnect(c, cli);
 				} else {
 					System.out.println(String.format("%s is not connected.", c.getHostname()));
@@ -37,7 +38,7 @@ public class Disconnect extends AbstractConnectionCommand {
 	private void disconnect(Connection c, CLI cli) throws RemoteException, InterruptedException {
 		System.out.println(String.format("Disconnecting from %s", c.getHostname()));
 		cli.getClientService().disconnect(c);
-		while(cli.getClientService().isConnected(c)) {
+		while(cli.getClientService().getStatus(c) == Type.CONNECTED) {
 			Thread.sleep(500);
 		}
 		System.out.println("Disconnected");
