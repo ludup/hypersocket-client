@@ -1,0 +1,113 @@
+.text-primary {
+  -fx-text-fill: -fx-lbvpn-background;
+  -fx-fill: -fx-lbvpn-background; }
+
+a.text-primary:hover,
+a.text-primary:focused {
+  -fx-text-fill: -fx-lbvpn-accent2;
+  -fx-fill: -fx-lbvpn-accent2; }
+
+.bg-primary {
+  -fx-text-fill: -fx-lbvpn-foreground;
+  -fx-fill: -fx-lbvpn-foreground; }
+
+.bg-primary {
+  -fx-background-color: -fx-lbvpn-background; }
+
+.btn-primary {
+  -fx-text-fill: -fx-lbvpn-foreground;
+  -fx-fill: -fx-lbvpn-foreground;
+  -fx-background-color: -fx-lbvpn-background;
+  -fx-border-color: -fx-lbvpn-accent; }
+  .btn-primary:focused, .btn-primary.focused {
+    -fx-text-fill: -fx-lbvpn-foreground;
+    -fx-fill: -fx-lbvpn-foreground;
+    -fx-background-color: -fx-lbvpn-accent2; }
+  .btn-primary:hover {
+    -fx-text-fill: -fx-lbvpn-foreground;
+    -fx-fill: -fx-lbvpn-foreground;
+    -fx-background-color: -fx-lbvpn-accent2; }
+  .btn-primary:pressed, .btn-primary.pressed, .open > .btn-primary.dropdown-toggle {
+    -fx-text-fill: -fx-lbvpn-foreground;
+    -fx-fill: -fx-lbvpn-foreground;
+    -fx-background-color: -fx-lbvpn-accent2; }
+    .btn-primary:pressed:hover, .btn-primary:pressed:focused, .btn-primary:pressed.focused, .btn-primary.pressed:hover, .btn-primary.pressed:focused, .btn-primary.pressed.focused, .open > .btn-primary.dropdown-toggle:hover, .open > .btn-primary.dropdown-toggle:focused, .open > .btn-primary.dropdown-toggle.focused {
+      -fx-text-fill: -fx-lbvpn-foreground;
+      -fx-fill: -fx-lbvpn-foreground; }
+  .btn-primary:selected, .btn-primary.selected {
+    -fx-text-fill: -fx-lbvpn-foreground;
+    -fx-fill: -fx-lbvpn-foreground;
+    -fx-background-color: -fx-lbvpn-accent2; }
+    .btn-primary:selected:hover, .btn-primary:selected:focused, .btn-primary:selected.focused, .btn-primary.selected:hover, .btn-primary.selected:focused, .btn-primary.selected.focused {
+      -fx-text-fill: -fx-lbvpn-foreground;
+      -fx-fill: -fx-lbvpn-foreground; }
+  .btn-primary:pressed, .btn-primary.pressed, .open > .btn-primary.dropdown-toggle {
+    background-image: none; }
+  .btn-primary.disabled, .btn-primary.disabled:hover, .btn-primary.disabled:focused, .btn-primary.disabled.focused, .btn-primary.disabled:pressed, .btn-primary.disabled.pressed, .btn-primary[disabled], .btn-primary[disabled]:hover, .btn-primary[disabled]:focused, .btn-primary[disabled].focused, .btn-primary[disabled]:pressed, .btn-primary[disabled].pressed, fieldset[disabled] .btn-primary, fieldset[disabled] .btn-primary:hover, fieldset[disabled] .btn-primary:focused, fieldset[disabled] .btn-primary.focused, fieldset[disabled] .btn-primary:pressed, fieldset[disabled] .btn-primary.pressed {
+    -fx-background-color: -fx-lbvpn-background;
+    -fx-border-color: -fx-lbvpn-accent; }
+  .btn-primary .badge {
+    -fx-text-fill: -fx-lbvpn-background;
+    -fx-fill: -fx-lbvpn-background;
+    -fx-background-color:-fx-lbvpn-foreground; }
+
+.split-menu-btn-primary > .label, .split-menu-btn-primary > .arrow-button {
+  -fx-text-fill: -fx-lbvpn-foreground;
+  -fx-fill: -fx-lbvpn-foreground;
+  -fx-background-color: -fx-lbvpn-background;
+  -fx-border-color: -fx-lbvpn-background; }
+
+.split-menu-btn-primary:focused > .label, .split-menu-btn-primary:focused > .arrow-button, .split-menu-btn-primary.focused > .label, .split-menu-btn-primary.focused > .arrow-button {
+  -fx-background-color: -fx-lbvpn-accent2; }
+
+.split-menu-btn-primary:hover > .label, .split-menu-btn-primary:hover > .arrow-button {
+  -fx-background-color: -fx-lbvpn-accent2; }
+
+.split-menu-btn-primary:pressed > .label, .split-menu-btn-primary:pressed > .arrow-button, .split-menu-btn-primary.pressed > .label, .split-menu-btn-primary.pressed > .arrow-button, .open > .split-menu-btn-primary.dropdown-toggle > .label, .open > .split-menu-btn-primary.dropdown-toggle > .arrow-button {
+  -fx-background-color: -fx-lbvpn-accent2; }
+
+.split-menu-btn-primary:selected > .label, .split-menu-btn-primary:selected > .arrow-button, .split-menu-btn-primary.selected > .label, .split-menu-btn-primary.selected > .arrow-button {
+  -fx-background-color: -fx-lbvpn-accent2; }
+
+.split-menu-btn-primary.disabled > .label, .split-menu-btn-primary.disabled > .arrow-button, .split-menu-btn-primary.disabled:hover > .label, .split-menu-btn-primary.disabled:hover > .arrow-button, .split-menu-btn-primary.disabled:focused > .label, .split-menu-btn-primary.disabled:focused > .arrow-button, .split-menu-btn-primary.disabled.focused > .label, .split-menu-btn-primary.disabled.focused > .arrow-button, .split-menu-btn-primary.disabled:pressed > .label, .split-menu-btn-primary.disabled:pressed > .arrow-button, .split-menu-btn-primary.disabled.pressed > .label, .split-menu-btn-primary.disabled.pressed > .arrow-button, .split-menu-btn-primary[disabled] > .label, .split-menu-btn-primary[disabled] > .arrow-button, .split-menu-btn-primary[disabled]:hover > .label, .split-menu-btn-primary[disabled]:hover > .arrow-button, .split-menu-btn-primary[disabled]:focused > .label, .split-menu-btn-primary[disabled]:focused > .arrow-button, .split-menu-btn-primary[disabled].focused > .label, .split-menu-btn-primary[disabled].focused > .arrow-button, .split-menu-btn-primary[disabled]:pressed > .label, .split-menu-btn-primary[disabled]:pressed > .arrow-button, .split-menu-btn-primary[disabled].pressed > .label, .split-menu-btn-primary[disabled].pressed > .arrow-button, fieldset[disabled] .split-menu-btn-primary > .label, fieldset[disabled] .split-menu-btn-primary > .arrow-button, fieldset[disabled] .split-menu-btn-primary:hover > .label, fieldset[disabled] .split-menu-btn-primary:hover > .arrow-button, fieldset[disabled] .split-menu-btn-primary:focused > .label, fieldset[disabled] .split-menu-btn-primary:focused > .arrow-button, fieldset[disabled] .split-menu-btn-primary.focused > .label, fieldset[disabled] .split-menu-btn-primary.focused > .arrow-button, fieldset[disabled] .split-menu-btn-primary:pressed > .label, fieldset[disabled] .split-menu-btn-primary:pressed > .arrow-button, fieldset[disabled] .split-menu-btn-primary.pressed > .label, fieldset[disabled] .split-menu-btn-primary.pressed > .arrow-button {
+  -fx-background-color: -fx-lbvpn-background;
+  -fx-border-color: -fx-lbvpn-accent; }
+
+.lbl-primary {
+  -fx-background-color: -fx-lbvpn-background; }
+  .lbl-primary[href]:hover, .lbl-primary[href]:focused {
+    -fx-background-color: -fx-lbvpn-accent2; }
+
+  .list-group-item.active > .badge, .nav-pills > .active > a > .badge {
+    -fx-text-fill: -fx-lbvpn-background;
+    -fx-fill: -fx-lbvpn-background;
+    -fx-background-color: -fx-lbvpn-foreground; }
+
+.progress-bar-primary > .bar {
+  -fx-background-color: -fx-lbvpn-background;
+  -fx-progress-color: -fx-lbvpn-background;
+  -fx-text-fill: -fx-lbvpn-foreground; }
+
+.tooltip-primary {
+  -fx-background: -fx-lbvpn-background;
+  -fx-background-color: -fx-lbvpn-background;
+  -fx-text-fill: -fx-lbvpn-foreground; }
+
+.tooltip-success {
+  -fx-text-fill: -fx-lbvpn-foreground; }
+
+.panel-primary {
+  -fx-border-color: -fx-lbvpn-background; }
+  .panel-primary > .panel-heading {
+    -fx-text-fill: -fx-lbvpn-foreground;
+    -fx-fill: -fx-lbvpn-foreground;
+    -fx-background-color: linear-gradient(to bottom, -fx-lbvpn-background 0.0px, #2b669a 100.0%);
+    -fx-border-color: -fx-lbvpn-background; }
+    .panel-primary > .panel-heading * {
+      -fx-text-fill: -fx-lbvpn-foreground;
+      -fx-fill: -fx-lbvpn-foreground; }
+    .panel-primary > .panel-heading .badge {
+      -fx-text-fill: -fx-lbvpn-background;
+      -fx-fill: -fx-lbvpn-background;
+      -fx-background-color: -fx-lbvpn-foreground; }
+

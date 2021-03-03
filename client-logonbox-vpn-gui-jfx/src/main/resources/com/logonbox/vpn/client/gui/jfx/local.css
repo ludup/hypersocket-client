@@ -1,0 +1,46 @@
+/* Stylesheet for dynamic styles used by local HTML pages. The simple variables in
+ these are replaced. Sadly, these need to be important, as the "user local stylesheet" is
+ loaded before others */
+
+.navbar-inverse {
+  background-color: ${lbvpnBackground} !important;
+}
+
+#footer, #header { 
+  background-color: ${lbvpnBackground} !important;
+  color: ${lbvpnForeground} !important;
+}
+
+.large-button-active {
+   color: ${lbvpnBackground} !important;
+}
+
+.large-button:hover {
+  color: ${lbvpnBackground} !important;
+}
+
+.progress-bar {
+  background-color: ${lbvpnBackground} !important; 
+}
+
+.slider-handle {
+    background-color: ${lbvpnBackground} !important;
+    background-image: linear-gradient(to bottom, ${lbvpnBackground}, ${lbvpnBackground}) !important;
+}
+
+a:focus, a:hover {
+    color: ${lbvpnBackground} !important;
+    text-decoration: underline !important;
+}
+
+a {
+    color: ${lbvpnBackground} !important;
+    text-decoration: none !important;
+}
+
+.btn-primary {
+	color: ${lbvpnForeground} !important;
+	background: ${lbvpnBackground} !important;
+	border-color: ${lbvpnAccent} !important;
+}
+

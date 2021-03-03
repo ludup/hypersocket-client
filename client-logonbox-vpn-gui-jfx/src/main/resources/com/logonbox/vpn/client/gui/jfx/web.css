@@ -1,3 +1,5 @@
+/* Stylesheet for static styles used by local HTML pages */
+
 .full-container {
     position: absolute;
     top: 50%;
@@ -7,8 +9,6 @@
     transform: translateX(-50%) translateY(-50%);
 }
 
-/* From logonbox.css */
-/** Add your own styling to this stylesheet **/
 #header img {
     height: 35px;
 }
@@ -16,56 +16,6 @@
 .navbar-brand {
   padding: 7px 10px; 
 } 
-
-.navbar-inverse {
-  background-color: #1e0c51;
-}
-
-#footer, #header { 
-  background-color: #1e0c51;
-  color: white;
-}
-
-.large-button-active {
-   color: #1e0c51 !important;
-}
-
-.large-button:hover {
-  color: #1e0c51 !important;
-}
-
-.progress-bar {
-  background-color: #1e0c51; 
-}
-
-.slider-handle {
-    background-color: #1e0c51;
-    background-image: linear-gradient(to bottom, #1e0c51, #1e0c51);
-}
-
-a:focus, a:hover {
-    color: #1e0c51;
-    text-decoration: underline;
-}
-
-a {
-    color: #1e0c51;
-    text-decoration: none;
-}
-
-.sidebar ul.nav.nav-sidebar li a.active, .sidebar ul.nav.nav-sidebar li a:hover
-{
-	background: #1e0c51 !important;
-}
-
-.btn-primary {
-	color: white;
-	background: #1e0c51;
-}
-
-/* .btn-primary:hover { */
-/* 	background: #8f6ed5; */
-/* } */
 
 .btn-primary:disabled {
     background: #bbb;
@@ -80,30 +30,3 @@ a {
 	color: white;
 }
 
-/* .btn-disabled-dark { */
-/* 	color: #374767; */
-/* 	background: #eee; */
-/* } */
-
-/* .btn-disabled-dark:hover { */
-/* 	color: #374767; */
-/* } */
-
-.open .dropdown-toggle.btn-primary {
-	background-color: #1e0c51;
-	color: white;
-}
-
-.switch-input:checked ~ .switch-label {
-	background-color: #1e0c51;
-}
-
-.pagination>.active>a,.pagination>.active>span,.pagination>.active>a:hover,.pagination>.active>span:hover,.pagination>.active>a:focus,.pagination>.active>span:focus
-	{
-	background-color: #1e0c51;
-	border-color: #1e0c51;
-}
-
-.pagination>li>a, .pagination>li>span {
-	color: #384042;
-}

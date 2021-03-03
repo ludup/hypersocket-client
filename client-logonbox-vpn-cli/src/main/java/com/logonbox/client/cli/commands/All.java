@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.client.cli.CLI;
 import com.logonbox.client.cli.Command;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 
 public class All implements Command {
 	static Logger log = LoggerFactory.getLogger(CLI.class);
@@ -19,7 +20,7 @@ public class All implements Command {
 		for (Connection connection : cli.getConnectionService().getConnections()) {
 			System.out.println(String.format("%10d %-15s %5s %7s %9s %s:%d%s", connection.getId(), StringUtils.isBlank(connection.getName()) ? "Default" :  connection.getName(),
 					getBooleanDisplay(connection.isStayConnected()), getBooleanDisplay(connection.isConnectAtStartup()),
-					getBooleanDisplay(cli.getClientService().isConnected(connection)), 
+					getBooleanDisplay(cli.getClientService().getStatus(connection) == Type.CONNECTED), 
 					connection.getHostname(), connection.getPort(), connection.getPath()));
 		}
 	}
