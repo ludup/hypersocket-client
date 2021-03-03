@@ -14,49 +14,62 @@
 	<div id="wrap">
 		<div id="main" class="container clear-top mt-3">
 			<h1 data-i18n="options">Options</h1>
-			<form id="optionsForm"
-				onsubmit="bridge.saveOptions({'trayMode':$('#trayMode').val(),'phase':$('#phase').val(),'automaticUpdates':$('#automaticUpdates').is(':checked')}); return false;">
-				
-				<h3 data-i18n="updates">Updates</h3>
-				
-				<div class="form-check"> 
-					<input type="checkbox" class="form-check-input" id="automaticUpdates"/>
-					<label for="automaticUpdates" data-i18n="automaticUpdates">Automatic Updates</label>
+			<form id="optionsForm">
+				<h4 data-i18n="updates">Updates</h4>
+
+				<div class="form-check">
+					<input type="checkbox" class="form-check-input"
+						id="automaticUpdates" /> <label for="automaticUpdates"
+						data-i18n="automaticUpdates">Automatic Updates</label>
 					<p>
-						<small id="phaseHelp" data-i18n="automaticUpdatesHelp" class="form-text text-muted">Help</small>
+						<small id="phaseHelp" data-i18n="automaticUpdatesHelp"
+							class="form-text text-muted">Help</small>
 					</p>
 				</div>
-				
-				<div class="form-group" data-visibility="!tracksServerVersion" style="display: none;">
-					<label for="phase" data-i18n="phase">Update Channel</label> 
-					<select class="form-control" id="phase">
-					</select> 
-					<small id="phaseHelp" data-i18n="phaseHelp" class="form-text text-muted">Help</small>
+
+				<div class="form-group" data-visibility="!tracksServerVersion"
+					style="display: none;">
+					<label for="phase" data-i18n="phase">Update Channel</label> <select
+						class="form-control" id="phase">
+					</select> <small id="phaseHelp" data-i18n="phaseHelp"
+						class="form-text text-muted">Help</small>
 				</div>
-				
-				<h3 data-i18n="tray">Tray</h3>
-				
+
+				<h4 data-i18n="tray">Tray</h4>
+
 				<div class="form-group">
-					<label for="trayMode" data-i18n="trayMode">Tray Mode</label> 
-					<select class="form-control" id="trayMode">
-					</select> 
-					<small id="trayModeHelp" data-i18n="trayModeHelp" class="form-text text-muted">Tray Mode Help</small>
+					<label for="trayMode" data-i18n="trayMode">Tray Mode</label> <select
+						class="form-control" id="trayMode">
+					</select> <small id="trayModeHelp" data-i18n="trayModeHelp"
+						class="form-text text-muted">Tray Mode Help</small>
 				</div>
-				
-				
+
+
 				<button type="submit" class="btn btn-primary" data-i18n="save">Save</button>
 			</form>
 		</div>
 	</div>
 	<script type="text/javascript">
 		$(document).ready(function() {
-			for(var i = 0 ; i < trayModes.length; i++) {
-				$('#trayMode').append('<option selected="' + (trayModes[i] === trayMode)+ '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
+			for (var i = 0; i < trayModes.length; i++) {
+				$('#trayMode').append('<option selected="' + (trayModes[i] === trayMode) + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
 			}
-			for(var i = 0 ; i < phases.length; i++) {
-				$('#phase').append('<option selected="' + (phases[i].getName() === phase)+ '">' + phases[i].getName() + '</option>');
+			for (var i = 0; i < phases.length; i++) {
+				$('#phase').append('<option selected="' + (phases[i].getName() === phase) + '">' + phases[i].getName() + '</option>');
 			}
 			$('#automaticUpdates').prop('checked', automaticUpdates);
+			$("#optionsForm").submit(function(event) {
+				alert("Handler for .submit() called.");
+				var obj = {
+						'trayMode':$('#trayMode').val(),
+						'phase':$('#phase').val(),
+						'automaticUpdates':$('#automaticUpdates').is(':checked')
+					};
+				alert("Obj "+ obj);
+				bridge.saveOptions(obj);
+				alert("Save called "+ obj);
+				event.preventDefault();
+			});
 		});
 	</script>
 </body>

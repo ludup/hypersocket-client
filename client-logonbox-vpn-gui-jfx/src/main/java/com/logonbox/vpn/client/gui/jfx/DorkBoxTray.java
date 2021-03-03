@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -28,6 +29,7 @@ import org.kordamp.ikonli.fontawesome.FontAwesomeIkonHandler;
 
 import com.logonbox.vpn.common.client.ConfigurationService;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 
 import dorkbox.systemTray.Entry;
 import dorkbox.systemTray.Menu;
@@ -46,8 +48,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 	public DorkBoxTray(Client context) throws Exception {
 		this.context = context;
 		context.getBridge().addListener(this);
-		adjustTray();
-
+		adjustTray(Collections.emptyList());
 	}
 
 	@Override
@@ -59,7 +60,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		}
 	}
 
-	Menu addDevice(Connection device, Menu toMenu) throws IOException {
+	Menu addDevice(Connection device, Menu toMenu, List<Connection> devs) throws IOException {
 		Menu menu = null;
 		if (toMenu == null) {
 			if (menu == null)
@@ -68,22 +69,20 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 			menu = toMenu;
 
 		/* Open */
-		boolean connected = context.getBridge().getClientService().isConnected(device);
-		if (connected) {
+		Type status = context.getBridge().getClientService().getStatus(device);
+		if (status == Type.CONNECTED) {
 			var disconnectDev = new MenuItem(bundle.getString("disconnect"), (e) -> Platform.runLater(() -> {
 				UI.getInstance().disconnect(device);
 			}));
 			menu.add(disconnectDev);
 			menuEntries.add(disconnectDev);
-		} else {
+		} else if (devs.size() > 0 && status == Type.DISCONNECTED) {
 			var openDev = new MenuItem(bundle.getString("connect"), (e) -> Platform.runLater(() -> {
 				UI.getInstance().joinNetwork(device);
 			}));
 			menu.add(openDev);
 			menuEntries.add(openDev);
 		}
-
-//		menu.add(new JSeparator());
 
 		return menu;
 	}
@@ -155,7 +154,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		return (AlphaComposite.getInstance(type, alpha));
 	}
 
-	void adjustTray() {
+	void adjustTray(List<Connection> devs) {
 		String icon = getTrayIconMode();
 		if (systemTray == null && !Objects.equals(icon, ConfigurationService.TRAY_ICON_OFF)) {
 			systemTray = SystemTray.get();
@@ -171,18 +170,18 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 				systemTray.setMenu(new JMenu(bundle.getString("title")));
 			}
 
-			rebuildMenu();
+			rebuildMenu(devs);
 
 		} else if (systemTray != null && ConfigurationService.TRAY_ICON_OFF.equals(icon)) {
 			systemTray.setEnabled(false);
 		} else if (systemTray != null) {
 			systemTray.setEnabled(true);
 			setImage();
-			rebuildMenu();
+			rebuildMenu(devs);
 		}
 	}
 
-	private void rebuildMenu() {
+	private void rebuildMenu(List<Connection> devs) {
 		clearMenus();
 		if (systemTray != null) {
 			var menu = systemTray.getMenu();
@@ -196,13 +195,12 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 
 				boolean devices = false;
 				if (context.getBridge().isConnected()) {
-					List<Connection> devs = context.getBridge().getConnectionService().getConnections();
 					if (devs.size() == 1) {
-						addDevice(devs.get(0), menu);
+						addDevice(devs.get(0), menu, devs);
 						devices = true;
 					} else {
 						for (Connection dev : devs) {
-							var devmenu = addDevice(dev, null);
+							var devmenu = addDevice(dev, null, devs);
 							systemTray.getMenu().add(devmenu);
 							menuEntries.add(devmenu);
 							devices = true;
@@ -221,7 +219,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 			menuEntries.add(options);
 			menu.add(options).setShortcut('o');
 
-			var quit = new MenuItem(bundle.getString("quit"), (e) -> context.confirmExit());
+			var quit = new MenuItem(bundle.getString("quit"), (e) -> { Platform.runLater(() -> context.confirmExit()); });
 			menuEntries.add(quit);
 			menu.add(quit).setShortcut('q');
 		}
@@ -262,33 +260,42 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 
 	@Override
 	public void started(Connection connection) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		reload();
+	}
+
+	protected void reload() {
+		try {
+			List<Connection> conx = context.getBridge().getConnectionService().getConnections();
+			SwingUtilities.invokeLater(() -> rebuildMenu(conx));
+		} catch (RemoteException re) {
+
+		}
 	}
 
 	@Override
 	public void disconnected(Connection connection, Exception e) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		reload();
 	}
 
 	@Override
 	public void connectionAdded(Connection connection) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		reload();
 	}
 
 	@Override
 	public void connectionRemoved(Connection connection) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		reload();
 	}
 
 	@Override
 	public void connectionUpdated(Connection connection) {
-		SwingUtilities.invokeLater(() -> rebuildMenu());
+		reload();
 	}
 
 	@Override
 	public void configurationUpdated(String name, String value) {
 		if (name.equals(ConfigurationService.TRAY_ICON)) {
-			SwingUtilities.invokeLater(() -> rebuildMenu());
+			reload();
 		}
 	}
 

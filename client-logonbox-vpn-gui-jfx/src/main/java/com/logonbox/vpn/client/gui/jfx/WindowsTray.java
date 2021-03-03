@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.common.client.ConfigurationService;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 
 import javafx.application.Platform;
 
@@ -78,14 +79,14 @@ public class WindowsTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 			menu = toMenu;
 
 		/* Open */
-		boolean connected = context.getBridge().getClientService().isConnected(device);
-		if (connected) {
+		Type status = context.getBridge().getClientService().getStatus(device);
+		if (status == Type.CONNECTED) {
 			var disconnectDev = createMenuItem(bundle.getString("disconnect"), (e) -> Platform.runLater(() -> {
 				UI.getInstance().disconnect(device);
 			}));
 			menu.add(disconnectDev);
 			menuEntries.add(disconnectDev);
-		} else {
+		} else if(status == Type.DISCONNECTED && context.getBridge().getConnectionService().getConnections().size() > 0){
 			var openDev = createMenuItem(bundle.getString("connect"), (e) -> Platform.runLater(() -> {
 				UI.getInstance().joinNetwork(device);
 			}));

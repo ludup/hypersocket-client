@@ -2,8 +2,9 @@
 
 <?import java.lang.String?>
 <?import javafx.scene.control.Hyperlink?>
-<?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
@@ -39,13 +40,17 @@
 							</children>
 						</HBox>
 					</left>
-					<center>
-						<Label alignment="CENTER" styleClass="title" text="%title" textAlignment="CENTER" BorderPane.alignment="CENTER" />
-					</center>
                <styleClass>
                   <String fx:value="titleBar" />
                   <String fx:value="inverse" />
                </styleClass>
+               <center>
+                  <ImageView fx:id="titleBarImageView" fitHeight="32" fitWidth="200.0" pickOnBounds="true" preserveRatio="true" BorderPane.alignment="CENTER">
+                     <image>
+                        <Image url="/com/logonbox/vpn/client/gui/jfx/logonbox-titlebar-logo.png" />
+                     </image>
+                  </ImageView>
+               </center>
 				</BorderPane>
 			</top>
          <center>
