@@ -208,7 +208,7 @@ public class GUIRegistryImpl implements GUIRegistry {
 		synchronized (lock) {
 			try {
 				if (gui != null && guiAttached) {
-					gui.disconnected(connection, "Disconnected. " + message);
+					gui.disconnected(connection, message == null ? "Disconnected." : message);
 				}
 			} catch (RemoteException re) {
 				log.error("Failed to inform GUI of disconnection.", re);

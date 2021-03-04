@@ -33,7 +33,7 @@ public interface ClientService extends Remote {
 	
 	void connect(Connection c) throws RemoteException;
 	
-	void disconnect(Connection c) throws RemoteException;
+	void disconnect(Connection c, String reason) throws RemoteException;
 
 	List<ConnectionStatus> getStatus() throws RemoteException;
 
