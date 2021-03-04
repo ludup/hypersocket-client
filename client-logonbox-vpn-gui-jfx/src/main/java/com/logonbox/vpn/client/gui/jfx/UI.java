@@ -245,6 +245,8 @@ public class UI extends AbstractController implements Listener {
 	@Override
 	public void bridgeEstablished() {
 
+		LOG.info("Bridge established.");
+		
 		/*
 		 * If we were waiting for this, it's part of the update process. We don't want
 		 * the connection continuing
@@ -266,9 +268,9 @@ public class UI extends AbstractController implements Listener {
 				if (StringUtils.isNotBlank(unprocessedUri)) {
 					connectToUri(unprocessedUri);
 				} else {
-					selectPageForState(false, Main.getInstance().isConnect());
 					reloadState();
 					initUi(null);
+					selectPageForState(false, Main.getInstance().isConnect());
 				}
 			}
 		});
@@ -305,6 +307,10 @@ public class UI extends AbstractController implements Listener {
 
 	public void disconnect(Connection sel, String reason) {
 		try {
+			if (reason == null)
+				LOG.info("Requesting disconnect, no reason given");
+			else
+				LOG.info(String.format("Requesting disconnect, because '%s'", reason));
 			context.getBridge().getClientService().disconnect(sel, reason);
 		} catch (Exception e) {
 			showError("Failed to disconnect.", e);
@@ -347,10 +353,9 @@ public class UI extends AbstractController implements Listener {
 				showError("Failed to connect.", e);
 				notify(e.getMessage(), GUICallback.NOTIFY_ERROR);
 			} else {
-				if(Main.getInstance().isExitOnConnection()) {
+				if (Main.getInstance().isExitOnConnection()) {
 					context.exitApp();
-				}
-				else
+				} else
 					joinedNetwork();
 			}
 
@@ -941,9 +946,9 @@ public class UI extends AbstractController implements Listener {
 
 		/* Make various components completely hide from layout when made invisible */
 		sidebar.managedProperty().bind(sidebar.visibleProperty());
-		
+
 		/* Initial page */
-		if(!context.getBridge().isConnected())
+		if (!context.getBridge().isConnected())
 			setHtmlPage("index.html");
 	}
 
@@ -1000,8 +1005,10 @@ public class UI extends AbstractController implements Listener {
 					 * URI does not work (resource also works, but we need a dynamic resource, and I
 					 * couldn't get a custom URL handler to work either).
 					 */
-					webView.getEngine().setUserStyleSheetLocation("data:text/css;base64," + DatatypeConverter
-							.printBase64Binary(IOUtils.toByteArray(context.getCustomLocalWebCSSFile().toURI())));
+					byte[] localCss = IOUtils.toByteArray(context.getCustomLocalWebCSSFile().toURI());
+					String datauri = "data:text/css;base64," + DatatypeConverter
+							.printBase64Binary(localCss);
+					webView.getEngine().setUserStyleSheetLocation(datauri);
 
 					setupPage();
 					String loc = htmlPage;
@@ -1098,12 +1105,13 @@ public class UI extends AbstractController implements Listener {
 
 	private void connectToUri(String unprocessedUri) {
 		try {
+			LOG.info(String.format("Connecting to URI %s", unprocessedUri));
 			ConnectionService connectionService = context.getBridge().getConnectionService();
 			URI uriObj = Util.getUri(unprocessedUri);
 			Connection connection = connectionService.createNew(uriObj);
 			Connection conx = connectionService.getConnectionByName(uriObj.toString());
 			if (conx == null) {
-				if(Main.getInstance().isCreateIfDoesntExist()) {
+				if (Main.getInstance().isCreateIfDoesntExist()) {
 					/* No existing configuration */
 					connection.setName(uriObj.toString());
 					connection.setConnectAtStartup(true);
@@ -1113,8 +1121,7 @@ public class UI extends AbstractController implements Listener {
 					connections.getSelectionModel().select(connectionSaved);
 					reapplyColors();
 					authorize(connectionSaved);
-				}
-				else {
+				} else {
 					showError(MessageFormat.format(bundle.getString("error.uriProvidedDoesntExist"), uriObj));
 				}
 			} else {
@@ -1224,6 +1231,10 @@ public class UI extends AbstractController implements Listener {
 		try {
 			mode = context.getBridge().getClientService().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
 			branding = context.getBridge().getClientService().getBranding();
+			if (branding == null)
+				log.info(String.format("Removing branding."));
+			else
+				log.info(String.format("Adding custom branding"));
 		} catch (RemoteException e) {
 			throw new IllegalStateException("Impossible!", e);
 		}
@@ -1404,14 +1415,6 @@ public class UI extends AbstractController implements Listener {
 		return false;
 	}
 
-	private boolean sameNameCheck(Long conId, Predicate<Long> predicate) {
-		if (predicate.test(conId)) {
-			// show error message
-			return true;
-		}
-		return false;
-	}
-
 	private void selectPageForState(boolean disconnecting, boolean connectIfDisconnected) {
 		try {
 			Bridge bridge = context.getBridge();
@@ -1436,13 +1439,13 @@ public class UI extends AbstractController implements Listener {
 						/* There are no connections at all */
 						if (bridge.isConnected()) {
 							/* The bridge is connected */
-							if(Main.getInstance().isNoAddWhenNoConnections()) {
-								if(Main.getInstance().isConnect() || StringUtils.isNotBlank(Main.getInstance().getUri()))
+							if (Main.getInstance().isNoAddWhenNoConnections()) {
+								if (Main.getInstance().isConnect()
+										|| StringUtils.isNotBlank(Main.getInstance().getUri()))
 									setHtmlPage("busy.html");
 								else
 									setHtmlPage("connected.html");
-							}
-							else
+							} else
 								setHtmlPage("addLogonBoxVPN.html");
 						} else
 							/* The bridge is not (yet?) connected */
