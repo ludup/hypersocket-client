@@ -140,8 +140,7 @@ public class Client extends Application implements X509TrustManager {
 	public void start(Stage primaryStage) throws Exception {
 		this.primaryStage = primaryStage;
 
-		if (!getParameters().getNamed().containsKey("strictSSL")
-				|| "false".equalsIgnoreCase(getParameters().getNamed().get("strictSSL"))) {
+		if (!"false".equalsIgnoreCase(getParameters().getNamed().get("strictSSL"))) {
 			installAllTrustingCertificateVerifier();
 		}
 
@@ -386,10 +385,14 @@ public class Client extends Application implements X509TrustManager {
 
 	@Override
 	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-		System.out.println("checkServerTrusted " + authType);
 		for (X509Certificate c : chain) {
-			System.out.println("  checkServerTrusted cert " + c.getSubjectDN());
-			c.checkValidity();
+			try {
+				c.checkValidity();
+			}
+			catch(CertificateException ce) {
+				log.error("Certificate error.", ce);
+				throw ce;
+			}
 		}
 	}
 

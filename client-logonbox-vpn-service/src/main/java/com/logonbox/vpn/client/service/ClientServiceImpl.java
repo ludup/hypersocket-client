@@ -146,7 +146,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 							addr.delete();
 						}
 					}
-					disconnect(connection);
+					disconnect(connection, null);
 				}
 			}
 		} catch (Exception e) {
@@ -193,7 +193,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	@Override
-	public void disconnect(Connection c) throws RemoteException {
+	public void disconnect(Connection c, String reason) throws RemoteException {
 
 		if (log.isInfoEnabled()) {
 			log.info("Disconnecting connection with id " + c.getId() + "/" + c.getHostname());
@@ -243,7 +243,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 		/**
 		 * Force removal here for final chance clean up
 		 */
-		context.getGuiRegistry().disconnected(c, null);
+		context.getGuiRegistry().disconnected(c, reason);
 	}
 
 	public void disconnected(Connection connection, HypersocketClient<Connection> client) {
@@ -769,7 +769,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 						"Session with public key %s hasn't had a valid handshake for %d seconds, disconnecting.",
 						sessionEn.getKey().getUserPublicKey(), ClientService.HANDSHAKE_TIMEOUT));
 				try {
-					disconnect(sessionEn.getKey());
+					disconnect(sessionEn.getKey(), null);
 				} catch (Exception e) {
 					log.warn("Failed to disconnect dead session. State may be incorrect.", e);
 				}

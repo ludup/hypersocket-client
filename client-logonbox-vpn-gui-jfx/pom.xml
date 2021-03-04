@@ -108,9 +108,21 @@
 			<version>1.7.30</version>
 		</dependency>
 		<dependency>
-			<groupId>com.dorkbox</groupId>
-			<artifactId>SystemTray</artifactId>
-			<version>3.17</version>
+			<groupId>com.logonbox</groupId>
+			<artifactId>DorkBox-SystemTray</artifactId>
+			<version>4.0.0.LB</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.eclipse.platform</groupId>
+					<artifactId>org.eclipse.swt</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.eclipse.platform</groupId>
+					<artifactId>
+						org.eclipse.swt.gtk.linux.x86_64
+					</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 	</dependencies>

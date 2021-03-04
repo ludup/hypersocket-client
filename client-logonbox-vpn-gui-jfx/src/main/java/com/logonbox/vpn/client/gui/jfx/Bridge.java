@@ -305,7 +305,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 			l.disconnecting(connection);
 		}
 		log.info(String.format("Disconnecting from %s", connection.getUri(false)));
-		clientService.disconnect(connection);
+		clientService.disconnect(connection, null);
 	}
 
 	public void connect(Connection connection) throws RemoteException {

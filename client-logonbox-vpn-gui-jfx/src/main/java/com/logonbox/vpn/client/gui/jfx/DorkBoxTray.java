@@ -48,7 +48,11 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 	public DorkBoxTray(Client context) throws Exception {
 		this.context = context;
 		context.getBridge().addListener(this);
-		adjustTray(Collections.emptyList());
+		new Thread() {
+			public void run() {
+				adjustTray(Collections.emptyList());				
+			}
+		}.start();
 	}
 
 	@Override

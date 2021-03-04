@@ -37,7 +37,7 @@ public class Disconnect extends AbstractConnectionCommand {
 
 	private void disconnect(Connection c, CLI cli) throws RemoteException, InterruptedException {
 		System.out.println(String.format("Disconnecting from %s", c.getHostname()));
-		cli.getClientService().disconnect(c);
+		cli.getClientService().disconnect(c, null);
 		while(cli.getClientService().getStatus(c) == Type.CONNECTED) {
 			Thread.sleep(500);
 		}

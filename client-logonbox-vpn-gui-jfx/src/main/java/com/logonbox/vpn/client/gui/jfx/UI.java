@@ -283,7 +283,7 @@ public class UI extends AbstractController implements Listener {
 
 	public void disconnect(Connection sel) {
 		try {
-			context.getBridge().getClientService().disconnect(sel);
+			context.getBridge().getClientService().disconnect(sel, null);
 		} catch (Exception e) {
 			showError("Failed to disconnect.", e);
 		}
@@ -292,9 +292,8 @@ public class UI extends AbstractController implements Listener {
 	@Override
 	public void disconnected(final Connection connection, Exception e) {
 		super.disconnected(connection, e);
-		Platform.runLater(() -> {
+		maybeRunLater(() -> {
 			log.info("Disconnected " + connection + " (delete " + deleteOnDisconnect + ")");
-			rebuildConnections(connection);
 			if (deleteOnDisconnect) {
 				try {
 					doDelete(connection);
@@ -305,17 +304,12 @@ public class UI extends AbstractController implements Listener {
 			} else {
 				rebuildConnections(connection);
 			}
-			selectPageForState(true);
+			if (e != null) {
+				showError("Disconnected.", e);
+			} else {
+				selectPageForState(true);
+			}
 		});
-	}
-
-	/*
-	 * The following are all events from the {@link Bridge}, and will come in on the
-	 * RMI thread.
-	 */
-	@Override
-	public void disconnecting(Connection connection) {
-		super.disconnecting(connection);
 	}
 
 	@Override
@@ -583,6 +577,10 @@ public class UI extends AbstractController implements Listener {
 			}
 		});
 		engine.getLoadWorker().exceptionProperty().addListener((o, old, value) -> {
+			if (value == null) {
+				/* Error cleared */
+				return;
+			}
 
 			/*
 			 * If we are authorizing and get an error from the browser, then it's likely the
@@ -594,28 +592,42 @@ public class UI extends AbstractController implements Listener {
 			try {
 				if (context.getBridge().getClientService()
 						.getStatus(selectedConnection) == ConnectionStatus.Type.AUTHORIZING) {
-					context.getBridge().getClientService().disconnect(selectedConnection);
+					String reason = value != null ? value.getMessage() : null;
+					LOG.info(String.format("Got error while authorizing. Disconnecting now using '%s' as the reason",
+							reason));
+					context.getBridge().getClientService().disconnect(selectedConnection, reason);
+
+					/*
+					 * Await the disconnected event that comes back from the service and process it
+					 * then
+					 */
+					return;
 				}
 			} catch (Exception e) {
 				LOG.error("Failed to adjust authorizing state.", e);
 			}
-
-			/*
-			 * This is pretty terrible. JavFX's WebEngine$LoadWorker constructs a new
-			 * <strong>Throwable</strong>! with Englist text as the only way of
-			 * distinguising the actual error! This is ridiculous. Hopefully it will get
-			 * fixed, but then this will probably break.
-			 */
-			if (value != null && value.getMessage() != null) {
-				if (value.getMessage().equals("Connection refused by server")) {
-					setHtmlPage("offline.html");
-					return;
-				}
+			if (!checkForInvalidatedSession(value)) {
+				showError("Error.", value);
 			}
-			showError("Exception during page load.", value);
 		});
 
 		engine.setJavaScriptEnabled(true);
+	}
+
+	protected boolean checkForInvalidatedSession(Throwable value) {
+		/*
+		 * This is pretty terrible. JavFX's WebEngine$LoadWorker constructs a new
+		 * <strong>Throwable</strong>! with Englist text as the only way of
+		 * distinguising the actual error! This is ridiculous. Hopefully it will get
+		 * fixed, but then this will probably break.
+		 */
+		if (value != null && value.getMessage() != null) {
+			if (value.getMessage().equals("Connection refused by server")) {
+				setHtmlPage("offline.html");
+				return true;
+			}
+		}
+		return false;
 	}
 
 	protected void dataAttributes(Element node, Connection cfg, Connection connection,
@@ -1133,9 +1145,10 @@ public class UI extends AbstractController implements Listener {
 
 	private void reapplyLogo() {
 		String defaultLogo = UI.class.getResource("logonbox-titlebar-logo.png").toExternalForm();
-		if((branding == null || StringUtils.isBlank(branding.getLogo()) && !defaultLogo.equals(titleBarImageView.getImage().getUrl()))) {
+		if ((branding == null || StringUtils.isBlank(branding.getLogo())
+				&& !defaultLogo.equals(titleBarImageView.getImage().getUrl()))) {
 			titleBarImageView.setImage(new Image(defaultLogo, true));
-		} else if(!defaultLogo.equals(branding.getLogo())){
+		} else if (!defaultLogo.equals(branding.getLogo())) {
 			titleBarImageView.setImage(new Image(branding.getLogo(), true));
 		}
 	}
@@ -1257,15 +1270,12 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	private void rebuildConnections(final Connection sel) {
-		if (Platform.isFxApplicationThread()) {
-			connections.getItems().clear();
-			if (context.getBridge().isConnected()) {
-				connections.getItems().addAll(getConnections());
-			}
-			if (sel != null)
-				connections.getSelectionModel().select(sel);
-		} else
-			Platform.runLater(() -> rebuildConnections(sel));
+		connections.getItems().clear();
+		if (context.getBridge().isConnected()) {
+			connections.getItems().addAll(getConnections());
+		}
+		if (sel != null)
+			connections.getSelectionModel().select(sel);
 
 	}
 
@@ -1406,6 +1416,13 @@ public class UI extends AbstractController implements Listener {
 				}
 			}
 		}.start();
+	}
+
+	public static void maybeRunLater(Runnable r) {
+		if (Platform.isFxApplicationThread())
+			r.run();
+		else
+			Platform.runLater(r);
 	}
 
 }
