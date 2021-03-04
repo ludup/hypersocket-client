@@ -172,7 +172,11 @@ public class UI extends AbstractController implements Listener {
 		}
 
 		public void unjoin() {
-			disconnect(getSelectedConnection());
+			unjoin(null);
+		}
+
+		public void unjoin(String reason) {
+			disconnect(getSelectedConnection(), reason);
 		}
 
 		public void update() {
@@ -296,8 +300,12 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	public void disconnect(Connection sel) {
+		disconnect(sel, null);
+	}
+
+	public void disconnect(Connection sel, String reason) {
 		try {
-			context.getBridge().getClientService().disconnect(sel, null);
+			context.getBridge().getClientService().disconnect(sel, reason);
 		} catch (Exception e) {
 			showError("Failed to disconnect.", e);
 		}
