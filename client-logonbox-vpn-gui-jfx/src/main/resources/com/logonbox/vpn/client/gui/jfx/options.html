@@ -52,23 +52,19 @@
 	<script type="text/javascript">
 		$(document).ready(function() {
 			for (var i = 0; i < trayModes.length; i++) {
-				$('#trayMode').append('<option selected="' + (trayModes[i] === trayMode) + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
+				$('#trayMode').append('<option ' + (trayModes[i] === trayMode ? 'selected' : '') + ' value="' + trayModes[i] + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
 			}
 			for (var i = 0; i < phases.length; i++) {
-				$('#phase').append('<option selected="' + (phases[i].getName() === phase) + '">' + phases[i].getName() + '</option>');
+				$('#phase').append('<option ' + (phases[i].getName() === phase ? 'selected' : '') + '>' + phases[i].getName() + '</option>');
 			}
 			$('#automaticUpdates').prop('checked', automaticUpdates);
 			$("#optionsForm").submit(function(event) {
-				alert("Handler for .submit() called.");
-				var obj = {
-						'trayMode':$('#trayMode').val(),
-						'phase':$('#phase').val(),
-						'automaticUpdates':$('#automaticUpdates').is(':checked')
-					};
-				alert("Obj "+ obj);
-				bridge.saveOptions(obj);
-				alert("Save called "+ obj);
-				event.preventDefault();
+				bridge.saveOptions({
+					'trayMode': 		$('#trayMode').val(),
+					'phase': 			$('#phase').val(),
+					'automaticUpdates':	$('#automaticUpdates').is(':checked')
+				});
+				return false;
 			});
 		});
 	</script>

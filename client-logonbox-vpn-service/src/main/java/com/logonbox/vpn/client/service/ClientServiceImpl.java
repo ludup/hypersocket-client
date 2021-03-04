@@ -438,17 +438,24 @@ public class ClientServiceImpl implements ClientService, Listener {
 					ClientUpdater guiJob = new ClientUpdater(guiRegistry, guiRegistry.getGUI().getExtensionPlace(),
 							ExtensionTarget.CLIENT_GUI, context);
 
-					guiRegistry.onUpdateInit(appsToUpdate);
 					try {
-						guiJob.update();
-
-						log.info("Update complete, restarting.");
-						guiRegistry.onUpdateDone(true, null);
-
-					} catch (IOException e) {
-						log.error("Failed to update GUI.", e);
-						guiRegistry.onUpdateDone(false, e.getMessage());
+						guiRegistry.onUpdateInit(appsToUpdate);
+						try {
+							guiJob.update();
+	
+							log.info("Update complete, restarting.");
+							guiRegistry.onUpdateDone(true, null);
+	
+						} catch (IOException e) {
+							log.error("Failed to update GUI.", e);
+							guiRegistry.onUpdateDone(false, e.getMessage());
+						}
 					}
+					catch(Exception re) {
+						log.error("GUI refused to update, ignoring.", re);
+						guiRegistry.onUpdateDone(false, null);
+					}
+					
 
 				} else if (updating) {
 
@@ -585,15 +592,22 @@ public class ClientServiceImpl implements ClientService, Listener {
 			} else
 				deviceUUID = UUID.fromString(deviceUUIDString);
 
+			int connected = 0;
 			for (Connection c : context.getConnectionService().getConnections()) {
 				if (c.isConnectAtStartup() && getStatus(c) == Type.DISCONNECTED) {
-					connect(c);
+					try {
+						connect(c);
+						connected++;
+					}
+					catch(Exception e) {
+						log.error(String.format("Failed to start on-startup connection %s", c.getName()), e);
+					}
 				}
 			}
 
 			timer.scheduleAtFixedRate(() -> checkConnectionsAlive(), POLL_RATE, POLL_RATE, TimeUnit.SECONDS);
 
-			return true;
+			return connected > 0;
 		} catch (RemoteException e) {
 			log.error("Failed to start service", e);
 			return false;

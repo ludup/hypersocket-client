@@ -30,7 +30,6 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.kordamp.bootstrapfx.BootstrapFX;
 import org.slf4j.Logger;
@@ -235,10 +234,15 @@ public class Client extends Application implements X509TrustManager {
 		AnchorPane.setTopAnchor(node, 0d);
 		AnchorPane.setRightAnchor(node, 0d);
 
-		BorderlessScene primaryScene = new BorderlessScene(primaryStage, StageStyle.TRANSPARENT, anchor, 460, 200);
-		primaryScene.setMoveControl(node);
+		String[] sizeParts = Main.getInstance().getSize().toLowerCase().split("x");
+		BorderlessScene primaryScene = new BorderlessScene(primaryStage, StageStyle.TRANSPARENT, anchor,
+				Integer.parseInt(sizeParts[0]), Integer.parseInt(sizeParts[1]));
+		if(!Main.getInstance().isNoMove())
+			primaryScene.setMoveControl(node);
 		primaryScene.setSnapEnabled(false);
-		primaryScene.setResizable(true);
+		primaryScene.removeDefaultCSS();
+		primaryScene.setResizable(!Main.getInstance().isNoMove());
+		primaryStage.setAlwaysOnTop(Main.getInstance().isAlwaysOnTop());
 
 		// Finalise and show
 		Configuration cfg = Configuration.getDefault();
@@ -263,23 +267,15 @@ public class Client extends Application implements X509TrustManager {
 		primaryStage.heightProperty().addListener((c, o, n) -> cfg.hProperty().set(n.intValue()));
 
 		primaryStage.onCloseRequestProperty().set(we -> {
-			confirmExit();
+			if (!Main.getInstance().isNoClose())
+				confirmExit();
 			we.consume();
 		});
 
 		bridge.start();
 
-		/*
-		 * TODO: Waiting for a new release of DorkBox than can use a newer JNA like we
-		 * need for other components. https://github.com/dorkbox/SystemTray/issues/121
-		 */
-//		if (SystemUtils.IS_OS_WINDOWS) {
-//			tray = new WindowsTray(this);
-//			log.info("Using Windows tray implementation");
-//		} else {
+		if (!Main.getInstance().isNoSystemTray())
 			tray = new DorkBoxTray(this);
-			log.info("Using DorkBox tray implementation");
-//		}
 	}
 
 	public Stage getStage() {
@@ -388,8 +384,7 @@ public class Client extends Application implements X509TrustManager {
 		for (X509Certificate c : chain) {
 			try {
 				c.checkValidity();
-			}
-			catch(CertificateException ce) {
+			} catch (CertificateException ce) {
 				log.error("Certificate error.", ce);
 				throw ce;
 			}
@@ -405,6 +400,7 @@ public class Client extends Application implements X509TrustManager {
 	public void open() {
 		Platform.runLater(() -> {
 			primaryStage.show();
+			primaryStage.toFront();
 		});
 	}
 
@@ -445,8 +441,10 @@ public class Client extends Application implements X509TrustManager {
 		StringBuilder bui = new StringBuilder();
 
 		// Get the base colour. All other colours are derived from this
-		Color backgroundColour = Color.valueOf(branding == null ? BrandingInfo.DEFAULT_BACKGROUND : branding.getResource().getBackground());
-		Color foregroundColour = Color.valueOf(branding == null ? BrandingInfo.DEFAULT_FOREGROUND : branding.getResource().getForeground());
+		Color backgroundColour = Color
+				.valueOf(branding == null ? BrandingInfo.DEFAULT_BACKGROUND : branding.getResource().getBackground());
+		Color foregroundColour = Color
+				.valueOf(branding == null ? BrandingInfo.DEFAULT_FOREGROUND : branding.getResource().getForeground());
 
 		if (backgroundColour.getOpacity() == 0) {
 			// Prevent total opacity, as mouse events won't be received
@@ -473,12 +471,8 @@ public class Client extends Application implements X509TrustManager {
 		} else {
 			// A colour, so choose the next adjacent colour in the HSB colour
 			// wheel (45 degrees)
-			bui.append("-fx-lbvpn-accent: "
-					+ toHex(backgroundColour.deriveColor(45f, 1f, 1f, 1f))
-					+ ";\n");
-			bui.append("-fx-lbvpn-accent: "
-					+ toHex(backgroundColour.deriveColor(-45f, 1f, 1f, 1f))
-					+ ";\n");
+			bui.append("-fx-lbvpn-accent: " + toHex(backgroundColour.deriveColor(45f, 1f, 1f, 1f)) + ";\n");
+			bui.append("-fx-lbvpn-accent: " + toHex(backgroundColour.deriveColor(-45f, 1f, 1f, 1f)) + ";\n");
 		}
 
 		// End

@@ -165,9 +165,10 @@ public class ConnectionServiceImpl implements ConnectionService {
 	@SuppressWarnings("unchecked")
 	@Override
 	public List<Connection> getConnections() throws RemoteException {
-
-		Criteria crit = session.createCriteria(ConnectionImpl.class);
-		return crit.list();
+		synchronized (session) {
+			Criteria crit = session.createCriteria(ConnectionImpl.class);
+			return crit.list();
+		}
 	}
 
 	@Override

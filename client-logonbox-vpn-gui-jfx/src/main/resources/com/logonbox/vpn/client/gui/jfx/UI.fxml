@@ -19,11 +19,11 @@
 					<right>
 						<HBox BorderPane.alignment="CENTER">
 							<children>
-								<Hyperlink onAction="#evtMinimize" styleClass="icon">
+								<Hyperlink fx:id="minimize" onAction="#evtMinimize" styleClass="icon">
                            <graphic>
                               <FontIcon iconLiteral="fa-window-minimize" iconSize="32" />
                            </graphic></Hyperlink>
-								<Hyperlink onAction="#evtClose" styleClass="icon">
+								<Hyperlink fx:id="close" onAction="#evtClose" styleClass="icon">
                            <graphic>
                               <FontIcon iconLiteral="fa-window-close" iconSize="32" />
                            </graphic></Hyperlink>
@@ -33,7 +33,7 @@
 					<left>
 						<HBox BorderPane.alignment="CENTER">
 							<children>
-								<Hyperlink onAction="#evtToggleSidebar" styleClass="icon">
+								<Hyperlink fx:id="toggleSidebar" onAction="#evtToggleSidebar" styleClass="icon">
                            <graphic>
                               <FontIcon iconLiteral="fa-bars" iconSize="32" />
                            </graphic></Hyperlink>

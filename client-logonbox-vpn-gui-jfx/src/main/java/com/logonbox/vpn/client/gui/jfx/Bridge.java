@@ -467,6 +467,8 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void onUpdateInit(final int expectedApps) throws RemoteException {
+		if (Main.getInstance().isNoUpdates())
+			throw new IllegalStateException("Cannot initiate updates, prevented by CLI option.");
 		Platform.runLater(new Runnable() {
 			@Override
 			public void run() {

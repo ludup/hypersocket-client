@@ -82,7 +82,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 			menuEntries.add(disconnectDev);
 		} else if (devs.size() > 0 && status == Type.DISCONNECTED) {
 			var openDev = new MenuItem(bundle.getString("connect"), (e) -> Platform.runLater(() -> {
-				UI.getInstance().joinNetwork(device);
+				UI.getInstance().connect(device);
 			}));
 			menu.add(openDev);
 			menuEntries.add(openDev);

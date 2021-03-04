@@ -161,10 +161,10 @@ public class UI extends AbstractController implements Listener {
 		}
 
 		public void saveOptions(JSObject o) {
-			String trayIcon = (String) o.getMember("trayIcon");
+			String trayMode = (String) o.getMember("trayMode");
 			String phase = (String) o.getMember("phase");
 			Boolean automaticUpdates = (Boolean) o.getMember("automaticUpdates");
-			UI.this.saveOptions(trayIcon, phase, automaticUpdates);
+			UI.this.saveOptions(trayMode, phase, automaticUpdates);
 		}
 
 		public void showError(String error) {
@@ -227,6 +227,12 @@ public class UI extends AbstractController implements Listener {
 	private WebView webView;
 	@FXML
 	private ImageView titleBarImageView;
+	@FXML
+	private Hyperlink close;
+	@FXML
+	private Hyperlink minimize;
+	@FXML
+	private Hyperlink toggleSidebar;
 
 	public UI() {
 		instance = this;
@@ -251,15 +257,22 @@ public class UI extends AbstractController implements Listener {
 				setUpdateProgress(100, resources.getString("guiRestart"));
 				new Timeline(new KeyFrame(Duration.seconds(5), ae -> Main.getInstance().restart())).play();
 			} else {
-				reloadState();
-				initUi(null);
+
+				String unprocessedUri = Main.getInstance().getUri();
+				if (StringUtils.isNotBlank(unprocessedUri)) {
+					connectToUri(unprocessedUri);
+				} else {
+					selectPageForState(false, Main.getInstance().isConnect());
+					reloadState();
+					initUi(null);
+				}
 			}
 		});
 	}
 
 	@Override
 	public void bridgeLost() {
-
+		LOG.info("Bridge lost");
 		Platform.runLater(new Runnable() {
 
 			@Override
@@ -275,6 +288,7 @@ public class UI extends AbstractController implements Listener {
 					connecting.clear();
 					rebuildConnections(null);
 					initUi(null);
+					selectPageForState(true, false);
 				}
 			}
 		});
@@ -307,7 +321,7 @@ public class UI extends AbstractController implements Listener {
 			if (e != null) {
 				showError("Disconnected.", e);
 			} else {
-				selectPageForState(true);
+				selectPageForState(true, false);
 			}
 		});
 	}
@@ -324,8 +338,13 @@ public class UI extends AbstractController implements Listener {
 			if (e != null) {
 				showError("Failed to connect.", e);
 				notify(e.getMessage(), GUICallback.NOTIFY_ERROR);
-			} else
-				joinedNetwork();
+			} else {
+				if(Main.getInstance().isExitOnConnection()) {
+					context.exitApp();
+				}
+				else
+					joinedNetwork();
+			}
 
 			// TODO fix when multiple different connections at possible different times
 
@@ -346,6 +365,7 @@ public class UI extends AbstractController implements Listener {
 						new KeyFrame(Duration.seconds(30), ae -> giveUpWaitingForBridgeStop()));
 				awaitingBridgeLoss.play();
 			} else {
+				LOG.info(String.format("No restart required, continuing"));
 				resetState();
 			}
 		} else {
@@ -356,14 +376,31 @@ public class UI extends AbstractController implements Listener {
 
 	@Override
 	public void initUpdate(int apps, UIState currentMode) {
-		this.mode = UIState.UPDATE;
 		if (awaitingRestart)
-			throw new IllegalStateException("Cannot initiate updates while waiting to restart the GUI..");
-
+			throw new IllegalStateException("Cannot initiate updates while waiting to restart the GUI.");
+		this.mode = UIState.UPDATE;
 		LOG.info(String.format("Initialising update (currently in mode %s). Expecting %d apps", currentMode, apps));
 		appsToUpdate = apps;
 		appsUpdated = 0;
-		selectPageForState(false);
+		selectPageForState(false, false);
+	}
+
+	public void connect(Connection n) {
+		try {
+			log.info(String.format("Connect to %s", n.getAddress()));
+			if (n != null) {
+				Type status = context.getBridge().getClientService().getStatus(n);
+				log.info(String.format("  current status is %s", status));
+				if (status == Type.CONNECTED)
+					joinedNetwork();
+				else if (n.isAuthorized())
+					joinNetwork(n);
+				else
+					authorize(n);
+			}
+		} catch (Exception e) {
+			showError("Failed to connect.", e);
+		}
 	}
 
 	public void joinNetwork(Connection connection) {
@@ -430,8 +467,8 @@ public class UI extends AbstractController implements Listener {
 
 	public void setMode(UIState mode) {
 		this.mode = mode;
-		rebuildConnections(null);
-		selectPageForState(false);
+		rebuildConnections(getSelectedConnection());
+		selectPageForState(false, false);
 	}
 
 	@Override
@@ -483,24 +520,11 @@ public class UI extends AbstractController implements Listener {
 				MessageFormat.format(resources.getString("updating"), appName));
 	}
 
-	protected void addConnection(Boolean connectAtStartup, String server) {
+	protected void addConnection(Boolean connectAtStartup, String unprocessedUri) {
 		try {
 			ConnectionService connectionService = context.getBridge().getConnectionService();
-
-			if (sameNameCheck(null, (conId) -> {
-				try {
-					return connectionService.getConnectionByName(server) != null;
-				} catch (RemoteException e) {
-					throw new IllegalStateException(e.getMessage(), e);
-				}
-			})) {
-				return;
-			}
-
-			URI uriObj = Util.getUri(server);
-
+			URI uriObj = Util.getUri(unprocessedUri);
 			final Connection connection = connectionService.createNew(uriObj);
-
 			if (sameHostPortPathCheck(null, (conId) -> {
 				try {
 					return connectionService.getConnectionByHostPortAndPath(connection.getHostname(),
@@ -511,20 +535,10 @@ public class UI extends AbstractController implements Listener {
 			})) {
 				return;
 			}
-			connection.setName(server);
+			connection.setName(uriObj.toString());
 			connection.setConnectAtStartup(connectAtStartup);
 
-			/*
-			 * If enabled, generate the private key now on the client, to save the server
-			 * having to do so (and also storing it).
-			 */
-			if (Client.generateKeysClientSide) {
-				log.info("Generating private key");
-				KeyPair key = Keys.genkey();
-				connection.setUserPrivateKey(key.getBase64PrivateKey());
-				connection.setUserPublicKey(key.getBase64PublicKey());
-				log.info(String.format("Public key is %s", connection.getUserPublicKey()));
-			}
+			maybeGenerateKeys(connection);
 
 			Connection connectionSaved = connectionService.add(connection);
 			connections.getItems().add(connectionSaved);
@@ -534,6 +548,20 @@ public class UI extends AbstractController implements Listener {
 
 		} catch (Exception e) {
 			showError("Failed to add connection.", e);
+		}
+	}
+
+	protected void maybeGenerateKeys(final Connection connection) {
+		/*
+		 * If enabled, generate the private key now on the client, to save the server
+		 * having to do so (and also storing it).
+		 */
+		if (Client.generateKeysClientSide) {
+			log.info("Generating private key");
+			KeyPair key = Keys.genkey();
+			connection.setUserPrivateKey(key.getBase64PrivateKey());
+			connection.setUserPublicKey(key.getBase64PublicKey());
+			log.info(String.format("Public key is %s", connection.getUserPublicKey()));
 		}
 	}
 
@@ -561,15 +589,28 @@ public class UI extends AbstractController implements Listener {
 		engine.setOnStatusChanged((e) -> {
 		});
 		engine.locationProperty().addListener((c, oldLoc, newLoc) -> {
-			String base = newLoc;
-			int idx = newLoc.lastIndexOf('/');
-			if (idx != -1) {
-				base = newLoc.substring(idx + 1);
-			}
-			if (!base.equals("") && !base.equals(htmlPage)) {
-				htmlPage = base;
+			if (newLoc != null) {
+				if (newLoc.startsWith("http://") || newLoc.startsWith("https://")) {
+					log.info("This is a remote page, not changing current html page");
+					htmlPage = null;
+				} else {
+					String base = newLoc;
+					int idx = newLoc.lastIndexOf('?');
+					if (idx != -1) {
+						base = newLoc.substring(0, idx);
+					}
+					idx = base.lastIndexOf('/');
+					if (idx != -1) {
+						base = base.substring(idx + 1);
+					}
+					if (base.equals(""))
+						base = "index.html";
+					if (!base.equals("") && !base.equals(htmlPage)) {
+						htmlPage = base;
+						log.info(String.format("Page changed by user to %s (likely back button)", htmlPage));
+					}
+				}
 				setupPage();
-				log.info(String.format("Page changed by user to %s (likely back button)", htmlPage));
 			}
 		});
 		engine.getLoadWorker().stateProperty().addListener((ov, oldState, newState) -> {
@@ -786,7 +827,7 @@ public class UI extends AbstractController implements Listener {
 			connection.setConnectAtStartup(connectAtStartup);
 			Connection connectionSaved = connectionService.save(connection);
 			connections.getSelectionModel().select(connectionSaved);
-			selectPageForState(false);
+			selectPageForState(false, false);
 
 		} catch (Exception e) {
 			showError("Failed to save connection.", e);
@@ -803,8 +844,16 @@ public class UI extends AbstractController implements Listener {
 	@Override
 	protected void onConfigure() {
 		super.onConfigure();
+
+		minimize.setVisible(!Main.getInstance().isNoMinimize());
+		minimize.setManaged(minimize.isVisible());
+		close.setVisible(!Main.getInstance().isNoClose());
+		close.setManaged(close.isVisible());
+		toggleSidebar.setVisible(!Main.getInstance().isNoSidebar());
+		toggleSidebar.setManaged(toggleSidebar.isVisible());
+
 		initUi(null);
-		rebuildConnections(null);
+		rebuildConnections(getSelectedConnection());
 
 		/*
 		 * Setup the connection list
@@ -884,7 +933,10 @@ public class UI extends AbstractController implements Listener {
 
 		/* Make various components completely hide from layout when made invisible */
 		sidebar.managedProperty().bind(sidebar.visibleProperty());
-
+		
+		/* Initial page */
+		if(!context.getBridge().isConnected())
+			setHtmlPage("index.html");
 	}
 
 	@Override
@@ -892,13 +944,13 @@ public class UI extends AbstractController implements Listener {
 		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
 	}
 
-	protected void saveOptions(String trayIcon, String phase, boolean automaticUpdates) {
+	protected void saveOptions(String trayMode, String phase, boolean automaticUpdates) {
 		try {
-			context.getBridge().getConfigurationService().setValue(ConfigurationService.TRAY_ICON, trayIcon);
+			context.getBridge().getConfigurationService().setValue(ConfigurationService.TRAY_ICON, trayMode);
 			context.getBridge().getConfigurationService().setValue(ConfigurationService.PHASE, phase);
 			context.getBridge().getConfigurationService().setValue(ConfigurationService.AUTOMATIC_UPDATES,
 					String.valueOf(automaticUpdates));
-			selectPageForState(false);
+			selectPageForState(false, false);
 		} catch (Exception e) {
 			showError("Failed to save options.", e);
 		}
@@ -973,7 +1025,7 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	protected void setupPage() {
-		if (htmlPage.startsWith("http://") || htmlPage.startsWith("https://")) {
+		if (htmlPage == null || htmlPage.startsWith("http://") || htmlPage.startsWith("https://")) {
 			pageBundle = resources;
 		} else {
 			int idx = htmlPage.lastIndexOf('?');
@@ -1004,7 +1056,7 @@ public class UI extends AbstractController implements Listener {
 		JSObject jsobj = (JSObject) webView.getEngine().executeScript("window");
 		jsobj.setMember("bridge", new ServerBridge());
 		jsobj.setMember("configuration", context.getBridge().getConfigurationService());
-		if (htmlPage.equals("options.html")) {
+		if ("options.html".equals(htmlPage)) {
 			for (Map.Entry<String, Object> beanEn : beansForOptions().entrySet()) {
 				jsobj.setMember(beanEn.getKey(), beanEn.getValue());
 			}
@@ -1033,6 +1085,37 @@ public class UI extends AbstractController implements Listener {
 
 		} catch (Exception e) {
 			showError("Failed to initialise web view. ", e);
+		}
+	}
+
+	private void connectToUri(String unprocessedUri) {
+		try {
+			ConnectionService connectionService = context.getBridge().getConnectionService();
+			URI uriObj = Util.getUri(unprocessedUri);
+			Connection connection = connectionService.createNew(uriObj);
+			Connection conx = connectionService.getConnectionByName(uriObj.toString());
+			if (conx == null) {
+				if(Main.getInstance().isCreateIfDoesntExist()) {
+					/* No existing configuration */
+					connection.setName(uriObj.toString());
+					connection.setConnectAtStartup(true);
+					maybeGenerateKeys(connection);
+					Connection connectionSaved = connectionService.add(connection);
+					connections.getItems().add(connectionSaved);
+					connections.getSelectionModel().select(connectionSaved);
+					reapplyColors();
+					authorize(connectionSaved);
+				}
+				else {
+					showError(MessageFormat.format(bundle.getString("error.uriProvidedDoesntExist"), uriObj));
+				}
+			} else {
+				reloadState();
+				initUi(conx);
+			}
+
+		} catch (Exception e) {
+			showError("Failed to add connection.", e);
 		}
 	}
 
@@ -1111,24 +1194,6 @@ public class UI extends AbstractController implements Listener {
 		}
 	}
 
-	private void connect(Connection n) {
-		try {
-			log.info(String.format("Connect to %s", n.getAddress()));
-			if (n != null) {
-				Type status = context.getBridge().getClientService().getStatus(n);
-				log.info(String.format("  current status is %s", status));
-				if (status == Type.CONNECTED)
-					joinedNetwork();
-				else if (n.isAuthorized())
-					joinNetwork(n);
-				else
-					authorize(n);
-			}
-		} catch (Exception e) {
-			showError("Failed to connect.", e);
-		}
-	}
-
 	private void doDelete(Connection sel) throws RemoteException {
 		setHtmlPage("busy.html");
 		log.info(String.format("Deleting connection %s", sel));
@@ -1139,7 +1204,9 @@ public class UI extends AbstractController implements Listener {
 			Connection newConnections = items.isEmpty() ? null : items.get(0);
 			sel = newConnections;
 			reapplyColors();
+			connections.getSelectionModel().clearSelection();
 			rebuildConnections(sel);
+			selectPageForState(false, false);
 		} finally {
 			log.info("Connection deleted");
 		}
@@ -1265,20 +1332,21 @@ public class UI extends AbstractController implements Listener {
 		if (context.getBridge().isConnected()) {
 
 			try {
-				List<ConnectionStatus> connections = context.getBridge().getClientService().getStatus();
-
-				// Look for new connections
-				for (ConnectionStatus c : connections) {
-					Connection conx = c.getConnection();
-					rebuildConnections(conx);
-				}
+				rebuildConnections(connection);
+//				List<ConnectionStatus> connections = context.getBridge().getClientService().getStatus();
+//
+//				// Look for new connections
+//				for (ConnectionStatus c : connections) {
+//					Connection conx = c.getConnection();
+//					rebuildConnections(getSelectedConnection());
+//				}
 			} catch (Exception e) {
 				log.error("Failed to load connections.", e);
 			}
 		}
+
 		context.applyColors(branding, getScene().getRoot());
 		reapplyLogo();
-		selectPageForState(false);
 	}
 
 	private void joinedNetwork() {
@@ -1291,9 +1359,10 @@ public class UI extends AbstractController implements Listener {
 		if (context.getBridge().isConnected()) {
 			connections.getItems().addAll(getConnections());
 		}
-		if (sel != null)
+		if (sel != null && connections.getItems().contains(sel))
 			connections.getSelectionModel().select(sel);
-
+		else if (connections.getSelectionModel().isEmpty() && !connections.getItems().isEmpty())
+			connections.getSelectionModel().select(connections.getItems().get(0));
 	}
 
 	private void resetAwaingBridgeEstablish() {
@@ -1335,7 +1404,7 @@ public class UI extends AbstractController implements Listener {
 		return false;
 	}
 
-	private void selectPageForState(boolean disconnecting) {
+	private void selectPageForState(boolean disconnecting, boolean connectIfDisconnected) {
 		try {
 			Bridge bridge = context.getBridge();
 			if (mode == UIState.UPDATE) {
@@ -1359,11 +1428,18 @@ public class UI extends AbstractController implements Listener {
 						/* There are no connections at all */
 						if (bridge.isConnected()) {
 							/* The bridge is connected */
-							setHtmlPage("addLogonBoxVPN.html");
+							if(Main.getInstance().isNoAddWhenNoConnections()) {
+								if(Main.getInstance().isConnect() || StringUtils.isNotBlank(Main.getInstance().getUri()))
+									setHtmlPage("busy.html");
+								else
+									setHtmlPage("connected.html");
+							}
+							else
+								setHtmlPage("addLogonBoxVPN.html");
 						} else
 							/* The bridge is not (yet?) connected */
 							setHtmlPage("index.html");
-					} else if (!disconnecting && !sel.isAuthorized()) {
+					} else if (connectIfDisconnected && !disconnecting && !sel.isAuthorized()) {
 						log.info(String.format("Not authorized, requesting authorize"));
 						authorize(sel);
 					} else if (context.getBridge().getClientService().getStatus(sel) == Type.CONNECTED) {
