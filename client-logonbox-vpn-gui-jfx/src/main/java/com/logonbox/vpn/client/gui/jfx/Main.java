@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 
+import javax.swing.UIManager;
+
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
@@ -114,8 +116,8 @@ public class Main {
 	/**
 	 * @param args
 	 */
-	public static void main(String[] args) {
-
+	public static void main(String[] args) throws Exception {
+		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 		new Main(new DefaultRestartCallback(), new DefaultShutdownCallback())
 				.run();
 

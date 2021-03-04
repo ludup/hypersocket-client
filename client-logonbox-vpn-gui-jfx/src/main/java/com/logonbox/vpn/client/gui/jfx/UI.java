@@ -430,6 +430,7 @@ public class UI extends AbstractController implements Listener {
 
 	public void setMode(UIState mode) {
 		this.mode = mode;
+		rebuildConnections(null);
 		selectPageForState(false);
 	}
 
@@ -927,6 +928,10 @@ public class UI extends AbstractController implements Listener {
 						throw new IllegalStateException("Failed to set cookie.", e);
 					}
 					webView.getEngine().setUserStyleSheetLocation(UI.class.getResource("remote.css").toExternalForm());
+					if (htmlPage.contains("?"))
+						htmlPage += "&_=" + Math.random();
+					else
+						htmlPage += "?_=" + Math.random();
 					webView.getEngine().load(htmlPage);
 				} else {
 
@@ -968,17 +973,29 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	protected void setupPage() {
-		int idx = htmlPage.lastIndexOf('.');
-		String base = htmlPage.substring(0, idx);
-		String res = Client.class.getName();
-		idx = res.lastIndexOf('.');
-		String resourceName = res.substring(0, idx) + "." + base;
-		LOG.info(String.format("Loading bundle %s", resourceName));
-		try {
-			pageBundle = ResourceBundle.getBundle(resourceName);
-		} catch (MissingResourceException mre) {
-			// Page doesn't have resources
-			mre.printStackTrace();
+		if (htmlPage.startsWith("http://") || htmlPage.startsWith("https://")) {
+			pageBundle = resources;
+		} else {
+			int idx = htmlPage.lastIndexOf('?');
+			if (idx != -1)
+				htmlPage = htmlPage.substring(0, idx);
+			idx = htmlPage.lastIndexOf('.');
+			if (idx == -1) {
+				htmlPage = htmlPage + ".html";
+				idx = htmlPage.lastIndexOf('.');
+			}
+			String base = htmlPage.substring(0, idx);
+			String res = Client.class.getName();
+			idx = res.lastIndexOf('.');
+			String resourceName = res.substring(0, idx) + "." + base;
+			LOG.info(String.format("Loading bundle %s", resourceName));
+			try {
+				pageBundle = ResourceBundle.getBundle(resourceName);
+			} catch (MissingResourceException mre) {
+				// Page doesn't have resources
+				LOG.debug(String.format("No resources for %s", resourceName));
+				pageBundle = resources;
+			}
 		}
 	}
 
@@ -1299,7 +1316,7 @@ public class UI extends AbstractController implements Listener {
 		appsToUpdate = 0;
 		appsUpdated = 0;
 		LOG.info(String.format("Reseting update state, returning to mode %s", UIState.NORMAL));
-		UI.getInstance().setMode(UIState.NORMAL);
+		setMode(UIState.NORMAL);
 	}
 
 	private boolean sameHostPortPathCheck(Long conId, Predicate<Long> predicate) {

@@ -20,9 +20,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import javax.swing.JMenu;
-import javax.swing.SwingUtilities;
 
 import org.kordamp.ikonli.fontawesome.FontAwesome;
 import org.kordamp.ikonli.fontawesome.FontAwesomeIkonHandler;
@@ -44,15 +45,13 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 	private SystemTray systemTray;
 	private List<Entry> menuEntries = new ArrayList<>();
 	private Font font;
+	private ScheduledExecutorService executor;
 
 	public DorkBoxTray(Client context) throws Exception {
 		this.context = context;
+		executor = Executors.newScheduledThreadPool(1);
 		context.getBridge().addListener(this);
-		new Thread() {
-			public void run() {
-				adjustTray(Collections.emptyList());				
-			}
-		}.start();
+		executor.execute(() -> adjustTray(Collections.emptyList()));
 	}
 
 	@Override
@@ -62,6 +61,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 			systemTray.shutdown();
 			systemTray = null;
 		}
+		executor.shutdown();
 	}
 
 	Menu addDevice(Connection device, Menu toMenu, List<Connection> devs) throws IOException {
@@ -223,7 +223,9 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 			menuEntries.add(options);
 			menu.add(options).setShortcut('o');
 
-			var quit = new MenuItem(bundle.getString("quit"), (e) -> { Platform.runLater(() -> context.confirmExit()); });
+			var quit = new MenuItem(bundle.getString("quit"), (e) -> {
+				Platform.runLater(() -> context.confirmExit());
+			});
 			menuEntries.add(quit);
 			menu.add(quit).setShortcut('q');
 		}
@@ -268,12 +270,13 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 	}
 
 	protected void reload() {
-		try {
-			List<Connection> conx = context.getBridge().getConnectionService().getConnections();
-			SwingUtilities.invokeLater(() -> rebuildMenu(conx));
-		} catch (RemoteException re) {
-
-		}
+		executor.execute(() -> {
+			try {
+				List<Connection> conx = context.getBridge().getConnectionService().getConnections();
+				rebuildMenu(conx);
+			} catch (RemoteException re) {
+			}
+		});
 	}
 
 	@Override

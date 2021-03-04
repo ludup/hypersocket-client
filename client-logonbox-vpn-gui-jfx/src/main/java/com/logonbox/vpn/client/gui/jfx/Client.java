@@ -273,13 +273,13 @@ public class Client extends Application implements X509TrustManager {
 		 * TODO: Waiting for a new release of DorkBox than can use a newer JNA like we
 		 * need for other components. https://github.com/dorkbox/SystemTray/issues/121
 		 */
-		if (SystemUtils.IS_OS_WINDOWS) {
-			tray = new WindowsTray(this);
-			log.info("Using Windows tray implementation");
-		} else {
+//		if (SystemUtils.IS_OS_WINDOWS) {
+//			tray = new WindowsTray(this);
+//			log.info("Using Windows tray implementation");
+//		} else {
 			tray = new DorkBoxTray(this);
 			log.info("Using DorkBox tray implementation");
-		}
+//		}
 	}
 
 	public Stage getStage() {
