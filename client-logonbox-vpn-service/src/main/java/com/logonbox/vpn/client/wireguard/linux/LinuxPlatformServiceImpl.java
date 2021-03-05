@@ -273,7 +273,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		/* Wait for the first handshake. As soon as we have it, we are 'connected'.
 		 * If we don't get a handshake in that time, then consider this a failed connection.
 		 * We don't know WHY, just it has failed  */
-		log.info(String.format("Waiting for handshake. Hand shake should be ater %d", connectionStarted));
+		log.info(String.format("Waiting for handshake. Hand shake should be after %d", connectionStarted));
 		for(int i = 0 ; i < ClientService.CONNECT_TIMEOUT ; i++) {
 			try {
 				Thread.sleep(1000);
