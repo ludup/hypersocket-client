@@ -14,9 +14,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.LocalContext;
+import com.logonbox.vpn.client.service.ReauthorizeException;
 import com.logonbox.vpn.client.service.VPNSession;
+import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.Keys;
+import com.sshtools.forker.client.OSCommand;
 
 public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> implements PlatformService<I> {
 
@@ -45,6 +48,11 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		}
 	}
 
+	@Override
+	public boolean isAlive(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
+		long lastHandshake = getLatestHandshake(logonBoxVPNSession.getIp().getName(), configuration.getPublicKey());
+		return lastHandshake >= System.currentTimeMillis() - ( ClientService.HANDSHAKE_TIMEOUT * 1000);
+	}
 
 	@Override
 	public final Collection<VPNSession> start(LocalContext ctx) {
@@ -122,12 +130,33 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		return System.getProperty("logonbox.vpn.interfacePrefix", interfacePrefix);
 	}
 
-	protected abstract String getPublicKey(String interfaceName) throws IOException;
-
 	protected String getWGCommand() {
 		return "wg";
 	}
 
+	protected String getPublicKey(String interfaceName) throws IOException {
+		String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
+				.iterator().next().trim();
+		if (pk.equals("(none)") || pk.equals(""))
+			return null;
+		else
+			return pk;
+	}
+
+	@Override
+	public I getByPublicKey(String publicKey) {
+		try {
+			for (I ip : ips(true)) {
+				if (publicKey.equals(getPublicKey(ip.getName()))) {
+					return ip;
+				}
+			}
+		} catch (IOException ioe) {
+			throw new IllegalStateException("Failed to list interface names.", ioe);
+		}
+		return null;
+	}
+	
 	protected List<I> ips(boolean wireguardInterface) {
 		List<I> ips = new ArrayList<>();
 		try {
@@ -145,6 +174,43 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 			e.printStackTrace();
 		}
 		return ips;
+	}
+
+	protected I waitForFirstHandshake(Connection configuration, I ip, long connectionStarted)
+			throws IOException {
+		for(int i = 0 ; i < ClientService.CONNECT_TIMEOUT ; i++) {
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				throw new IOException(String.format("Interrupted connecting to %s", ip.getName()));
+			}
+			long lastHandshake = getLatestHandshake(ip.getName(), configuration.getPublicKey());
+			if(lastHandshake >= connectionStarted) {
+				/* Connected ! */
+				return ip;
+			}
+		}
+
+		/* Failed to connect in the given time. Clean up and report an exception */
+		try {
+			ip.down();
+		}
+		catch(Exception e) {
+			LOG.error("Failed to stop after timeout.", e);
+		}
+		throw new ReauthorizeException(String.format("No timeout received for %s within %d seconds.", ip.getName(), ClientService.CONNECT_TIMEOUT));
+	}
+	
+	protected long getLatestHandshake(String iface, String publicKey) throws IOException {
+		for(String line : OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface, "latest-handshakes")) {
+			String[] args = line.trim().split("\\s+");
+			if(args.length == 2) {
+				if(args[0].equals(publicKey)) {
+					return Long.parseLong(args[1]) * 1000;
+				}
+			}
+		}
+		return 0;
 	}
 
 	protected boolean isWireGuardInterface(NetworkInterface nif) {

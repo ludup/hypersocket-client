@@ -45,7 +45,16 @@ public class WindowsWireGuardNamedPipe implements Closeable, Runnable {
 		// based on
 		// https://msdn.microsoft.com/en-us/library/windows/desktop/aa365588(v=vs.85).aspx
 		// \\.\pipe\ProtectedPrefix\Administrators\LogonBoxVPN\` + tunnelName
-		pipeName = "\\\\.\\pipe\\ProtectedPrefix\\Administrators\\LogonBoxVPN\\" + name;
+		
+		/*
+		 * TODO:
+		 * 
+		 * No idea what's going on here. Can't seem to create a DLL that uses a different 
+		 * pipe name :\
+		 */
+//		pipeName = "\\\\.\\pipe\\ProtectedPrefix\\Administrators\\LogonBoxVPN\\" + name;
+		pipeName = "\\\\.\\pipe\\ProtectedPrefix\\Administrators\\WireGuard\\" + name;
+		
 		LOG.info(String.format("Opening named pipe %s", pipeName));
 		// based on
 		// https://msdn.microsoft.com/en-us/library/windows/desktop/aa365592(v=vs.85).aspx
@@ -61,18 +70,30 @@ public class WindowsWireGuardNamedPipe implements Closeable, Runnable {
 						null // no template file
 				));
 
-		IntByReference lpMode = new IntByReference(WinBase.PIPE_READMODE_MESSAGE);
-		assertCallSucceeded("SetNamedPipeHandleState",
-				Kernel32.INSTANCE.SetNamedPipeHandleState(hNamedPipe, lpMode, null, null));
-		LOG.info(String.format("Opened named pipe %s", pipeName));
+		try {
+			IntByReference lpMode = new IntByReference(WinBase.PIPE_READMODE_BYTE | WinBase.PIPE_WAIT);
+			assertCallSucceeded("SetNamedPipeHandleState",
+					Kernel32.INSTANCE.SetNamedPipeHandleState(hNamedPipe, lpMode, null, null));
+			LOG.info(String.format("Opened named pipe %s", pipeName));
+			
+		}
+		catch(IOException ioe) {
+			assertCallSucceeded("Named pipe handle close", Kernel32.INSTANCE.CloseHandle(hNamedPipe));
+			throw ioe;
+		}
 
 		buffer = ByteBuffer.allocate(MAX_BUFFER_SIZE);
 		in = new BufferedReader(new InputStreamReader(new NamedPipedInputStream()));
 		out = new BufferedOutputStream(new NamedPipeOutputStream());
+		
+		LOG.info("Test write");
+		out.write("get=1\n\n".getBytes("UTF-8"));
+		out.flush();
+		LOG.info("Tested write");
 
-		LOG.info("Await client connection");
-		assertCallSucceeded("ConnectNamedPipe", Kernel32.INSTANCE.ConnectNamedPipe(hNamedPipe, null));
-		LOG.info("Client connected");
+//		LOG.info("Await client connection");
+//		assertCallSucceeded("ConnectNamedPipe", Kernel32.INSTANCE.ConnectNamedPipe(hNamedPipe, null));
+//		LOG.info("Client connected");
 
 		thread = new Thread(this, "WireGuardPipeMonitor" + name);
 		thread.setDaemon(true);
@@ -108,7 +129,7 @@ public class WindowsWireGuardNamedPipe implements Closeable, Runnable {
 			}
 		} catch (Exception e) {
 			if (run) {
-				LOG.error("Pipe read failed.", e);
+				LOG.error("Pipe chat failed.", e);
 			}
 		}
 	}
@@ -138,6 +159,8 @@ public class WindowsWireGuardNamedPipe implements Closeable, Runnable {
 		public void write(byte[] b, int off, int len) throws IOException {
 			buffer.rewind();
 			buffer.put(b, off, len);
+			LOG.info(String.format("Sending %d bytes of client data at offset %d", len, off));
+			lpNumberOfBytesWritten.setValue(0);
 			assertCallSucceeded("WriteFile",
 					Kernel32.INSTANCE.WriteFile(hNamedPipe, buffer, len, lpNumberOfBytesWritten, null));
 			LOG.info(String.format("Sent %d bytes of client data - length=%d", len, lpNumberOfBytesWritten.getValue()));
