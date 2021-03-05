@@ -43,15 +43,14 @@ import com.sun.jna.platform.win32.Winsvc.SC_HANDLE;
 
 public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<WindowsIP> {
 
+	public static final String PREF_PUBLIC_KEY = "publicKey";
+	public static final String TUNNEL_SERVICE_NAME_PREFIX = "LogonBoxVPNTunnel";
+
 	private static final String INTERFACE_PREFIX = "net";
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsPlatformServiceImpl.class);
 
-	public static final String PREF_PUBLIC_KEY = "publicKey";
-
 	private static Preferences PREFS = null;
-
-	public static final String TUNNEL_SERVICE_NAME_PREFIX = "LogonBoxVPNTunnel";
 
 	public static Preferences getInterfaceNode(String name) {
 		return getInterfacesNode().node(name);
@@ -77,6 +76,8 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 		return PREFS;
 	}
+
+	private WindowsWireGuardNamedPipe pipe;
 
 	// TODO this is how to communicate with Wireguard daemon
 //	public static NamedPipeClientStream GetPipe(String name)
@@ -185,6 +186,8 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			LOG.info(String.format("Bringing up %s", ip.getName()));
 			ip.up();
 		}
+		
+		pipe = new WindowsWireGuardNamedPipe(ip.getName());
 
 		/*
 		 * Store the public key being used for this interface name so we can later
@@ -200,6 +203,12 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 		return ip;
 	}
+
+	@Override
+	protected void onDisconnect() throws IOException {
+		pipe.close();
+	}
+
 	@Override
 	protected WindowsIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
 		return new WindowsIP(nif.getName(), this);
@@ -463,5 +472,4 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	public boolean isAlive(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
 		throw new UnsupportedOperationException("TODO");
 	}
-
 }

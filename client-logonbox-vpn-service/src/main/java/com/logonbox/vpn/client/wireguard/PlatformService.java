@@ -71,4 +71,13 @@ public interface PlatformService<I extends VirtualInetAddress> {
 	 */
 	boolean isAlive(VPNSession logonBoxVPNSession, Connection configuration) throws IOException;
 
+	
+	/**
+	 * Disconnect from the VPN.
+	 * 
+	 * @param session session
+	 * @throws IOException on any error
+	 */
+	void disconnect(VPNSession session) throws IOException;
+
 }

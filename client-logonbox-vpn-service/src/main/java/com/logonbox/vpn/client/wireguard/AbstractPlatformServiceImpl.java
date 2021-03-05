@@ -35,6 +35,18 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	}
 
 	@Override
+	public final void disconnect(VPNSession session) throws IOException {
+		try {
+			session.getIp().down();
+			session.getIp().delete();
+		}
+		finally {
+			onDisconnect();
+		}
+	}
+
+
+	@Override
 	public final Collection<VPNSession> start(LocalContext ctx) {
 
 		/*
@@ -165,5 +177,8 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	}
 	
 	protected void writePeer(Connection configuration, Writer writer) {
+	}
+	
+	protected void onDisconnect() throws IOException {
 	}
 }
