@@ -84,31 +84,33 @@ public class UI extends AbstractController implements Listener {
 	/**
 	 * This object is exposed to the local HTML/Javascript that runs in the browse.
 	 */
-	public class UIBridge {
-		
+	public class ServerBridge {
+
 		public String getDeviceName() {
 			String hostname = SystemUtils.getHostName();
-			if(StringUtils.isBlank(hostname)) {
+			if (StringUtils.isBlank(hostname)) {
 				try {
 					hostname = InetAddress.getLocalHost().getHostName();
-				}
-				catch(Exception e) {
+				} catch (Exception e) {
 					hostname = "Unknown Host";
 				}
 			}
 			String os = System.getProperty("os.name");
-			if(SystemUtils.IS_OS_WINDOWS) {
+			if (SystemUtils.IS_OS_WINDOWS) {
 				os = "Windows";
-			}
-			else if(SystemUtils.IS_OS_LINUX) {
+			} else if (SystemUtils.IS_OS_LINUX) {
 				os = "Linux";
-			}
-			else if(SystemUtils.IS_OS_MAC_OSX) {
+			} else if (SystemUtils.IS_OS_MAC_OSX) {
 				os = "Linux";
 			}
 			return os + " " + hostname;
 		}
-		
+
+		public String getUserPublicKey() {
+			Connection connection = getConnection();
+			return connection == null ? null : connection.getUserPublicKey();
+		}
+
 		public Connection getConnection() {
 			return UI.this.getSelectedConnection();
 		}
@@ -127,6 +129,10 @@ public class UI extends AbstractController implements Listener {
 
 		public void join() {
 			UI.this.joinNetwork(UI.this.connections.getSelectionModel().getSelectedItem());
+		}
+
+		public void connect() {
+			UI.this.connect(UI.this.connections.getSelectionModel().getSelectedItem());
 		}
 
 		public void update() {
@@ -407,6 +413,30 @@ public class UI extends AbstractController implements Listener {
 		return mode;
 	}
 
+	public void options() {
+		try {
+			JsonExtensionPhaseList phases = context.getBridge().getClientService().getPhases();
+			beans.put("phases", phases.getResult() == null ? new JsonExtensionPhase[0] : phases.getResult());
+		} catch (Exception e) {
+			log.warn("Could not get phases.", e);
+		}
+		beans.put("trayModes",
+				new String[] { ConfigurationService.TRAY_ICON_AUTO, ConfigurationService.TRAY_ICON_COLOR,
+						ConfigurationService.TRAY_ICON_DARK, ConfigurationService.TRAY_ICON_LIGHT,
+						ConfigurationService.TRAY_ICON_OFF });
+		try {
+			beans.put("trayMode",
+					context.getBridge().getConfigurationService().getValue(ConfigurationService.TRAY_ICON, ConfigurationService.TRAY_ICON_AUTO));
+			beans.put("phase", context.getBridge().getConfigurationService().getValue(ConfigurationService.PHASE, ""));
+			beans.put("automaticUpdates", Boolean.valueOf(context.getBridge().getConfigurationService()
+					.getValue(ConfigurationService.AUTOMATIC_UPDATES, "true")));
+			setHtmlPage("options.html");
+			sidebar.setVisible(false);
+		} catch (Exception e) {
+			showError("Failed to show options.", e);
+		}
+	}
+
 	@Override
 	protected void onInitialize() {
 		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
@@ -550,6 +580,33 @@ public class UI extends AbstractController implements Listener {
 			}
 		});
 		engine.getLoadWorker().exceptionProperty().addListener((o, old, value) -> {
+			
+			/* If we are authorizing and get an error from the browser, then it's
+			 * likely the target server is offline and can't do the authorization.
+			 * 
+			 * So cancel the authorize and show the error and allow retry.
+			 */
+			Connection selectedConnection = getSelectedConnection();
+			try {
+				if(context.getBridge().getClientService().isAuthorizing(selectedConnection)) {
+					context.getBridge().getClientService().disconnect(selectedConnection);
+				}
+			}
+			catch(Exception e) {
+				LOG.error("Failed to adjust authorizing state.", e);
+			}
+
+			/* This is pretty terrible. JavFX's WebEngine$LoadWorker constructs 
+			 * a new <strong>Throwable</strong>! with Englist text as the only 
+			 * way of distinguising the actual error! This is ridiculous.
+			 * Hopefully it will get fixed, but then this will probably break.
+			 */
+			if(value != null && value.getMessage() != null) {
+				if(value.getMessage().equals("Connection refused by server")) {
+					setHtmlPage("offline.html");
+					return;
+				}
+			}
 			showError("Exception during page load.", value);
 		});
 
@@ -560,7 +617,7 @@ public class UI extends AbstractController implements Listener {
 
 		log.info("Processing page content");
 		JSObject jsobj = (JSObject) webView.getEngine().executeScript("window");
-		jsobj.setMember("bridge", new UIBridge());
+		jsobj.setMember("bridge", new ServerBridge());
 		jsobj.setMember("configuration", context.getBridge().getConfigurationService());
 		for (Map.Entry<String, Object> beanEn : beans.entrySet()) {
 			jsobj.setMember(beanEn.getKey(), beanEn.getValue());
@@ -735,7 +792,16 @@ public class UI extends AbstractController implements Listener {
 		}
 	}
 
-	protected void connect(Connection n) {
+	public void joinNetwork(Connection connection) {
+		setHtmlPage("joining.html");
+		try {
+			context.getBridge().getClientService().connect(connection);
+		} catch (Exception e) {
+			showError("Failed to join VPN.", e);
+		}
+	}
+
+	private void connect(Connection n) {
 		try {
 			if (n != null) {
 				if (context.getBridge().getClientService().isConnected(n))
@@ -769,15 +835,6 @@ public class UI extends AbstractController implements Listener {
 				}
 			}
 		}.start();
-	}
-
-	private void joinNetwork(Connection connection) {
-		setHtmlPage("joining.html");
-		try {
-			context.getBridge().getClientService().connect(connection);
-		} catch (Exception e) {
-			showError("Failed to join VPN.", e);
-		}
 	}
 
 	private void joinedNetwork() {
@@ -864,9 +921,18 @@ public class UI extends AbstractController implements Listener {
 		LOG.info(String.format("Loading bundle %s", resourceName));
 		try {
 			pageBundle = ResourceBundle.getBundle(resourceName);
+			beans.put("pageBundle", pageBundle);
 		} catch (MissingResourceException mre) {
 			// Page doesn't have resources
 			mre.printStackTrace();
+		}
+	}
+
+	public void disconnect(Connection sel) {
+		try {
+			context.getBridge().getClientService().disconnect(sel);
+		} catch (Exception e) {
+			showError("Failed to disconnect.", e);
 		}
 	}
 
@@ -923,11 +989,12 @@ public class UI extends AbstractController implements Listener {
 			}
 			connection.setName(server);
 			connection.setConnectAtStartup(connectAtStartup);
-			
-			/* If enabled, generate the private key now on the client, to save
-			 * the server having to do so (and also storing it). 
+
+			/*
+			 * If enabled, generate the private key now on the client, to save the server
+			 * having to do so (and also storing it).
 			 */
-			if(Client.generateKeysClientSide) { 
+			if (Client.generateKeysClientSide) {
 				log.info("Generating private key");
 				KeyPair key = Keys.genkey();
 				connection.setUserPrivateKey(key.getBase64PrivateKey());
@@ -996,7 +1063,7 @@ public class UI extends AbstractController implements Listener {
 						setHtmlPage("joined.html");
 					} else {
 						log.info(String.format("Connected, so showing joined UI"));
-						setHtmlPage("join.html");
+						setHtmlPage("join.html", true);
 					}
 				}
 			}
@@ -1017,15 +1084,16 @@ public class UI extends AbstractController implements Listener {
 			config.setDns(toStringList(interfaceSection, "DNS"));
 
 			String privateKey = interfaceSection.get("PrivateKey");
-			if(privateKey != null && config.getUserPrivateKey().length() > 0 && !privateKey.equals(PRIVATE_KEY_NOT_AVAILABLE)) {
+			if (privateKey != null && config.getUserPrivateKey().length() > 0
+					&& !privateKey.equals(PRIVATE_KEY_NOT_AVAILABLE)) {
 				/*
 				 * TODO private key should be removed from server at this point
 				 */
 				config.setUserPrivateKey(privateKey);
 				config.setUserPublicKey(Keys.pubkey(config.getUserPrivateKey()).getBase64PublicKey());
-			}
-			else if(config.getUserPrivateKey() == null || config.getUserPrivateKey().length() == 0) {
-				throw new IllegalStateException("Did not receive private key from server, and we didn't generate one on the client. Connection impossible.");
+			} else if (config.getUserPrivateKey() == null || config.getUserPrivateKey().length() == 0) {
+				throw new IllegalStateException(
+						"Did not receive private key from server, and we didn't generate one on the client. Connection impossible.");
 			}
 
 			/* Peer (them) */
@@ -1073,14 +1141,6 @@ public class UI extends AbstractController implements Listener {
 			}
 		}
 		selectPageForState();
-	}
-
-	private void disconnect(Connection sel) {
-		try {
-			context.getBridge().getClientService().disconnect(sel);
-		} catch (Exception e) {
-			showError("Failed to disconnect.", e);
-		}
 	}
 
 	private boolean confirmDelete(Connection sel) {
@@ -1228,7 +1288,7 @@ public class UI extends AbstractController implements Listener {
 
 	@FXML
 	private void evtClose() {
-		context.confirmExit();
+		context.maybeExit();
 	}
 
 	@FXML
@@ -1246,17 +1306,7 @@ public class UI extends AbstractController implements Listener {
 
 	@FXML
 	private void evtOptions() throws Exception {
-		try {
-			JsonExtensionPhaseList phases = context.getBridge().getClientService().getPhases();
-			beans.put("phases", phases.getResult() == null ? new JsonExtensionPhase[0] : phases.getResult());
-		} catch (Exception e) {
-			log.warn("Could not get phases.", e);
-		}
-		beans.put("phase", context.getBridge().getConfigurationService().getValue(ConfigurationService.PHASE, ""));
-		beans.put("automaticUpdates", Boolean.valueOf(context.getBridge().getConfigurationService()
-				.getValue(ConfigurationService.AUTOMATIC_UPDATES, "true")));
-		setHtmlPage("options.html");
-		sidebar.setVisible(false);
+		options();
 	}
 
 	@FXML

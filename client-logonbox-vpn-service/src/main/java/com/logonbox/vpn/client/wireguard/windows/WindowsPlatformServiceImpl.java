@@ -459,4 +459,9 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		pw.println(String.format("Address = %s", configuration.getAddress()));
 	}
 
+	@Override
+	public boolean isAlive(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
+		throw new UnsupportedOperationException("TODO");
+	}
+
 }

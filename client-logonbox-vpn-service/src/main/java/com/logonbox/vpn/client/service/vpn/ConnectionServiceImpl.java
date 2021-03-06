@@ -25,19 +25,23 @@ import com.logonbox.vpn.common.client.ConnectionService;
 import com.logonbox.vpn.common.client.Util;
 
 public class ConnectionServiceImpl implements ConnectionService {
-	
-	public interface Listener {
-		void connectionAdding(Connection connection, Session session);
-		
-		void connectionAdded(Connection connection, Session session);
-		
-		void connectionRemoving(Connection connection, Session session);
 
-		void connectionRemoved(Connection connection, Session session);
+	public interface Listener {
+		void connectionAdding(Connection connection);
+
+		void connectionAdded(Connection connection);
+
+		void connectionRemoving(Connection connection);
+
+		void connectionRemoved(Connection connection);
+
+		void connectionUpdating(Connection connection);
+
+		void connectionUpdated(Connection connection);
 	}
 
 	static Logger log = LoggerFactory.getLogger(ConnectionServiceImpl.class);
-	
+
 	private Session session;
 	private LocalContext context;
 
@@ -58,20 +62,22 @@ public class ConnectionServiceImpl implements ConnectionService {
 
 	@Override
 	public Connection add(Connection config) throws RemoteException {
-		for(int i = listeners.size() - 1 ; i >= 0 ; i--)
-			listeners.get(i).connectionAdding(config, session);
-		Transaction trans = session.beginTransaction();
-		try {
-			session.save(config);
-			session.flush();
-			trans.commit();
-			for(int i = listeners.size() - 1 ; i >= 0 ; i--) 
-				listeners.get(i).connectionAdded(config, session);
-		} catch (Exception e) {
-			trans.rollback();
-			log.error("Failed to save.", e);
-			throw new RemoteException("Failed to save.", e);
+		for (int i = listeners.size() - 1; i >= 0; i--)
+			listeners.get(i).connectionAdding(config);
+		synchronized (session) {
+			Transaction trans = session.beginTransaction();
+			try {
+				session.save(config);
+				session.flush();
+				trans.commit();
+			} catch (Exception e) {
+				trans.rollback();
+				log.error("Failed to save.", e);
+				throw new RemoteException("Failed to save.", e);
+			}
 		}
+		for (int i = listeners.size() - 1; i >= 0; i--)
+			listeners.get(i).connectionAdded(config);
 		return config;
 	}
 
@@ -82,22 +88,23 @@ public class ConnectionServiceImpl implements ConnectionService {
 	}
 
 	public Connection getConfigurationForPublicKey(String publicKey) {
-		CriteriaBuilder builder = session.getCriteriaBuilder();
-		CriteriaQuery<Connection> query = builder.createQuery(Connection.class);
-		Root<ConnectionImpl> root = query.from(ConnectionImpl.class);
-		query = query.select(root).where(builder.equal(root.get("userPublicKey"), publicKey));
-		TypedQuery<Connection> typeQuery = session.createQuery(query);
-		List<Connection> results = typeQuery.getResultList();
-		return results.isEmpty() ? null : results.get(0);
+		synchronized (session) {
+			CriteriaBuilder builder = session.getCriteriaBuilder();
+			CriteriaQuery<Connection> query = builder.createQuery(Connection.class);
+			Root<ConnectionImpl> root = query.from(ConnectionImpl.class);
+			query = query.select(root).where(builder.equal(root.get("userPublicKey"), publicKey));
+			TypedQuery<Connection> typeQuery = session.createQuery(query);
+			List<Connection> results = typeQuery.getResultList();
+			return results.isEmpty() ? null : results.get(0);
+		}
 	}
 
 	private List<Listener> listeners = new ArrayList<>();
 
-	
 	public void addListener(Listener listener) {
 		this.listeners.add(listener);
 	}
-	
+
 	public void removeListener(Listener listener) {
 		this.listeners.remove(listener);
 	}
@@ -122,26 +129,35 @@ public class ConnectionServiceImpl implements ConnectionService {
 
 	@Override
 	public Connection save(Connection connection) {
-		Transaction trans = session.beginTransaction();
-		Connection connectionSaved = null;
+		for (int i = listeners.size() - 1; i >= 0; i--)
+			listeners.get(i).connectionUpdating(connection);
 
-		try {
-			if (connection.getId() != null) {
-				log.info("Updating existing connection " + connection);
-				connectionSaved = (Connection) session.merge(connection);
-			} else {
-				log.info("Saving new connection " + connection);
-				session.save(connection);
-				connectionSaved = connection;
-				log.info("Saved new connection " + connection);
+		Connection connectionSaved = null;
+		synchronized (session) {
+			Transaction trans = session.beginTransaction();
+
+			try {
+
+				if (connection.getId() != null) {
+					log.info("Updating existing connection " + connection);
+					connectionSaved = (Connection) session.merge(connection);
+				} else {
+					log.info("Saving new connection " + connection);
+					session.save(connection);
+					connectionSaved = connection;
+					log.info("Saved new connection " + connection);
+				}
+				session.flush();
+				trans.commit();
+			} catch (Throwable e) {
+				log.error("Failed to save connection.", e);
+				trans.rollback();
+				throw new IllegalStateException(e.getMessage(), e);
 			}
-			session.flush();
-			trans.commit();
-		} catch (Throwable e) {
-			log.error("Failed to save connection.", e);
-			trans.rollback();
-			throw new IllegalStateException(e.getMessage(), e);
 		}
+
+		for (int i = listeners.size() - 1; i >= 0; i--)
+			listeners.get(i).connectionUpdated(connection);
 
 		return connectionSaved;
 	}
@@ -157,78 +173,89 @@ public class ConnectionServiceImpl implements ConnectionService {
 	@Override
 	public void delete(Connection con) {
 
-		Transaction trans = session.beginTransaction();
-		
-		for(int i = listeners.size() - 1 ; i >= 0 ; i--) 
-			listeners.get(i).connectionRemoving(con, session);
+		for (int i = listeners.size() - 1; i >= 0; i--)
+			listeners.get(i).connectionRemoving(con);
 
-		Criteria crit = session.createCriteria(ConnectionImpl.class);
-		crit.add(Restrictions.eq("id", con.getId()));
+		synchronized (session) {
+			Transaction trans = session.beginTransaction();
 
-		Connection toDelete = (Connection) crit.uniqueResult();
-		if (toDelete != null) {
-			session.delete(toDelete);
-			session.flush();
+			Criteria crit = session.createCriteria(ConnectionImpl.class);
+			crit.add(Restrictions.eq("id", con.getId()));
+
+			Connection toDelete = (Connection) crit.uniqueResult();
+			if (toDelete != null) {
+				session.delete(toDelete);
+				session.flush();
+			}
+			trans.commit();
 		}
 
-		for(int i = listeners.size() - 1 ; i >= 0 ; i--) 
-			listeners.get(i).connectionRemoved(con, session);
-		
-		trans.commit();
+		for (int i = listeners.size() - 1; i >= 0; i--)
+			listeners.get(i).connectionRemoved(con);
 
 	}
 
 	@Override
 	public Connection getConnection(final String hostname) throws RemoteException {
-
-		Criteria crit = session.createCriteria(ConnectionImpl.class);
-		crit.add(Restrictions.eq("hostname", hostname));
-		return (Connection) crit.uniqueResult();
+		synchronized (session) {
+			Criteria crit = session.createCriteria(ConnectionImpl.class);
+			crit.add(Restrictions.eq("hostname", hostname));
+			return (Connection) crit.uniqueResult();
+		}
 	}
 
 	@Override
 	public Connection getConnectionByName(final String name) throws RemoteException {
 
-		Criteria crit = session.createCriteria(ConnectionImpl.class);
-		crit.add(Restrictions.eq("name", name));
-		return (Connection) crit.uniqueResult();
+		synchronized (session) {
+			Criteria crit = session.createCriteria(ConnectionImpl.class);
+			crit.add(Restrictions.eq("name", name));
+			return (Connection) crit.uniqueResult();
+		}
 	}
 
 	@Override
 	public Connection getConnection(Long id) throws RemoteException {
 
-		Criteria crit = session.createCriteria(ConnectionImpl.class);
-		crit.add(Restrictions.eq("id", id));
-		return (Connection) crit.uniqueResult();
+		synchronized (session) {
+			Criteria crit = session.createCriteria(ConnectionImpl.class);
+			crit.add(Restrictions.eq("id", id));
+			return (Connection) crit.uniqueResult();
+		}
 	}
 
 	@Override
 	public Connection getConnectionByNameWhereIdIsNot(String name, Long conId) throws RemoteException {
-		Criteria crit = session.createCriteria(ConnectionImpl.class);
-		crit.add(Restrictions.eq("name", name));
-		crit.add(Restrictions.not(Restrictions.idEq(conId)));
-		return (Connection) crit.uniqueResult();
+		synchronized (session) {
+			Criteria crit = session.createCriteria(ConnectionImpl.class);
+			crit.add(Restrictions.eq("name", name));
+			crit.add(Restrictions.not(Restrictions.idEq(conId)));
+			return (Connection) crit.uniqueResult();
+		}
 	}
 
 	@Override
 	public Connection getConnectionByHostPortAndPath(String host, int port, String path) throws RemoteException {
-		Criteria crit = session.createCriteria(ConnectionImpl.class);
-		crit.add(Restrictions.eq("hostname", host));
-		crit.add(Restrictions.eq("port", port));
-		crit.add(Restrictions.eq("path", path));
-		return (Connection) crit.uniqueResult();
+		synchronized (session) {
+			Criteria crit = session.createCriteria(ConnectionImpl.class);
+			crit.add(Restrictions.eq("hostname", host));
+			crit.add(Restrictions.eq("port", port));
+			crit.add(Restrictions.eq("path", path));
+			return (Connection) crit.uniqueResult();
+		}
 	}
 
 	@Override
 	public Connection getConnectionByHostPortAndPathWhereIdIsNot(String host, int port, String path, Long conId)
 			throws RemoteException {
-		Criteria crit = session.createCriteria(ConnectionImpl.class);
-		crit.add(Restrictions.eq("hostname", host));
-		crit.add(Restrictions.eq("port", port));
-		crit.add(Restrictions.eq("path", path));
-		crit.add(Restrictions.not(Restrictions.idEq(conId)));
-		return (Connection) crit.uniqueResult();
+		synchronized (session) {
+			Criteria crit = session.createCriteria(ConnectionImpl.class);
+			crit.add(Restrictions.eq("hostname", host));
+			crit.add(Restrictions.eq("port", port));
+			crit.add(Restrictions.eq("path", path));
+			crit.add(Restrictions.not(Restrictions.idEq(conId)));
+			return (Connection) crit.uniqueResult();
+		}
 	}
-
 
 }

@@ -2,53 +2,52 @@ package com.logonbox.vpn.client.service;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ScheduledFuture;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.client.HypersocketClient;
-import com.hypersocket.client.HypersocketClientAdapter;
-import com.hypersocket.client.HypersocketClientListener;
-import com.hypersocket.client.UserCancelledException;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
 import com.logonbox.vpn.common.client.Connection;
 
-public class VPNSession extends AbstractConnectionJob implements Closeable {
+public class VPNSession implements Closeable {
 
 	public static final int MAX_INTERFACES = Integer.parseInt(System.getProperty("wireguard.maxInterfaces", "10"));
 
-	static Logger log = LoggerFactory.getLogger(AbstractConnectionJob.class);
+	static Logger log = LoggerFactory.getLogger(VPNSession.class);
 
 	private List<String> allows = new ArrayList<>();
 	private VirtualInetAddress ip;
-
 	private LocalContext localContext;
-	private Connection connection;
+	private Long connectionId;
+	private ScheduledFuture<?> task;
 
 	public LocalContext getLocalContext() {
 		return localContext;
 	}
 
-	public Connection getConnection() {
-		return connection;
+	public Long getConnection() {
+		return connectionId;
 	}
 
-	public VPNSession(Connection connection, LocalContext localContext) {
-		this(connection, localContext, null);
+	public VPNSession(Long connectionId, LocalContext localContext) {
+		this(connectionId, localContext, null);
 	}
 
-	public VPNSession(Connection connection, LocalContext localContext, VirtualInetAddress ip) {
+	public VPNSession(Long connectionId, LocalContext localContext, VirtualInetAddress ip) {
 		this.localContext = localContext;
-		this.connection = connection;
+		this.connectionId = connectionId;
 		this.ip = ip;
 	}
 
 	@Override
 	public void close() throws IOException {
+		if (task != null) {
+			task.cancel(false);
+		}
 		if (ip != null) {
 			log.info(String.format("Closing VPN session for %s", ip.getName()));
 			ip.down();
@@ -56,66 +55,28 @@ public class VPNSession extends AbstractConnectionJob implements Closeable {
 		}
 	}
 
-	@Override
-	public void run() {
-
+	public void open() throws IOException {
+		LocalContext cctx = getLocalContext();
+		Connection connection = cctx.getConnectionService().getConnection(connectionId);
 		if (log.isInfoEnabled()) {
 			log.info("Connecting to " + connection);
 		}
-
-		LocalContext cctx = getLocalContext();
-		ClientServiceImpl clientServiceImpl = (ClientServiceImpl) cctx.getClientService();
-
-//		HypersocketClientListener<Connection> listener = new HypersocketClientAdapter<Connection>() {
-//			@Override
-//			public void disconnected(HypersocketClient<Connection> client, boolean onError) {
-//				clientServiceImpl.disconnected(connection, client);
-//				log.info("Client has disconnected, informing GUI");
-//				cctx.getGuiRegistry().disconnected(connection, onError ? "Error occured during connection." : null);
-//				if (client.getAttachment().isStayConnected() && onError) {
-//					try {
-//						clientServiceImpl.scheduleConnect(connection);
-//					} catch (RemoteException e1) {
-//					}
-//				}
-//			}
-//		};
-
-		try {
-
-			if (log.isInfoEnabled()) {
-				log.info("Connected to " + connection);
-			}
-
-			start(connection);
-			cctx.getGuiRegistry().transportConnected(connection);
-			cctx.getGuiRegistry().ready(connection);
-			clientServiceImpl.finishedConnecting(connection, this);
-
-		} catch (Throwable e) {
-			if (log.isErrorEnabled()) {
-				log.error("Failed to connect " + connection, e);
-			}
-			cctx.getGuiRegistry().failedToConnect(connection, e.getMessage());
-			clientServiceImpl.failedToConnect(connection, e);
-
-			if (!(e instanceof UserCancelledException)) {
-				if (connection.isStayConnected()) {
-					try {
-						cctx.getClientService().scheduleConnect(connection);
-						return;
-					} catch (RemoteException e1) {
-					}
-				}
-			}
+		ip = getLocalContext().getPlatformService().connect(this, connection);
+		if (log.isInfoEnabled()) {
+			log.info("Connected to " + connection);
 		}
+
+	}
+	
+	public VirtualInetAddress getIp() {
+		return ip;
 	}
 
 	public List<String> getAllows() {
 		return allows;
 	}
 
-	void start(Connection configuration) throws IOException {
-		ip = getLocalContext().getPlatformService().connect(this, configuration);
+	public void setTask(ScheduledFuture<?> task) {
+		this.task = task;
 	}
 }

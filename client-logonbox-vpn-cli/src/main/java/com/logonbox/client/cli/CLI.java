@@ -462,4 +462,20 @@ public class CLI extends UnicastRemoteObject implements GUICallback {
 	public void showBrowser(Connection connection, String uri) throws RemoteException {
 		throw new UnsupportedOperationException();
 	}
+
+	@Override
+	public void onConnectionAdded(Connection connection) throws RemoteException {
+	}
+
+	@Override
+	public void onConnectionRemoved(Connection connection) throws RemoteException {
+	}
+
+	@Override
+	public void onConnectionUpdated(Connection connection) throws RemoteException {
+	}
+
+	@Override
+	public void onConfigurationUpdated(String name, String value) throws RemoteException {
+	}
 }

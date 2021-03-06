@@ -64,7 +64,8 @@ public class Client extends Application implements X509TrustManager {
 	 * to Java 15 or higher this may need to be revisted unless the underlying back
 	 * has been fixed.
 	 */
-	static final boolean useLocalHTTPService = System.getProperty("logonbox.vpn.useLocalHTTPService", "false").equals("true");
+	static final boolean useLocalHTTPService = System.getProperty("logonbox.vpn.useLocalHTTPService", "false")
+			.equals("true");
 
 	/* Security can be turned off for this, useful for debugging */
 	static final boolean secureLocalHTTPService = System.getProperty("logonbox.vpn.secureLocalHTTPService", "true")
@@ -91,6 +92,8 @@ public class Client extends Application implements X509TrustManager {
 
 	private Stage primaryStage;
 	private MiniHttpServer miniHttp;
+
+	private Tray tray;
 	private static Client instance;
 
 	public static Client get() {
@@ -99,6 +102,7 @@ public class Client extends Application implements X509TrustManager {
 
 	@Override
 	public void init() throws Exception {
+		Platform.setImplicitExit(false);
 		instance = this;
 		PropertyConfigurator.configureAndWatch(
 				System.getProperty("hypersocket.logConfiguration", "conf" + File.separator + "log4j.properties"));
@@ -256,6 +260,8 @@ public class Client extends Application implements X509TrustManager {
 		});
 
 		bridge.start();
+
+		tray = new Tray(this);
 	}
 
 	public Stage getStage() {
@@ -372,6 +378,25 @@ public class Client extends Application implements X509TrustManager {
 	public X509Certificate[] getAcceptedIssuers() {
 		X509Certificate[] NO_CERTS = new X509Certificate[0];
 		return NO_CERTS;
+	}
+
+	public void open() {
+		Platform.runLater(() -> {
+			primaryStage.show();
+		});
+	}
+
+	public void options() {
+		open();
+		Platform.runLater(() -> UI.getInstance().options());
+	}
+
+	public void maybeExit() {
+		if (tray == null || !tray.isActive()) {
+			confirmExit();
+		} else {
+			Platform.runLater(() -> primaryStage.hide());
+		}
 	}
 
 }
