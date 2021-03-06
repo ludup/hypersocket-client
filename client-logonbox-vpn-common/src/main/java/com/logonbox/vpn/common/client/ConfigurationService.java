@@ -7,12 +7,12 @@ public interface ConfigurationService extends Remote {
 
 	public final static String AUTOMATIC_UPDATES = "automaticUpdates";
 	public final static String PHASE = "phase";
-	public static final String TRAY_ICON = "trayIcon";
-	public static final String TRAY_ICON_DARK = "dark";
-	public static final String TRAY_ICON_COLOR = "color";
-	public static final String TRAY_ICON_LIGHT = "light";
-	public static final String TRAY_ICON_AUTO = "auto";
-	public static final String TRAY_ICON_OFF = "off";
+	public static final String TRAY_MODE = "trayMode";
+	public static final String TRAY_MODE_DARK = "dark";
+	public static final String TRAY_MODE_COLOR = "color";
+	public static final String TRAY_MODE_LIGHT = "light";
+	public static final String TRAY_MODE_AUTO = "auto";
+	public static final String TRAY_MODE_OFF = "off";
 
 	String getValue(String name, String defaultValue) throws RemoteException;
 	

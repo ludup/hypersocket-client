@@ -4,6 +4,7 @@ import java.awt.Image;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.concurrent.Callable;
 
 import javax.swing.UIManager;
@@ -207,9 +208,15 @@ public class Main implements Callable<Integer> {
 	 * @param args
 	 */
 	public static void main(String[] args) throws Exception {
-		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-		System.exit(
-				new CommandLine(new Main(new DefaultRestartCallback(), new DefaultShutdownCallback())).execute(args));
+		if(Client.get() == null) {
+			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+			System.exit(
+					new CommandLine(new Main(new DefaultRestartCallback(), new DefaultShutdownCallback())).execute(args));
+		}
+		else {
+			/* Re-use, a second instance was started but intercepted by forker */
+			Client.get().open();
+		}
 
 	}
 

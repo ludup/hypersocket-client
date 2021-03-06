@@ -46,7 +46,6 @@ import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
-import javafx.fxml.Initializable;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
@@ -116,17 +115,18 @@ public class Client extends Application implements X509TrustManager {
 				System.getProperty("hypersocket.logConfiguration", "conf" + File.separator + "log4j.properties"));
 	}
 
-	public FramedController openScene(Class<? extends Initializable> controller) throws IOException {
+	public <C extends AbstractController> C openScene(Class<C> controller) throws IOException {
 		return openScene(controller, null);
 	}
 
-	public FramedController openScene(Class<? extends Initializable> controller, String fxmlSuffix) throws IOException {
+	@SuppressWarnings("unchecked")
+	public <C extends AbstractController> C openScene(Class<C> controller, String fxmlSuffix) throws IOException {
 		URL resource = controller
 				.getResource(controller.getSimpleName() + (fxmlSuffix == null ? "" : fxmlSuffix) + ".fxml");
 		FXMLLoader loader = new FXMLLoader();
 		loader.setResources(ResourceBundle.getBundle(controller.getName()));
 		Parent root = loader.load(resource.openStream());
-		FramedController controllerInst = (FramedController) loader.getController();
+		C controllerInst = (C) loader.getController();
 		if (controllerInst == null) {
 			throw new IOException("Controller not found. Check controller in FXML");
 		}
@@ -221,7 +221,7 @@ public class Client extends Application implements X509TrustManager {
 		primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("logonbox-icon32x32.png")));
 
 		// Open the actual scene
-		FramedController fc = openScene(UI.class, null);
+		UI fc = openScene(UI.class, null);
 		Scene scene = fc.getScene();
 		Parent node = scene.getRoot();
 
@@ -398,6 +398,7 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	public void open() {
+		log.info("Open request");
 		Platform.runLater(() -> {
 			primaryStage.show();
 			primaryStage.toFront();

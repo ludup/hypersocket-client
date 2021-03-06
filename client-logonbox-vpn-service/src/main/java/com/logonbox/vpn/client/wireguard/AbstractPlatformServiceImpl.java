@@ -136,7 +136,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 
 	protected String getPublicKey(String interfaceName) throws IOException {
 		try {
-			String pk = OSCommand.runCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
+			String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
 					.iterator().next().trim();
 			if (pk.equals("(none)") || pk.equals(""))
 				return null;
@@ -211,7 +211,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	}
 	
 	protected long getLatestHandshake(String iface, String publicKey) throws IOException {
-		for(String line : OSCommand.runCommandAndCaptureOutput(getWGCommand(), "show", iface, "latest-handshakes")) {
+		for(String line : OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface, "latest-handshakes")) {
 			String[] args = line.trim().split("\\s+");
 			if(args.length == 2) {
 				if(args[0].equals(publicKey)) {

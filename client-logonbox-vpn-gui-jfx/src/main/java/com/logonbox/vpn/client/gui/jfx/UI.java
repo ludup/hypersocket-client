@@ -171,10 +171,6 @@ public class UI extends AbstractController implements Listener {
 			UI.this.showError(error);
 		}
 
-		public void unjoin() {
-			unjoin(null);
-		}
-
 		public void unjoin(String reason) {
 			disconnect(getSelectedConnection(), reason);
 		}
@@ -254,6 +250,9 @@ public class UI extends AbstractController implements Listener {
 		if (awaitingBridgeEstablish != null) {
 			awaitingRestart = true;
 		}
+		else {
+			reloadState();
+		}
 
 		Platform.runLater(() -> {
 			if (awaitingBridgeEstablish != null) {
@@ -263,12 +262,10 @@ public class UI extends AbstractController implements Listener {
 				setUpdateProgress(100, resources.getString("guiRestart"));
 				new Timeline(new KeyFrame(Duration.seconds(5), ae -> Main.getInstance().restart())).play();
 			} else {
-
 				String unprocessedUri = Main.getInstance().getUri();
 				if (StringUtils.isNotBlank(unprocessedUri)) {
 					connectToUri(unprocessedUri);
 				} else {
-					reloadState();
 					initUi(null);
 					selectPageForState(false, Main.getInstance().isConnect());
 				}
@@ -458,12 +455,12 @@ public class UI extends AbstractController implements Listener {
 			beans.put("phases", new JsonExtensionPhase[0]);
 		}
 		beans.put("trayModes",
-				new String[] { ConfigurationService.TRAY_ICON_AUTO, ConfigurationService.TRAY_ICON_COLOR,
-						ConfigurationService.TRAY_ICON_DARK, ConfigurationService.TRAY_ICON_LIGHT,
-						ConfigurationService.TRAY_ICON_OFF });
+				new String[] { ConfigurationService.TRAY_MODE_AUTO, ConfigurationService.TRAY_MODE_COLOR,
+						ConfigurationService.TRAY_MODE_DARK, ConfigurationService.TRAY_MODE_LIGHT,
+						ConfigurationService.TRAY_MODE_OFF });
 		try {
-			beans.put("trayMode", context.getBridge().getConfigurationService().getValue(ConfigurationService.TRAY_ICON,
-					ConfigurationService.TRAY_ICON_AUTO));
+			beans.put("trayMode", context.getBridge().getConfigurationService().getValue(ConfigurationService.TRAY_MODE,
+					ConfigurationService.TRAY_MODE_AUTO));
 			beans.put("phase", context.getBridge().getConfigurationService().getValue(ConfigurationService.PHASE, ""));
 			beans.put("automaticUpdates", Boolean.valueOf(context.getBridge().getConfigurationService()
 					.getValue(ConfigurationService.AUTOMATIC_UPDATES, "true")));
@@ -959,7 +956,7 @@ public class UI extends AbstractController implements Listener {
 
 	protected void saveOptions(String trayMode, String phase, boolean automaticUpdates) {
 		try {
-			context.getBridge().getConfigurationService().setValue(ConfigurationService.TRAY_ICON, trayMode);
+			context.getBridge().getConfigurationService().setValue(ConfigurationService.TRAY_MODE, trayMode);
 			context.getBridge().getConfigurationService().setValue(ConfigurationService.PHASE, phase);
 			context.getBridge().getConfigurationService().setValue(ConfigurationService.AUTOMATIC_UPDATES,
 					String.valueOf(automaticUpdates));
@@ -1231,8 +1228,9 @@ public class UI extends AbstractController implements Listener {
 		try {
 			mode = context.getBridge().getClientService().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
 			branding = context.getBridge().getClientService().getBranding();
-			if (branding == null)
+			if (branding == null) {
 				log.info(String.format("Removing branding."));
+			}
 			else
 				log.info(String.format("Adding custom branding"));
 		} catch (RemoteException e) {
