@@ -49,11 +49,7 @@ public class NetworkConfigurationService {
 			});
 			String cwd = args[1];
 			String name = args[2];
-
-			/*
-			 * Set current directory (the .dlls are expected to be here so both Java can
-			 * find the embedded DLL, and the embedded DLL can find the wintun DLL)
-			 */
+			
 			XKernel32.INSTANCE.SetCurrentDirectoryW(cwd);
 
 			/* Capture stdout and stderr to a log file */

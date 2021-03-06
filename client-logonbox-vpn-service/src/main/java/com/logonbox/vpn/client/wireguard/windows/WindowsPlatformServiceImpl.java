@@ -37,11 +37,13 @@ import com.sshtools.forker.common.XWinsvc;
 import com.sshtools.forker.services.Services;
 import com.sshtools.forker.services.impl.Win32ServiceService;
 import com.sun.jna.Native;
+import com.sun.jna.platform.win32.Advapi32;
 import com.sun.jna.platform.win32.Kernel32Util;
 import com.sun.jna.platform.win32.WinDef.DWORD;
 import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.platform.win32.Winsvc;
 import com.sun.jna.platform.win32.Winsvc.SC_HANDLE;
+import com.sun.jna.ptr.PointerByReference;
 
 public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<WindowsIP> {
 
@@ -150,6 +152,26 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		Path confDir = cwd.resolve("conf").resolve("connections");
 		if (!Files.exists(confDir))
 			Files.createDirectories(confDir);
+
+		/*
+		 * We need to set up file descriptors here so that
+		 * the pipe has correct 'security descriptor' in windows. It derives this from
+		 * the permissions on the folder the configuration file is stored in.
+		 * 
+		 * This took a lot of finding :\
+		 * 
+		 */
+		PointerByReference securityDescriptor = new PointerByReference();
+		XAdvapi32.INSTANCE.ConvertStringSecurityDescriptorToSecurityDescriptor(
+				"O:BAG:BAD:PAI(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)", 1, securityDescriptor, null);
+		if (!Advapi32.INSTANCE.SetFileSecurity(confDir.toFile().getPath(),
+				WinNT.OWNER_SECURITY_INFORMATION | WinNT.GROUP_SECURITY_INFORMATION | WinNT.DACL_SECURITY_INFORMATION,
+				securityDescriptor.getValue())) {
+			int err = Kernel32.INSTANCE.GetLastError();
+			throw new IOException(String.format("Failed to set file security on '%s'. %d. %s", confDir, err,
+					Kernel32Util.formatMessageFromLastErrorCode(err)));
+		}
+
 		Path confFile = confDir.resolve(ip.getName() + ".conf");
 		try (Writer writer = Files.newBufferedWriter(confFile)) {
 			write(configuration, writer);
@@ -193,7 +215,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		/*
 		 * TODO the pipe is not yet working, falling back to using wg.exe for now
 		 */
-		// pipe = new WindowsWireGuardNamedPipe(ip.getName());
+		//pipe = new WindowsWireGuardNamedPipe(ip.getName());
 
 		/*
 		 * Wait for the first handshake. As soon as we have it, we are 'connected'. If
