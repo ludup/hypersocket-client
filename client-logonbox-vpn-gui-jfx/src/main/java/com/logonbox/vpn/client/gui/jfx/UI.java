@@ -1,6 +1,10 @@
 package com.logonbox.vpn.client.gui.jfx;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -26,6 +30,7 @@ import java.util.function.Predicate;
 
 import javax.xml.bind.DatatypeConverter;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
@@ -233,6 +238,7 @@ public class UI extends AbstractController implements Listener {
 	private Hyperlink minimize;
 	@FXML
 	private Hyperlink toggleSidebar;
+	private File logoFile;
 
 	public UI() {
 		instance = this;
@@ -1230,9 +1236,39 @@ public class UI extends AbstractController implements Listener {
 			branding = context.getBridge().getClientService().getBranding();
 			if (branding == null) {
 				log.info(String.format("Removing branding."));
+				if(logoFile != null) {
+					logoFile.delete();
+				}
 			}
-			else
+			else {
 				log.info(String.format("Adding custom branding"));
+				String logo = branding.getLogo();
+				if(StringUtils.isNotBlank(logo)) {
+					log.info(String.format("Attempting to cache logo"));
+					String basename = FilenameUtils.getExtension(logo);
+					if(!basename.equals(""))
+						basename= "." + basename;
+					File newLogoFile = new File("tmp" + File.separator + "logo" + basename);
+					if(logoFile != null && !newLogoFile.equals(logoFile)) {
+						logoFile.delete();
+					}
+					try {
+						URL logoUrl = new URL(logo);
+						try(InputStream urlIn = logoUrl.openStream()) {
+							try(OutputStream out = new FileOutputStream(newLogoFile)) {
+								urlIn.transferTo(out);
+							}
+						}
+						newLogoFile.deleteOnExit();
+						logoFile = newLogoFile;
+						branding.setLogo(newLogoFile.toURI().toString());
+						log.info(String.format("Logo cached from %s to %s", logoUrl, newLogoFile.toURI()));
+					}
+					catch(Exception e) {
+						log.error(String.format("Failed to cache logo"), e);
+					}
+				}
+			}
 		} catch (RemoteException e) {
 			throw new IllegalStateException("Impossible!", e);
 		}
@@ -1347,21 +1383,12 @@ public class UI extends AbstractController implements Listener {
 	private void initUi(Connection connection) {
 		log.info("Rebuilding URIs");
 		if (context.getBridge().isConnected()) {
-
 			try {
 				rebuildConnections(connection);
-//				List<ConnectionStatus> connections = context.getBridge().getClientService().getStatus();
-//
-//				// Look for new connections
-//				for (ConnectionStatus c : connections) {
-//					Connection conx = c.getConnection();
-//					rebuildConnections(getSelectedConnection());
-//				}
 			} catch (Exception e) {
 				log.error("Failed to load connections.", e);
 			}
 		}
-
 		context.applyColors(branding, getScene().getRoot());
 		reapplyLogo();
 	}
