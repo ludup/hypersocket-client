@@ -13,7 +13,7 @@ public interface PlatformService<I extends VirtualInetAddress> {
 	 * Process any command line arguments for this platform.
 	 * 
 	 * @param args arguments
-	 * @return error code or {@link Integer.MIN_VALUE} to ignore.
+	 * @return error code or Integer.MIN_VALUE to ignore.
 	 */
 	default int processCLI(String[] args) {
 		return Integer.MIN_VALUE;
@@ -57,7 +57,8 @@ public interface PlatformService<I extends VirtualInetAddress> {
 	 * Get an interface that is using this public key, or <code>null</code> if no
 	 * interface is using this public key at the moment.
 	 * 
-	 * @param public key return interface
+	 * @param publicKey public key 
+	 * @return interface
 	 */
 	I getByPublicKey(String publicKey);
 
