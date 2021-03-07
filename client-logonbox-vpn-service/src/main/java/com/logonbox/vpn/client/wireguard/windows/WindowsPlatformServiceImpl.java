@@ -1,7 +1,10 @@
 package com.logonbox.vpn.client.wireguard.windows;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.net.MalformedURLException;
@@ -18,7 +21,6 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import org.apache.commons.lang3.SystemUtils;
@@ -35,23 +37,24 @@ import com.sshtools.forker.common.XWinsvc;
 import com.sshtools.forker.services.Services;
 import com.sshtools.forker.services.impl.Win32ServiceService;
 import com.sun.jna.Native;
+import com.sun.jna.platform.win32.Advapi32;
 import com.sun.jna.platform.win32.Kernel32Util;
 import com.sun.jna.platform.win32.WinDef.DWORD;
 import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.platform.win32.Winsvc;
 import com.sun.jna.platform.win32.Winsvc.SC_HANDLE;
+import com.sun.jna.ptr.PointerByReference;
 
 public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<WindowsIP> {
+
+	public static final String TUNNEL_SERVICE_NAME_PREFIX = "LogonBoxVPNTunnel";
 
 	private static final String INTERFACE_PREFIX = "net";
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsPlatformServiceImpl.class);
 
-	public static final String PREF_PUBLIC_KEY = "publicKey";
-
 	private static Preferences PREFS = null;
-
-	public static final String TUNNEL_SERVICE_NAME_PREFIX = "LogonBoxVPNTunnel";
+	private Object lock = new Object();
 
 	public static Preferences getInterfaceNode(String name) {
 		return getInterfacesNode().node(name);
@@ -78,11 +81,8 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		return PREFS;
 	}
 
-	// TODO this is how to communicate with Wireguard daemon
-//	public static NamedPipeClientStream GetPipe(String name)
-//        var pipepath = "ProtectedPrefix\\Administrators\\WireGuard\\" + name;
-//        return new NamedPipeClientStream(pipepath);
-//    }
+	private WindowsWireGuardNamedPipe pipe;
+	private File wgFile;
 
 	public WindowsPlatformServiceImpl() {
 		super(INTERFACE_PREFIX);
@@ -152,6 +152,26 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		Path confDir = cwd.resolve("conf").resolve("connections");
 		if (!Files.exists(confDir))
 			Files.createDirectories(confDir);
+
+		/*
+		 * We need to set up file descriptors here so that
+		 * the pipe has correct 'security descriptor' in windows. It derives this from
+		 * the permissions on the folder the configuration file is stored in.
+		 * 
+		 * This took a lot of finding :\
+		 * 
+		 */
+		PointerByReference securityDescriptor = new PointerByReference();
+		XAdvapi32.INSTANCE.ConvertStringSecurityDescriptorToSecurityDescriptor(
+				"O:BAG:BAD:PAI(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)", 1, securityDescriptor, null);
+		if (!Advapi32.INSTANCE.SetFileSecurity(confDir.toFile().getPath(),
+				WinNT.OWNER_SECURITY_INFORMATION | WinNT.GROUP_SECURITY_INFORMATION | WinNT.DACL_SECURITY_INFORMATION,
+				securityDescriptor.getValue())) {
+			int err = Kernel32.INSTANCE.GetLastError();
+			throw new IOException(String.format("Failed to set file security on '%s'. %d. %s", confDir, err,
+					Kernel32Util.formatMessageFromLastErrorCode(err)));
+		}
+
 		Path confFile = confDir.resolve(ip.getName() + ".conf");
 		try (Writer writer = Files.newBufferedWriter(confFile)) {
 			write(configuration, writer);
@@ -179,6 +199,12 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 					String.format("Service for %s cannot be found, suggesting installation failed, please check logs.",
 							ip.getName()));
 
+		/*
+		 * About to start connection. The "last handshake" should be this value or later
+		 * if we get a valid connection
+		 */
+		long connectionStarted = ((System.currentTimeMillis() / 1000l) - 1) * 1000l;
+
 		if (ip.isUp()) {
 			LOG.info(String.format("Service for %s is already up.", ip.getName()));
 		} else {
@@ -187,58 +213,34 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 
 		/*
-		 * Store the public key being used for this interface name so we can later
-		 * retrieve it to determine this interface was started by LogonBox VPN (gets
-		 * around the fact there doesn't seem to be a 'wg show' command available).
-		 * 
-		 * Also record the mac, in case it changes and another interface takes that name
-		 * while LB VPN is not watching.
+		 * TODO the pipe is not yet working, falling back to using wg.exe for now
 		 */
-		Preferences ifNode = getInterfaceNode(ip.getName());
-		ifNode.put(PREF_PUBLIC_KEY, configuration.getPublicKey());
-		LOG.info(String.format("Up. Recording public key %s against %s", configuration.getPublicKey(), ip.getName()));
+		//pipe = new WindowsWireGuardNamedPipe(ip.getName());
 
-		return ip;
+		/*
+		 * Wait for the first handshake. As soon as we have it, we are 'connected'. If
+		 * we don't get a handshake in that time, then consider this a failed
+		 * connection. We don't know WHY, just it has failed
+		 */
+		LOG.info(String.format("Waiting for handshake. Hand shake should be after %d", connectionStarted));
+		return waitForFirstHandshake(configuration, ip, connectionStarted);
+
 	}
+
+	@Override
+	protected void onDisconnect() throws IOException {
+		if (pipe != null)
+			pipe.close();
+	}
+
 	@Override
 	protected WindowsIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
 		return new WindowsIP(nif.getName(), this);
 	}
 
 	@Override
-	public WindowsIP getByPublicKey(String publicKey) {
-		try {
-			for (String ifaceName : getInterfacesNode().childrenNames()) {
-				if (publicKey.equals(getInterfaceNode(ifaceName).get(PREF_PUBLIC_KEY, ""))) {
-					return new WindowsIP(ifaceName, this);
-				}
-			}
-		} catch (BackingStoreException bse) {
-			throw new IllegalStateException("Failed to list interface names.", bse);
-		}
-		return null;
-	}
-
-	@Override
 	public String[] getMissingPackages() {
 		return new String[0];
-	}
-
-	@Override
-	protected String getPublicKey(String interfaceName) throws IOException {
-		try {
-			if (getInterfacesNode().nodeExists(interfaceName)) {
-				Preferences ifNode = getInterfaceNode(interfaceName);
-				NetworkInterface iface = NetworkInterface.getByName(interfaceName);
-				if (iface != null) {
-					return ifNode.get(PREF_PUBLIC_KEY, null);
-				} else
-					return ifNode.get(PREF_PUBLIC_KEY, null);
-			}
-		} catch (BackingStoreException bse) {
-			throw new IOException("Failed to get public key.", bse);
-		}
-		return null;
 	}
 
 	void install(String serviceName, String displayName, String description, String[] dependencies, String account,
@@ -358,6 +360,32 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		return super.isWireGuardInterface(nif) && nif.getDisplayName().equals("Wintun Userspace Tunnel");
 	}
 
+	@Override
+	protected String getWGCommand() {
+		synchronized (lock) {
+			if (wgFile == null) {
+				try {
+					wgFile = File.createTempFile("wgx", ".exe");
+					try (InputStream in = WindowsPlatformServiceImpl.class.getResourceAsStream(getWGExeResource())) {
+						try (OutputStream out = new FileOutputStream(wgFile)) {
+							in.transferTo(out);
+						}
+					}
+				} catch (IOException ioe) {
+					throw new IllegalStateException("Failed to get wg.exe.", ioe);
+				}
+			}
+			return wgFile.toString();
+		}
+	}
+
+	private String getWGExeResource() {
+		if (System.getProperty("os.arch").indexOf("64") == -1)
+			return "/win32-x86/wg.exe";
+		else
+			return "/win32-x86-64/wg.exe";
+	}
+
 	private String reconstructClassPath() {
 
 		Set<URL> urls = new LinkedHashSet<>();
@@ -458,10 +486,4 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println(String.format("Address = %s", configuration.getAddress()));
 	}
-
-	@Override
-	public boolean isAlive(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
-		throw new UnsupportedOperationException("TODO");
-	}
-
 }

@@ -16,7 +16,7 @@ import com.sun.jna.WString;
 public class NetworkConfigurationService {
 
 	public static interface TunnelInterface extends Library {
-		/* Unused, keys are generated using Java */
+		/** Unused, keys are generated using Java */
 		void WireGuardGenerateKeyPair(ByteBuffer publicKey, ByteBuffer privateKey);
 
 		boolean WireGuardTunnelService(WString confFile);
@@ -32,6 +32,11 @@ public class NetworkConfigurationService {
 		System.out.println(String.format(msgFmt, args));
 	}
 
+	/**
+	 * main.
+	 *
+	 * @param args arguments
+	 */
 	public static void main(String[] args) throws Exception {
 		File confFile = null;
 		if (args.length == 3 && args[0].equals("/service")) {
@@ -44,11 +49,7 @@ public class NetworkConfigurationService {
 			});
 			String cwd = args[1];
 			String name = args[2];
-
-			/*
-			 * Set current directory (the .dlls are expected to be here so both Java can
-			 * find the embedded DLL, and the embedded DLL can find the wintun DLL)
-			 */
+			
 			XKernel32.INSTANCE.SetCurrentDirectoryW(cwd);
 
 			/* Capture stdout and stderr to a log file */

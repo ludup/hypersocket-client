@@ -217,7 +217,7 @@ public class Main implements LocalContext {
 				}
 
 				if (!clientService.startSavedConnections()) {
-					System.exit(2);
+					log.warn("Not all connections started.");
 				}
 
 				poll();

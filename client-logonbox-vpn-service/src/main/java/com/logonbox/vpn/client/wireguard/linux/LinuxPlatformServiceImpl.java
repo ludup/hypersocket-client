@@ -23,7 +23,6 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.logonbox.vpn.client.service.ReauthorizeException;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.IpUtil;
@@ -51,15 +50,6 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	protected LinuxIP add(String name, String type) throws IOException {
 		OSCommand.adminCommand("ip", "link", "add", "dev", name, "type", type);
 		return find(name, ips(false));
-	}
-
-	protected final String getPublicKey(String interfaceName) throws IOException {
-		String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
-				.iterator().next().trim();
-		if (pk.equals("(none)") || pk.equals(""))
-			return null;
-		else
-			return pk;
 	}
 	
 	@Override
@@ -273,40 +263,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		/* Wait for the first handshake. As soon as we have it, we are 'connected'.
 		 * If we don't get a handshake in that time, then consider this a failed connection.
 		 * We don't know WHY, just it has failed  */
-		log.info(String.format("Waiting for handshake. Hand shake should be ater %d", connectionStarted));
-		for(int i = 0 ; i < ClientService.CONNECT_TIMEOUT ; i++) {
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				throw new IOException(String.format("Interrupted connecting to %s", ip.getName()));
-			}
-			long lastHandshake = getLatestHandshake(ip.getName(), configuration.getPublicKey());
-			if(lastHandshake >= connectionStarted) {
-				/* Connected ! */
-				return ip;
-			}
-		}
-
-		/* Failed to connect in the given time. Clean up and report an exception */
-		try {
-			ip.down();
-		}
-		catch(Exception e) {
-			LOG.error("Failed to stop after timeout.", e);
-		}
-		throw new ReauthorizeException(String.format("No timeout received for %s within %d seconds.", ip.getName(), ClientService.CONNECT_TIMEOUT));
-	}
-	
-	static long getLatestHandshake(String iface, String publicKey) throws IOException {
-		for(String line : OSCommand.adminCommandAndCaptureOutput("wg", "show", iface, "latest-handshakes")) {
-			String[] args = line.trim().split("\\s+");
-			if(args.length == 2) {
-				if(args[0].equals(publicKey)) {
-					return Long.parseLong(args[1]) * 1000;
-				}
-			}
-		}
-		return 0;
+		return waitForFirstHandshake(configuration, ip, connectionStarted);
 	}
 
 	void setRoutes(VPNSession session, LinuxIP ip) throws IOException {
@@ -345,11 +302,5 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	public LinuxIP getByPublicKey(String publicKey) {
 		// TODO Auto-generated method stub
 		throw new UnsupportedOperationException("TODO");
-	}
-
-	@Override
-	public boolean isAlive(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
-		long lastHandshake = getLatestHandshake(logonBoxVPNSession.getIp().getName(), configuration.getPublicKey());
-		return lastHandshake >= System.currentTimeMillis() - ( ClientService.HANDSHAKE_TIMEOUT * 1000);
 	}
 }

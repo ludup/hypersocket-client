@@ -31,7 +31,7 @@ public class Delete extends AbstractConnectionCommand {
 				status = Type.DISCONNECTED;
 			}
 			if (status != Type.DISCONNECTED) {
-				cli.getClientService().disconnect(connection);
+				cli.getClientService().disconnect(connection, null);
 			}
 			
 			cli.getConnectionService().delete(connection);

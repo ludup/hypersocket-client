@@ -29,13 +29,11 @@ public interface ClientService extends Remote {
 
 	void unregisterGUI(GUICallback gui, boolean callback) throws RemoteException;
 	
-	boolean isConnected(Connection c) throws RemoteException;
-	
 	Connection save(Connection c) throws RemoteException;
 	
 	void connect(Connection c) throws RemoteException;
 	
-	void disconnect(Connection c) throws RemoteException;
+	void disconnect(Connection c, String reason) throws RemoteException;
 
 	List<ConnectionStatus> getStatus() throws RemoteException;
 
@@ -54,12 +52,12 @@ public interface ClientService extends Remote {
 	void requestAuthorize(Connection connection) throws RemoteException;
 
 	void authorized(Connection connection) throws RemoteException;
-
-	boolean isAuthorizing(Connection connection) throws RemoteException;
 	
 	boolean isTrackServerVersion() throws RemoteException;
 
 	JsonExtensionUpdate getUpdates() throws RemoteException;
+
+	Branding getBranding() throws RemoteException;
 
 	void update() throws RemoteException;
 

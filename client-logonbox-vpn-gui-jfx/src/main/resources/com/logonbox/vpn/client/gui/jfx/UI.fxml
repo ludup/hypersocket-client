@@ -2,8 +2,9 @@
 
 <?import java.lang.String?>
 <?import javafx.scene.control.Hyperlink?>
-<?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
@@ -18,11 +19,11 @@
 					<right>
 						<HBox BorderPane.alignment="CENTER">
 							<children>
-								<Hyperlink onAction="#evtMinimize" styleClass="icon">
+								<Hyperlink fx:id="minimize" onAction="#evtMinimize" styleClass="icon">
                            <graphic>
                               <FontIcon iconLiteral="fa-window-minimize" iconSize="32" />
                            </graphic></Hyperlink>
-								<Hyperlink onAction="#evtClose" styleClass="icon">
+								<Hyperlink fx:id="close" onAction="#evtClose" styleClass="icon">
                            <graphic>
                               <FontIcon iconLiteral="fa-window-close" iconSize="32" />
                            </graphic></Hyperlink>
@@ -32,20 +33,24 @@
 					<left>
 						<HBox BorderPane.alignment="CENTER">
 							<children>
-								<Hyperlink onAction="#evtToggleSidebar" styleClass="icon">
+								<Hyperlink fx:id="toggleSidebar" onAction="#evtToggleSidebar" styleClass="icon">
                            <graphic>
                               <FontIcon iconLiteral="fa-bars" iconSize="32" />
                            </graphic></Hyperlink>
 							</children>
 						</HBox>
 					</left>
-					<center>
-						<Label alignment="CENTER" styleClass="title" text="%title" textAlignment="CENTER" BorderPane.alignment="CENTER" />
-					</center>
                <styleClass>
                   <String fx:value="titleBar" />
                   <String fx:value="inverse" />
                </styleClass>
+               <center>
+                  <ImageView fx:id="titleBarImageView" fitHeight="32" fitWidth="200.0" pickOnBounds="true" preserveRatio="true" BorderPane.alignment="CENTER">
+                     <image>
+                        <Image url="/com/logonbox/vpn/client/gui/jfx/logonbox-titlebar-logo.png" />
+                     </image>
+                  </ImageView>
+               </center>
 				</BorderPane>
 			</top>
          <center>

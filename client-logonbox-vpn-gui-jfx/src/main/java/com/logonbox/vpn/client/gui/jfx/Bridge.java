@@ -305,7 +305,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 			l.disconnecting(connection);
 		}
 		log.info(String.format("Disconnecting from %s", connection.getUri(false)));
-		clientService.disconnect(connection);
+		clientService.disconnect(connection, null);
 	}
 
 	public void connect(Connection connection) throws RemoteException {
@@ -467,6 +467,8 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void onUpdateInit(final int expectedApps) throws RemoteException {
+		if (Main.getInstance().isNoUpdates())
+			throw new IllegalStateException("Cannot initiate updates, prevented by CLI option.");
 		Platform.runLater(new Runnable() {
 			@Override
 			public void run() {
@@ -512,17 +514,49 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void onConnectionAdded(Connection connection) throws RemoteException {
+		Platform.runLater(new Runnable() {
+			@Override
+			public void run() {
+				for (Listener l : new ArrayList<Listener>(listeners)) {
+					l.connectionAdded(connection);
+				}
+			}
+		});
 	}
 
 	@Override
 	public void onConnectionRemoved(Connection connection) throws RemoteException {
+		Platform.runLater(new Runnable() {
+			@Override
+			public void run() {
+				for (Listener l : new ArrayList<Listener>(listeners)) {
+					l.connectionRemoved(connection);
+				}
+			}
+		});
 	}
 
 	@Override
 	public void onConnectionUpdated(Connection connection) throws RemoteException {
+		Platform.runLater(new Runnable() {
+			@Override
+			public void run() {
+				for (Listener l : new ArrayList<Listener>(listeners)) {
+					l.connectionUpdated(connection);
+				}
+			}
+		});
 	}
 
 	@Override
 	public void onConfigurationUpdated(String name, String value) throws RemoteException {
+		Platform.runLater(new Runnable() {
+			@Override
+			public void run() {
+				for (Listener l : new ArrayList<Listener>(listeners)) {
+					l.configurationUpdated(name, value);
+				}
+			}
+		});
 	}
 }

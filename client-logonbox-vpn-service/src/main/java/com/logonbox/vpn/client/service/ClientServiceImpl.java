@@ -34,6 +34,7 @@ import com.logonbox.vpn.client.service.updates.ClientUpdater;
 import com.logonbox.vpn.client.service.vpn.ConnectionServiceImpl;
 import com.logonbox.vpn.client.service.vpn.ConnectionServiceImpl.Listener;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
+import com.logonbox.vpn.common.client.Branding;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.ConfigurationService;
 import com.logonbox.vpn.common.client.Connection;
@@ -50,6 +51,9 @@ public class ClientServiceImpl implements ClientService, Listener {
 
 	static final int POLL_RATE = 30;
 
+
+	private static final int PHASES_TIMEOUT = 3600 * 24;
+
 	protected Map<Connection, VPNSession> activeSessions = new HashMap<>();
 	protected Set<Connection> authorizingClients = new HashSet<>();
 	protected ConfigurationService configurationService;
@@ -65,6 +69,9 @@ public class ClientServiceImpl implements ClientService, Listener {
 	private Semaphore startupLock = new Semaphore(1);
 	private ScheduledExecutorService timer;
 	private boolean updating;
+	private long phasesLastRetrieved = 0;
+
+	private JsonExtensionPhaseList phaseList;
 
 	public ClientServiceImpl(LocalContext context) {
 		this.context = context;
@@ -131,7 +138,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 	public void connectionRemoving(Connection connection) {
 		try {
 			synchronized (activeSessions) {
-				if (isConnected(connection)) {
+				if (getStatus(connection) == Type.CONNECTED) {
 					if (StringUtils.isNotBlank(connection.getUserPublicKey())) {
 						VirtualInetAddress addr = getContext().getPlatformService()
 								.getByPublicKey(connection.getPublicKey());
@@ -139,7 +146,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 							addr.delete();
 						}
 					}
-					disconnect(connection);
+					disconnect(connection, null);
 				}
 			}
 		} catch (Exception e) {
@@ -186,7 +193,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	@Override
-	public void disconnect(Connection c) throws RemoteException {
+	public void disconnect(Connection c, String reason) throws RemoteException {
 
 		if (log.isInfoEnabled()) {
 			log.info("Disconnecting connection with id " + c.getId() + "/" + c.getHostname());
@@ -203,6 +210,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 					log.info("Was authorizing, cancelling");
 				}
 				authorizingClients.remove(c);
+				disconnect = true;
 			}
 			if (activeSessions.containsKey(c)) {
 				if (log.isInfoEnabled()) {
@@ -210,7 +218,8 @@ public class ClientServiceImpl implements ClientService, Listener {
 				}
 				disconnect = true;
 				activeSessions.remove(c);
-			} else if (connectingSessions.containsKey(c)) {
+			}
+			if (connectingSessions.containsKey(c)) {
 				if (log.isInfoEnabled()) {
 					log.info("Was connecting, cancelling");
 				}
@@ -219,21 +228,22 @@ public class ClientServiceImpl implements ClientService, Listener {
 				} catch (IOException e) {
 				}
 				connectingSessions.remove(c);
-			} else {
+				disconnect = true;
+			}
+
+			if (!disconnect) {
 				throw new RemoteException("Not connected.");
 			}
 		}
-		if (disconnect) {
-			try {
-				disconnectClient(c);
-			} catch (IOException e) {
-				throw new RemoteException("Failed to disconnect.");
-			}
+		try {
+			disconnectClient(c);
+		} catch (IOException e) {
+			throw new RemoteException("Failed to disconnect.");
 		}
 		/**
 		 * Force removal here for final chance clean up
 		 */
-		context.getGuiRegistry().disconnected(c, null);
+		context.getGuiRegistry().disconnected(c, reason);
 	}
 
 	public void disconnected(Connection connection, HypersocketClient<Connection> client) {
@@ -284,18 +294,22 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	public JsonExtensionPhaseList getPhases() throws RemoteException {
-		ObjectMapper mapper = new ObjectMapper();
-		String extensionStoreRoot = AbstractExtensionUpdater.getExtensionStoreRoot();
-		try {
-			NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
-			transport.connect(extensionStoreRoot);
-			String update = transport.get("store/phases");
-			JsonExtensionPhaseList phaseList = mapper.readValue(update, JsonExtensionPhaseList.class);
-			return phaseList;
-		} catch (IOException ioe) {
-			throw new RemoteException(String.format("Failed to get extension phases from %s.", extensionStoreRoot),
-					ioe);
+		if (this.phaseList == null || phasesLastRetrieved < System.currentTimeMillis() - (PHASES_TIMEOUT * 1000)) {			ObjectMapper mapper = new ObjectMapper();
+			String extensionStoreRoot = AbstractExtensionUpdater.getExtensionStoreRoot();
+			phasesLastRetrieved = System.currentTimeMillis();
+			try {
+				NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
+				transport.connect(extensionStoreRoot);
+				String update = transport.get("store/phases");
+				JsonExtensionPhaseList phaseList = mapper.readValue(update, JsonExtensionPhaseList.class);
+				this.phaseList = phaseList;
+			} catch (IOException ioe) {
+				this.phaseList = new JsonExtensionPhaseList();
+				throw new RemoteException(String.format("Failed to get extension phases from %s.", extensionStoreRoot),
+						ioe);
+			}
 		}
+		return this.phaseList;
 	}
 
 	@Override
@@ -315,8 +329,13 @@ public class ClientServiceImpl implements ClientService, Listener {
 
 	@Override
 	public Type getStatus(Connection c) {
-		return activeSessions.containsKey(c) ? Type.CONNECTED
-				: connectingSessions.containsKey(c) ? Type.CONNECTING : Type.DISCONNECTED;
+		if (authorizingClients.contains(c))
+			return Type.AUTHORIZING;
+		if (activeSessions.containsKey(c))
+			return Type.CONNECTED;
+		if (connectingSessions.containsKey(c))
+			return Type.CONNECTING;
+		return Type.DISCONNECTED;
 	}
 
 	@Override
@@ -347,18 +366,28 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	@Override
+	public Branding getBranding() throws RemoteException {
+		ObjectMapper mapper = new ObjectMapper();
+		Branding branding = null;
+		for (Connection connection : context.getConnectionService().getConnections()) {
+			try {
+				NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
+				transport.connect(connection.getHostname(), connection.getPort(), "/");
+				String update = transport.get("brand/info");
+				Branding brandingObj = mapper.readValue(update, Branding.class);
+				brandingObj.setLogo("https://" + connection.getHostname() + ":" + connection.getPort() + connection.getPath() + "/api/brand/logo");
+				return brandingObj;
+			} catch (IOException ioe) {
+				log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
+						connection.getPort()));
+			}
+		}
+		return branding;
+	}
+
+	@Override
 	public UUID getUUID() {
 		return deviceUUID;
-	}
-
-	@Override
-	public boolean isAuthorizing(Connection c) throws RemoteException {
-		return authorizingClients.contains(c);
-	}
-
-	@Override
-	public boolean isConnected(Connection c) throws RemoteException {
-		return activeSessions.containsKey(c);
 	}
 
 	@Override
@@ -409,17 +438,24 @@ public class ClientServiceImpl implements ClientService, Listener {
 					ClientUpdater guiJob = new ClientUpdater(guiRegistry, guiRegistry.getGUI().getExtensionPlace(),
 							ExtensionTarget.CLIENT_GUI, context);
 
-					guiRegistry.onUpdateInit(appsToUpdate);
 					try {
-						guiJob.update();
-
-						log.info("Update complete, restarting.");
-						guiRegistry.onUpdateDone(true, null);
-
-					} catch (IOException e) {
-						log.error("Failed to update GUI.", e);
-						guiRegistry.onUpdateDone(false, e.getMessage());
+						guiRegistry.onUpdateInit(appsToUpdate);
+						try {
+							guiJob.update();
+	
+							log.info("Update complete, restarting.");
+							guiRegistry.onUpdateDone(true, null);
+	
+						} catch (IOException e) {
+							log.error("Failed to update GUI.", e);
+							guiRegistry.onUpdateDone(false, e.getMessage());
+						}
 					}
+					catch(Exception re) {
+						log.error("GUI refused to update, ignoring.", re);
+						guiRegistry.onUpdateDone(false, null);
+					}
+					
 
 				} else if (updating) {
 
@@ -556,15 +592,22 @@ public class ClientServiceImpl implements ClientService, Listener {
 			} else
 				deviceUUID = UUID.fromString(deviceUUIDString);
 
+			int connected = 0;
 			for (Connection c : context.getConnectionService().getConnections()) {
-				if (c.isConnectAtStartup() && !isConnected(c)) {
-					connect(c);
+				if (c.isConnectAtStartup() && getStatus(c) == Type.DISCONNECTED) {
+					try {
+						connect(c);
+						connected++;
+					}
+					catch(Exception e) {
+						log.error(String.format("Failed to start on-startup connection %s", c.getName()), e);
+					}
 				}
 			}
 
 			timer.scheduleAtFixedRate(() -> checkConnectionsAlive(), POLL_RATE, POLL_RATE, TimeUnit.SECONDS);
 
-			return true;
+			return connected > 0;
 		} catch (RemoteException e) {
 			log.error("Failed to start service", e);
 			return false;
@@ -740,7 +783,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 						"Session with public key %s hasn't had a valid handshake for %d seconds, disconnecting.",
 						sessionEn.getKey().getUserPublicKey(), ClientService.HANDSHAKE_TIMEOUT));
 				try {
-					disconnect(sessionEn.getKey());
+					disconnect(sessionEn.getKey(), null);
 				} catch (Exception e) {
 					log.warn("Failed to disconnect dead session. State may be incorrect.", e);
 				}

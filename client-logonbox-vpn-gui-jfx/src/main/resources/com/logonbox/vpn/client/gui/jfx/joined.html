@@ -17,26 +17,30 @@
 			<div class="container">
 				<div class="row text-center">
 					<div class="col-md-12">
-						<p data-i18n="connectedTo" data-i18n-0="server" data-i18n-1="usernameHint">You are connected to <span data-content="server">9.8.7.6</span></p>
+						<h3 data-i18n="connectedTo" data-i18n-0="server" data-i18n-1="usernameHint">You are connected to <span data-content="server">9.8.7.6</span></h3>
 					</div>
 					<div class="col-md-12">
 						<p><i class="fa fa-check-circle text-success fa-5x"></i></p>
 					</div>
 					<div class="col-md-12">
-						<label data-i18n="ipAddress">Your IP Address</label>
 						<span data-content="address">1.2.3.4</span>
 					</div>
-					<div class="col-md-12">
-						<label data-i18n="userPublicKey">Your Public Key</label>
-						<code data-content="userPublicKey">XCVXCVXCVXCVXCV</code>
+					<div class="col-md-12 mt-3">
+						<button id="disconnect" type="button" class="btn btn-primary" data-i18n="disconnect">Disconnect</button>
 					</div>
-					<div class="col-md-12">
-						<button onclick="bridge.unjoin();" type="button" class="btn btn-primary" data-i18n="disconnect">Disconnect</button>
+					<div class="col-md-12 mt-3">
+						<small><a href="details.html"  data-i18n="details">Disconnect</a></small>
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
-
+	<script type="text/javascript">
+		$(document).ready(function() {
+			$('#disconnect').off('click').on('click', function() {
+				bridge.unjoin(null);
+			});
+		});
+	</script>
 </body>
 </html>

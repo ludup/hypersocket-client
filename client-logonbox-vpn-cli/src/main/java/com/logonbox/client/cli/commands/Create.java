@@ -72,7 +72,7 @@ public class Create implements Command {
 				cli.getConnectionService().delete(connection);
 			} else {
 				System.out.println(String.format("Created %s", connection.getHostname()));
-				cli.getClientService().disconnect(connection);
+				cli.getClientService().disconnect(connection, null);
 			}
 		}
 	}

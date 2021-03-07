@@ -14,7 +14,7 @@
 	<div id="wrap">
 		<div id="main" class="container clear-top mt-3">
 			<h1 data-i18n="editConnection">Edit Connection</h1>
-			<form id="editConnectionForm" onsubmit="bridge.editConnection({'serverUrl':$('#serverUrl').val(),'connectAtStartup':$('#connectAtStartup').is(':checked')}); return false;">
+			<form id="editConnectionForm">
 				<div class="form-group">
 					<label for="serverUrl" data-i18n="serverAddress">Server address</label> 
 					<input type="text" class="form-control" id="serverUrl" data-attr-name="value" data-attr-value="serverUrl"
@@ -33,5 +33,17 @@
 	</div>
 
 
+
+	<script type="text/javascript">
+		$(document).ready(function() {
+			$("#editConnectionForm").submit(function(event) { 
+				bridge.editConnection({
+					'serverUrl':$('#serverUrl').val(),
+					'connectAtStartup':$('#connectAtStartup').is(':checked')
+				});
+				return false;
+			});
+		});
+	</script>
 </body>
 </html>

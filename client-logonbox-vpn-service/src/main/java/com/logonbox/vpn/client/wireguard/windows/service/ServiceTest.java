@@ -6,8 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import org.apache.commons.io.IOUtils;
-
 import com.logonbox.vpn.client.wireguard.windows.WindowsPlatformServiceImpl;
 
 public class ServiceTest {
@@ -50,7 +48,7 @@ public class ServiceTest {
 			Path netCfgFile = connectionsDir.resolve(name + ".conf");
 			try (OutputStream o = Files.newOutputStream(netCfgFile)) {
 				try (InputStream i = Files.newInputStream(cfgFile)) {
-					IOUtils.copy(i, o);
+					i.transferTo(o);
 				}
 			}
 

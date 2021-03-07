@@ -1,5 +1,9 @@
+@font-face {
+	src: url('/com/logonbox/vpn/client/gui/jfx/ARLRDBD.TTF');
+}
+
 .inverse {
-  -fx-background-color: #1e0c51;
+  -fx-background-color: -fx-lbvpn-background;
   -fx-text-fill: white;
 }
 
@@ -9,9 +13,6 @@
 
 .inverse FontIcon, .inverse FontIcon {
   -fx-icon-color: white;
-}
-
-#sidebar {
 }
 
 .iconButton, .icon, .smallIcon {	
@@ -26,18 +27,13 @@
     -fx-font-size: 16px;
 }
 
-.title {
+#header .titleBar {
     -fx-font-family: 'Arial Rounded MT Bold';
     -fx-font-size: 24px;
 }
 
-/** Add your own styling to this stylesheet **/
 #header FontIcon {
 	-fx-icon-color: white;
-}
-
-#header img {
-    /*-fx-preferrheight: 35px;*/
 }
 
 .navbar-brand {
@@ -45,10 +41,7 @@
 } 
 
 .navbar-inverse {
-  -fx-background-color: #1e0c51;
-}
-
-#footer, #header { 
+  -fx-background-color: -fx-lbvpn-background;
 }
 
 #footer Label, #header Label,  #header Hyperlink,  #footer Hyperlink {
@@ -56,29 +49,22 @@
 }
 
 .large-button-active {
-   -fx-text-fill: #1e0c51 !important;
+   -fx-text-fill: -fx-lbvpn-background !important;
 }
 
 .large-button:hover {
-  -fx-text-fill: #1e0c51 !important;
+  -fx-text-fill: -fx-lbvpn-background !important;
 }
 
 .progress-bar {
-  -fx-background-color: #1e0c51; 
+  -fx-background-color: -fx-lbvpn-background; 
 }
 
-/*
-.slider-handle {
-    -fx-background-color: #1e0c51;
-    background-image: linear-gradient(to bottom, #1e0c51, #1e0c51);
-} */
-
 a:focus, a:hover {
-    -fx-text-fill: #1e0c51;
-    /*text-decoration: underline;*/
+    -fx-text-fill: -fx-lbvpn-background;
 }
 
 a {
-    -fx-text-fill: #1e0c51;
+    -fx-text-fill: -fx-lbvpn-background;
 }
 

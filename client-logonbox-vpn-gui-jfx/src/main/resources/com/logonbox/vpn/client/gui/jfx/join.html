@@ -20,12 +20,19 @@
 						<p data-i18n="disconnectedFrom" data-i18n-0="server">[Disconnected Info]</p>
 					</div>
 					<div class="col-md-12">
-						<button data-i18n="connect" onclick="bridge.join();" type="button" class="btn btn-primary">Connect</button>
+						<button data-i18n="connect" id="connect" type="button" class="btn btn-primary">Connect</button>
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
 
+	<script type="text/javascript">
+		$(document).ready(function() {
+			$('#connect').off('click').on('click', function() {
+				bridge.connect();
+			});
+		});
+	</script>
 </body>
 </html>

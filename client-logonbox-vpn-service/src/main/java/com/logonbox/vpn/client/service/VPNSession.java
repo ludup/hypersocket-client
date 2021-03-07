@@ -50,8 +50,8 @@ public class VPNSession implements Closeable {
 		}
 		if (ip != null) {
 			log.info(String.format("Closing VPN session for %s", ip.getName()));
-			ip.down();
-			ip.delete();
+			LocalContext cctx = getLocalContext();
+			cctx.getPlatformService().disconnect(this);
 		}
 	}
 

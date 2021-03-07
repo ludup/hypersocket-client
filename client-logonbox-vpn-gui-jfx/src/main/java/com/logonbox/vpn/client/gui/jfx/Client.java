@@ -2,7 +2,12 @@ package com.logonbox.vpn.client.gui.jfx;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.GeneralSecurityException;
@@ -24,19 +29,24 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.PropertyConfigurator;
+import org.kordamp.bootstrapfx.BootstrapFX;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.goxr3plus.fxborderlessscene.borderless.BorderlessScene;
 import com.logonbox.vpn.client.gui.jfx.MiniHttpServer.DynamicContent;
 import com.logonbox.vpn.client.gui.jfx.MiniHttpServer.DynamicContentFactory;
+import com.logonbox.vpn.common.client.Branding;
+import com.logonbox.vpn.common.client.BrandingInfo;
 
+import dorkbox.systemTray.SystemTray;
 import javafx.application.Application;
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
-import javafx.fxml.Initializable;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
@@ -45,6 +55,7 @@ import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
 import javafx.scene.image.Image;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -86,13 +97,10 @@ public class Client extends Application implements X509TrustManager {
 	static UUID localWebServerCookie = UUID.randomUUID();
 
 	private Bridge bridge;
-
 	private ExecutorService loadQueue = Executors.newSingleThreadExecutor();
 	private boolean waitingForExitChoice;
-
 	private Stage primaryStage;
 	private MiniHttpServer miniHttp;
-
 	private Tray tray;
 	private static Client instance;
 
@@ -108,17 +116,18 @@ public class Client extends Application implements X509TrustManager {
 				System.getProperty("hypersocket.logConfiguration", "conf" + File.separator + "log4j.properties"));
 	}
 
-	public FramedController openScene(Class<? extends Initializable> controller) throws IOException {
+	public <C extends AbstractController> C openScene(Class<C> controller) throws IOException {
 		return openScene(controller, null);
 	}
 
-	public FramedController openScene(Class<? extends Initializable> controller, String fxmlSuffix) throws IOException {
+	@SuppressWarnings("unchecked")
+	public <C extends AbstractController> C openScene(Class<C> controller, String fxmlSuffix) throws IOException {
 		URL resource = controller
 				.getResource(controller.getSimpleName() + (fxmlSuffix == null ? "" : fxmlSuffix) + ".fxml");
 		FXMLLoader loader = new FXMLLoader();
 		loader.setResources(ResourceBundle.getBundle(controller.getName()));
 		Parent root = loader.load(resource.openStream());
-		FramedController controllerInst = (FramedController) loader.getController();
+		C controllerInst = (C) loader.getController();
 		if (controllerInst == null) {
 			throw new IOException("Controller not found. Check controller in FXML");
 		}
@@ -131,8 +140,7 @@ public class Client extends Application implements X509TrustManager {
 	public void start(Stage primaryStage) throws Exception {
 		this.primaryStage = primaryStage;
 
-		if (!getParameters().getNamed().containsKey("strictSSL")
-				|| "false".equalsIgnoreCase(getParameters().getNamed().get("strictSSL"))) {
+		if (!"false".equalsIgnoreCase(getParameters().getNamed().get("strictSSL"))) {
 			installAllTrustingCertificateVerifier();
 		}
 
@@ -214,11 +222,11 @@ public class Client extends Application implements X509TrustManager {
 		primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("logonbox-icon32x32.png")));
 
 		// Open the actual scene
-		FramedController fc = openScene(UI.class, null);
+		UI fc = openScene(UI.class, null);
 		Scene scene = fc.getScene();
 		Parent node = scene.getRoot();
 
-		node.getStylesheets().add(Client.class.getResource(Client.class.getSimpleName() + ".css").toExternalForm());
+		applyColors(null, node);
 
 		/* Anchor to stretch the content across the borderless window */
 		AnchorPane anchor = new AnchorPane(node);
@@ -227,10 +235,15 @@ public class Client extends Application implements X509TrustManager {
 		AnchorPane.setTopAnchor(node, 0d);
 		AnchorPane.setRightAnchor(node, 0d);
 
-		BorderlessScene primaryScene = new BorderlessScene(primaryStage, StageStyle.TRANSPARENT, anchor, 460, 200);
-		primaryScene.setMoveControl(node);
+		String[] sizeParts = Main.getInstance().getSize().toLowerCase().split("x");
+		BorderlessScene primaryScene = new BorderlessScene(primaryStage, StageStyle.TRANSPARENT, anchor,
+				Integer.parseInt(sizeParts[0]), Integer.parseInt(sizeParts[1]));
+		if(!Main.getInstance().isNoMove())
+			primaryScene.setMoveControl(node);
 		primaryScene.setSnapEnabled(false);
-		primaryScene.setResizable(true);
+		primaryScene.removeDefaultCSS();
+		primaryScene.setResizable(!Main.getInstance().isNoMove());
+		primaryStage.setAlwaysOnTop(Main.getInstance().isAlwaysOnTop());
 
 		// Finalise and show
 		Configuration cfg = Configuration.getDefault();
@@ -255,13 +268,18 @@ public class Client extends Application implements X509TrustManager {
 		primaryStage.heightProperty().addListener((c, o, n) -> cfg.hProperty().set(n.intValue()));
 
 		primaryStage.onCloseRequestProperty().set(we -> {
-			confirmExit();
+			if (!Main.getInstance().isNoClose())
+				confirmExit();
 			we.consume();
 		});
 
 		bridge.start();
 
-		tray = new Tray(this);
+		if (!Main.getInstance().isNoSystemTray()) {
+			SystemTray.PREFER_GTK3 = true;
+			SystemTray.DEBUG = true;
+			tray = new DorkBoxTray(this);
+		}
 	}
 
 	public Stage getStage() {
@@ -367,10 +385,13 @@ public class Client extends Application implements X509TrustManager {
 
 	@Override
 	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-		System.out.println("checkServerTrusted " + authType);
 		for (X509Certificate c : chain) {
-			System.out.println("  checkServerTrusted cert " + c.getSubjectDN());
-			c.checkValidity();
+			try {
+				c.checkValidity();
+			} catch (CertificateException ce) {
+				log.error("Certificate error.", ce);
+				throw ce;
+			}
 		}
 	}
 
@@ -381,8 +402,10 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	public void open() {
+		log.info("Open request");
 		Platform.runLater(() -> {
 			primaryStage.show();
+			primaryStage.toFront();
 		});
 	}
 
@@ -399,4 +422,153 @@ public class Client extends Application implements X509TrustManager {
 		}
 	}
 
+	File getCustomJavaFXCSSFile() {
+		File tmpFile;
+		if (System.getProperty("hypersocket.bootstrap.distDir") == null)
+			tmpFile = new File(new File(System.getProperty("java.io.tmpdir")),
+					System.getProperty("user.name") + "-lbvpn-jfx.css");
+		else
+			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")), "lbvpn-jfx.css");
+		return tmpFile;
+	}
+
+	File getCustomLocalWebCSSFile() {
+		File tmpFile;
+		if (System.getProperty("hypersocket.bootstrap.distDir") == null)
+			tmpFile = new File(new File(System.getProperty("java.io.tmpdir")),
+					System.getProperty("user.name") + "-lbvpn-web.css");
+		else
+			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")), "lbvpn-web.css");
+		return tmpFile;
+	}
+
+	String getCustomJavaFXCSSResource(Branding branding) {
+		StringBuilder bui = new StringBuilder();
+
+		// Get the base colour. All other colours are derived from this
+		Color backgroundColour = Color
+				.valueOf(branding == null ? BrandingInfo.DEFAULT_BACKGROUND : branding.getResource().getBackground());
+		Color foregroundColour = Color
+				.valueOf(branding == null ? BrandingInfo.DEFAULT_FOREGROUND : branding.getResource().getForeground());
+
+		if (backgroundColour.getOpacity() == 0) {
+			// Prevent total opacity, as mouse events won't be received
+			backgroundColour = new Color(backgroundColour.getRed(), backgroundColour.getGreen(),
+					backgroundColour.getBlue(), 1f / 255f);
+		}
+
+		bui.append("* {\n");
+
+		bui.append("-fx-lbvpn-background: ");
+		bui.append(toHex(backgroundColour));
+		bui.append(";\n");
+
+		bui.append("-fx-lbvpn-foreground: ");
+		bui.append(toHex(foregroundColour));
+		bui.append(";\n");
+
+//
+		// Highlight
+		if (backgroundColour.getSaturation() == 0) {
+			// Greyscale, so just use HS blue
+			bui.append("-fx-lbvpn-accent: 1e0c51;\n");
+			bui.append("-fx-lbvpn-accent2: 0e0041;\n");
+		} else {
+			// A colour, so choose the next adjacent colour in the HSB colour
+			// wheel (45 degrees)
+			bui.append("-fx-lbvpn-accent: " + toHex(backgroundColour.deriveColor(45f, 1f, 1f, 1f)) + ";\n");
+			bui.append("-fx-lbvpn-accent: " + toHex(backgroundColour.deriveColor(-45f, 1f, 1f, 1f)) + ";\n");
+		}
+
+		// End
+		bui.append("}\n");
+
+		return bui.toString();
+
+	}
+
+	void applyColors(Branding branding, Parent node) {
+		ObservableList<String> ss = node.getStylesheets();
+
+		/* No branding, remove the custom styles if there are any */
+		ss.clear();
+
+		/* Create new custom local web styles */
+		writeLocalWebCSS(branding);
+
+		/* Create new JavaFX custom styles */
+		writeJavaFXCSS(branding);
+		File tmpFile = getCustomJavaFXCSSFile();
+		log.info(String.format("Using custom JavaFX stylesheet %s", tmpFile));
+		ss.add(0, toUri(tmpFile).toExternalForm());
+
+		node.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
+		node.getStylesheets().add(Client.class.getResource("bootstrapfx.override.css").toExternalForm());
+		node.getStylesheets().add(Client.class.getResource(Client.class.getSimpleName() + ".css").toExternalForm());
+
+	}
+
+	void writeLocalWebCSS(Branding branding) {
+		File tmpFile = getCustomLocalWebCSSFile();
+		String url = toUri(tmpFile).toExternalForm();
+		log.info(String.format("Writing local web style sheet to %s", url));
+		String cbg = branding == null ? BrandingInfo.DEFAULT_BACKGROUND : branding.getResource().getBackground();
+		String cfg = branding == null ? BrandingInfo.DEFAULT_FOREGROUND : branding.getResource().getForeground();
+		String cac = toHex(Color.valueOf(cbg).deriveColor(0, 1, 0.85, 1));
+		String cac2 = toHex(Color.valueOf(cbg).deriveColor(0, 1, 1.15, 1));
+		try (PrintWriter output = new PrintWriter(new FileWriter(tmpFile))) {
+			try (InputStream input = UI.class.getResource("local.css").openStream()) {
+				for (String line : IOUtils.readLines(input)) {
+					line = line.replace("${lbvpnBackground}", cbg);
+					line = line.replace("${lbvpnForeground}", cfg);
+					line = line.replace("${lbvpnAccent}", cac);
+					line = line.replace("${lbvpnAccent2}", cac2);
+					output.println(line);
+				}
+			}
+		} catch (IOException ioe) {
+			throw new IllegalStateException("Failed to load local style sheet template.", ioe);
+		}
+	}
+
+	void writeJavaFXCSS(Branding branding) {
+		try {
+			File tmpFile = getCustomJavaFXCSSFile();
+			String url = toUri(tmpFile).toExternalForm();
+			log.info(String.format("Writing JavafX style sheet to %s", url));
+			PrintWriter pw = new PrintWriter(new FileOutputStream(tmpFile));
+			try {
+				pw.println(getCustomJavaFXCSSResource(branding));
+			} finally {
+				pw.close();
+			}
+		} catch (IOException e) {
+			throw new RuntimeException("Could not create custom CSS resource.");
+		}
+	}
+
+	static URL toUri(File tmpFile) {
+		try {
+			return tmpFile.toURI().toURL();
+		} catch (MalformedURLException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	static String toHex(Color color) {
+		return toHex(color, -1);
+	}
+
+	static String toHex(Color color, boolean opacity) {
+		return toHex(color, opacity ? color.getOpacity() : -1);
+	}
+
+	static String toHex(Color color, double opacity) {
+		if (opacity > -1)
+			return String.format("#%02x%02x%02x%02x", (int) (color.getRed() * 255), (int) (color.getGreen() * 255),
+					(int) (color.getBlue() * 255), (int) (opacity * 255));
+		else
+			return String.format("#%02x%02x%02x", (int) (color.getRed() * 255), (int) (color.getGreen() * 255),
+					(int) (color.getBlue() * 255));
+	}
 }
