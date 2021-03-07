@@ -36,7 +36,7 @@ public class NetworkConfigurationService {
 	 * Main.
 	 *
 	 * @param args arguments
-	 * @throws on error
+	 * @throws Exception on error
 	 */
 	public static void main(String[] args) throws Exception {
 		File confFile = null;

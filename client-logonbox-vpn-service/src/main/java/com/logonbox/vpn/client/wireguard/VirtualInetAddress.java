@@ -13,7 +13,7 @@ public interface VirtualInetAddress {
 	/**
 	 * Entirely disconnect and delete the interface.
 	 * 
-	 * @throws on any I/O error
+	 * @throws IOException on any I/O error
 	 */
 	void delete() throws IOException;
 

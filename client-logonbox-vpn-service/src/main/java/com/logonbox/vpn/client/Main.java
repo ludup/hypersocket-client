@@ -81,7 +81,7 @@ public class Main implements LocalContext {
 	 * Entry point
 	 *  
 	 * @param args arguments
-	 * @throws Exception
+	 * @throws Exception on any error
 	 */
 	public static void main(String[] args) throws Exception {
 		instance = new Main(new DefaultRestartCallback(), new DefaultShutdownCallback(), args);
