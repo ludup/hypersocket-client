@@ -61,6 +61,9 @@ import com.logonbox.vpn.common.client.Keys.KeyPair;
 import com.logonbox.vpn.common.client.Util;
 import com.sshtools.twoslices.Toast;
 import com.sshtools.twoslices.ToastType;
+import com.sshtools.twoslices.ToasterFactory;
+import com.sshtools.twoslices.ToasterSettings;
+import com.sshtools.twoslices.ToasterSettings.SystemTrayIconMode;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -186,6 +189,14 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	final static ResourceBundle bundle = ResourceBundle.getBundle(UI.class.getName());
+	
+	static {
+		ToasterSettings settings = new ToasterSettings();
+		settings.setAppName(bundle.getString("appName"));
+		settings.setSystemTrayIconMode(SystemTrayIconMode.HIDDEN);
+		ToasterFactory.setSettings(settings);
+	}
+	
 	static int DROP_SHADOW_SIZE = 11;
 
 	final static Logger log = LoggerFactory.getLogger(UI.class);
@@ -559,7 +570,9 @@ public class UI extends AbstractController implements Listener {
 			Connection connectionSaved = connectionService.add(connection);
 			connections.getItems().add(connectionSaved);
 			connections.getSelectionModel().select(connectionSaved);
+			reloadState();
 			reapplyColors();
+			reapplyLogo();
 			authorize(connectionSaved);
 
 		} catch (Exception e) {
@@ -903,6 +916,12 @@ public class UI extends AbstractController implements Listener {
 				sidebar.setVisible(false);
 			}
 		});
+		connections.getSelectionModel().selectedItemProperty().addListener((e, o, n) -> {
+			reloadState();
+			reapplyColors();
+			reapplyLogo();
+			selectPageForState(false, false);
+		});
 
 		/* Context menu */
 		ContextMenu menu = new ContextMenu();
@@ -1122,7 +1141,9 @@ public class UI extends AbstractController implements Listener {
 					Connection connectionSaved = connectionService.add(connection);
 					connections.getItems().add(connectionSaved);
 					connections.getSelectionModel().select(connectionSaved);
+					reloadState();
 					reapplyColors();
+					reapplyLogo();
 					authorize(connectionSaved);
 				} else {
 					showError(MessageFormat.format(bundle.getString("error.uriProvidedDoesntExist"), uriObj));
@@ -1221,7 +1242,9 @@ public class UI extends AbstractController implements Listener {
 			items.remove(sel);
 			Connection newConnections = items.isEmpty() ? null : items.get(0);
 			sel = newConnections;
+			reloadState();
 			reapplyColors();
+			reapplyLogo();
 			connections.getSelectionModel().clearSelection();
 			rebuildConnections(sel);
 			selectPageForState(false, false);
@@ -1233,7 +1256,7 @@ public class UI extends AbstractController implements Listener {
 	private void reloadState() {
 		try {
 			mode = context.getBridge().getClientService().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
-			branding = context.getBridge().getClientService().getBranding();
+			branding = context.getBridge().getClientService().getBranding(getSelectedConnection());
 			if (branding == null) {
 				log.info(String.format("Removing branding."));
 				if(logoFile != null) {
@@ -1275,9 +1298,7 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	private void reapplyColors() {
-		reloadState();
 		context.applyColors(branding, getScene().getRoot());
-		reapplyLogo();
 	}
 
 	private void reapplyLogo() {

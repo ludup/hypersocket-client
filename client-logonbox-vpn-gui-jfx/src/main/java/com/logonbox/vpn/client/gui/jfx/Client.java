@@ -110,6 +110,12 @@ public class Client extends Application implements X509TrustManager {
 
 	@Override
 	public void init() throws Exception {
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			public void run() {
+				cleanUp();
+			}
+		});
+		
 		Platform.setImplicitExit(false);
 		instance = this;
 		PropertyConfigurator.configureAndWatch(
@@ -328,13 +334,22 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	protected void exitApp() {
+		System.exit(0);
+	}
+
+	protected void cleanUp() {
+		if(tray != null) {
+			try {
+				tray.close();
+			} catch (Exception e) {
+			}
+		}
 		if (miniHttp != null) {
 			try {
 				miniHttp.close();
 			} catch (IOException e) {
 			}
 		}
-		System.exit(0);
 	}
 
 	public ExecutorService getLoadQueue() {

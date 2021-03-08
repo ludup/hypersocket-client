@@ -57,7 +57,7 @@ public interface ClientService extends Remote {
 
 	JsonExtensionUpdate getUpdates() throws RemoteException;
 
-	Branding getBranding() throws RemoteException;
+	Branding getBranding(Connection connection) throws RemoteException;
 
 	void update() throws RemoteException;
 
