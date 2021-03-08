@@ -1,6 +1,7 @@
 package com.logonbox.vpn.client.service;
 
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,6 +20,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hypersocket.client.HypersocketClient;
 import com.hypersocket.client.UserCancelledException;
@@ -50,7 +53,6 @@ public class ClientServiceImpl implements ClientService, Listener {
 	static Logger log = LoggerFactory.getLogger(ClientServiceImpl.class);
 
 	static final int POLL_RATE = 30;
-
 
 	private static final int PHASES_TIMEOUT = 3600 * 24;
 
@@ -294,7 +296,8 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	public JsonExtensionPhaseList getPhases() throws RemoteException {
-		if (this.phaseList == null || phasesLastRetrieved < System.currentTimeMillis() - (PHASES_TIMEOUT * 1000)) {			ObjectMapper mapper = new ObjectMapper();
+		if (this.phaseList == null || phasesLastRetrieved < System.currentTimeMillis() - (PHASES_TIMEOUT * 1000)) {
+			ObjectMapper mapper = new ObjectMapper();
 			String extensionStoreRoot = AbstractExtensionUpdater.getExtensionStoreRoot();
 			phasesLastRetrieved = System.currentTimeMillis();
 			try {
@@ -366,23 +369,40 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	@Override
-	public Branding getBranding() throws RemoteException {
+	public Branding getBranding(Connection connection) throws RemoteException {
 		ObjectMapper mapper = new ObjectMapper();
 		Branding branding = null;
-		for (Connection connection : context.getConnectionService().getConnections()) {
+		if (connection != null) {
 			try {
-				NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
-				transport.connect(connection.getHostname(), connection.getPort(), "/");
-				String update = transport.get("brand/info");
-				Branding brandingObj = mapper.readValue(update, Branding.class);
-				brandingObj.setLogo("https://" + connection.getHostname() + ":" + connection.getPort() + connection.getPath() + "/api/brand/logo");
-				return brandingObj;
+				branding = getBrandingForConnection(mapper, connection);
 			} catch (IOException ioe) {
 				log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
 						connection.getPort()));
 			}
 		}
+		if (branding == null) {
+			for (Connection conx : context.getConnectionService().getConnections()) {
+				try {
+					branding = getBrandingForConnection(mapper, conx);
+					break;
+				} catch (IOException ioe) {
+					log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
+							connection.getPort()));
+				}
+			}
+		}
 		return branding;
+	}
+
+	protected Branding getBrandingForConnection(ObjectMapper mapper, Connection connection)
+			throws UnknownHostException, IOException, JsonProcessingException, JsonMappingException {
+		NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
+		transport.connect(connection.getHostname(), connection.getPort(), "/");
+		String update = transport.get("brand/info");
+		Branding brandingObj = mapper.readValue(update, Branding.class);
+		brandingObj.setLogo("https://" + connection.getHostname() + ":" + connection.getPort() + connection.getPath()
+				+ "/api/brand/logo");
+		return brandingObj;
 	}
 
 	@Override
@@ -442,20 +462,18 @@ public class ClientServiceImpl implements ClientService, Listener {
 						guiRegistry.onUpdateInit(appsToUpdate);
 						try {
 							guiJob.update();
-	
+
 							log.info("Update complete, restarting.");
 							guiRegistry.onUpdateDone(true, null);
-	
+
 						} catch (IOException e) {
 							log.error("Failed to update GUI.", e);
 							guiRegistry.onUpdateDone(false, e.getMessage());
 						}
-					}
-					catch(Exception re) {
+					} catch (Exception re) {
 						log.error("GUI refused to update, ignoring.", re);
 						guiRegistry.onUpdateDone(false, null);
 					}
-					
 
 				} else if (updating) {
 
@@ -598,8 +616,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 					try {
 						connect(c);
 						connected++;
-					}
-					catch(Exception e) {
+					} catch (Exception e) {
 						log.error(String.format("Failed to start on-startup connection %s", c.getName()), e);
 					}
 				}
