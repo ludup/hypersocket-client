@@ -84,6 +84,9 @@ public class Client extends Application implements X509TrustManager {
 	static final boolean generateKeysClientSide = System.getProperty("logonbox.vpn.generateKeyClientSide", "true")
 			.equals("true");
 
+	static final boolean allowBranding = System.getProperty("logonbox.vpn.allowBranding", "true")
+			.equals("true");
+
 	/**
 	 * Matches the identifier in logonbox VPN server
 	 * PeerConfigurationAuthenticationProvider.java
@@ -257,8 +260,8 @@ public class Client extends Application implements X509TrustManager {
 		int h = cfg.hProperty().get();
 		int w = cfg.wProperty().get();
 		if (h == 0 && w == 0) {
-			primaryStage.setWidth(700);
-			primaryStage.setHeight(640);
+			primaryStage.setWidth(450);
+			primaryStage.setHeight(768);
 		} else {
 			primaryStage.setX(x);
 			primaryStage.setY(y);

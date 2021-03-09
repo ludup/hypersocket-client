@@ -43,14 +43,12 @@
 	</div>
 
 	<script type="text/javascript">
-		$(document).ready(function() {
-			$("#addConnectionForm").submit(function(event) {
-				bridge.addConnection({
-					'serverUrl':$('#serverUrl').val(),
-					'connectAtStartup':$('#connectAtStartup').is(':checked')
-				});
-				return false;
+		$("#addConnectionForm").submit(function(event) {
+			bridge.addConnection({
+				'serverUrl':$('#serverUrl').val(),
+				'connectAtStartup':$('#connectAtStartup').is(':checked')
 			});
+			return false;
 		});
 	</script>
 

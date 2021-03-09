@@ -93,6 +93,8 @@ import netscape.javascript.JSObject;
 
 public class UI extends AbstractController implements Listener {
 
+	private static final String DEFAULT_LOCALHOST_ADDR = "http://localhost:59999/";
+
 	/**
 	 * This object is exposed to the local HTML/Javascript that runs in the browse.
 	 */
@@ -619,7 +621,7 @@ public class UI extends AbstractController implements Listener {
 		});
 		engine.locationProperty().addListener((c, oldLoc, newLoc) -> {
 			if (newLoc != null) {
-				if (newLoc.startsWith("http://") || newLoc.startsWith("https://")) {
+				if ((newLoc.startsWith("http://") || newLoc.startsWith("https://")) && !(newLoc.startsWith(DEFAULT_LOCALHOST_ADDR))) {
 					log.info("This is a remote page, not changing current html page");
 					htmlPage = null;
 				} else {
@@ -1036,7 +1038,7 @@ public class UI extends AbstractController implements Listener {
 					String loc = htmlPage;
 					if (Client.useLocalHTTPService) {
 						// webView.getEngine().load("app://" + htmlPage);
-						loc = "http://localhost:59999/" + htmlPage;
+						loc = DEFAULT_LOCALHOST_ADDR + htmlPage;
 					} else {
 						URL resource = UI.class.getResource(htmlPage);
 						if (resource == null)
@@ -1051,7 +1053,8 @@ public class UI extends AbstractController implements Listener {
 					java.net.CookieHandler.getDefault().put(uri.resolve("/"), headers);
 
 					LOG.info(String.format("Loading location %s", loc));
-					webView.getEngine().load(loc);
+//					webView.getEngine().load(loc);
+					webView.getEngine().loadContent("<html><body><h1>Stuff!</h2></body></html>");
 				}
 
 				sidebar.setVisible(false);
@@ -1256,10 +1259,11 @@ public class UI extends AbstractController implements Listener {
 	private void reloadState() {
 		try {
 			mode = context.getBridge().getClientService().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
-			branding = context.getBridge().getClientService().getBranding(getSelectedConnection());
+			if(Client.allowBranding)
+				branding = context.getBridge().getClientService().getBranding(getSelectedConnection());
 			if (branding == null) {
-				log.info(String.format("Removing branding."));
 				if(logoFile != null) {
+					log.info(String.format("Removing branding."));
 					logoFile.delete();
 				}
 			}
