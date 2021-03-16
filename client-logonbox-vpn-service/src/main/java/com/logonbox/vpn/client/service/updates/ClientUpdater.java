@@ -87,8 +87,8 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 			JsonExtensionUpdate v = cctx.getClientService().getUpdates();
 			return ExtensionHelper.resolveExtensions(true,
 					FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
-					v.getResource().getRepos(), v.getResource().getLatestVersion(), HypersocketVersion.getSerial(),
-					"Hypersocket Client", v.getResource().getCustomer(), extensionPlace, true, null,
+					new String[] { "logonbox-vpn-client" }, v.getResource().getLatestVersion(), HypersocketVersion.getSerial(),
+					"LogonBox VPN Client", v.getResource().getCustomer(), extensionPlace, true, null,
 					getUpdateTargets());
 		} else {
 			JsonExtensionPhaseList v = cctx.getClientService().getPhases();
@@ -106,8 +106,8 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 			return ExtensionHelper.resolveExtensions(true,
 					FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
-					new String[] { "hypersocket-client" }, phase.getVersion(), HypersocketVersion.getSerial(),
-					"Hypersocket Client", "Public", extensionPlace, true, null, getUpdateTargets());
+					new String[] { "logonbox-vpn-client" }, phase.getVersion(), HypersocketVersion.getSerial(),
+					"LogonBox VPN Client", "Public", extensionPlace, true, null, getUpdateTargets());
 		}
 	}
 
