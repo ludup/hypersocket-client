@@ -13,6 +13,8 @@ public class Util {
 			}
 			uriString = "https://" + uriString;
 		}
+		while(uriString.endsWith("/"))
+			uriString = uriString.substring(0, uriString.length() - 1);
 		URI uri = new URI(uriString);
 		if("".equals(uri.getPath()))
 			uri = uri.resolve("/app");

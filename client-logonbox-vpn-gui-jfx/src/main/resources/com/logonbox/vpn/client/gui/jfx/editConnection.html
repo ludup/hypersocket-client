@@ -35,14 +35,12 @@
 
 
 	<script type="text/javascript">
-		$(document).ready(function() {
-			$("#editConnectionForm").submit(function(event) { 
-				bridge.editConnection({
-					'serverUrl':$('#serverUrl').val(),
-					'connectAtStartup':$('#connectAtStartup').is(':checked')
-				});
-				return false;
+		$("#editConnectionForm").submit(function(event) { 
+			bridge.editConnection({
+				'serverUrl':$('#serverUrl').val(),
+				'connectAtStartup':$('#connectAtStartup').is(':checked')
 			});
+			return false;
 		});
 	</script>
 </body>

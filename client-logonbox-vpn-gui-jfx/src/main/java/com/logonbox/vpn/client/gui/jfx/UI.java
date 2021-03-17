@@ -1260,6 +1260,7 @@ public class UI extends AbstractController implements Listener {
 				log.info(String.format("Removing branding."));
 				if (logoFile != null) {
 					logoFile.delete();
+					logoFile = null;
 				}
 			} else {
 				log.info(String.format("Adding custom branding"));
@@ -1289,6 +1290,7 @@ public class UI extends AbstractController implements Listener {
 						log.info(String.format("Logo cached from %s to %s", logoUrl, newLogoFile.toURI()));
 					} catch (Exception e) {
 						log.error(String.format("Failed to cache logo"), e);
+						branding.setLogo(null);
 					}
 				}
 			}
