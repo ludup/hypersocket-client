@@ -272,17 +272,16 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 	@Override
 	public void registered() throws RemoteException {
-		System.err.println("[[REGISTERED]]");
+		log.info("Registered");
 	}
 
 	@Override
 	public void unregistered() throws RemoteException {
-		System.err.println("[[UNREGISTERED]]");
+		log.info("Unregistered");
 	}
 
 	@Override
 	public void notify(String msg, int type) throws RemoteException {
-		System.err.println("[[NOTIFY]] " + msg + " (" + type + ")");
 		Platform.runLater(new Runnable() {
 			public void run() {
 				UI.getInstance().notify(msg, type);

@@ -296,23 +296,32 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	public JsonExtensionPhaseList getPhases() throws RemoteException {
-		if (this.phaseList == null || phasesLastRetrieved < System.currentTimeMillis() - (PHASES_TIMEOUT * 1000)) {
-			ObjectMapper mapper = new ObjectMapper();
-			String extensionStoreRoot = AbstractExtensionUpdater.getExtensionStoreRoot();
-			phasesLastRetrieved = System.currentTimeMillis();
-			try {
-				NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
-				transport.connect(extensionStoreRoot);
-				String update = transport.get("store/phases");
-				JsonExtensionPhaseList phaseList = mapper.readValue(update, JsonExtensionPhaseList.class);
-				this.phaseList = phaseList;
-			} catch (IOException ioe) {
-				this.phaseList = new JsonExtensionPhaseList();
-				throw new RemoteException(String.format("Failed to get extension phases from %s.", extensionStoreRoot),
-						ioe);
-			}
+		JsonExtensionPhaseList l = new JsonExtensionPhaseList();
+		if(isTrackServerVersion()) {
+			/* Return an empty phase list, the client should not be 
+			 * showing a phase list if tracking server version
+			 */
+			return l;
 		}
-		return this.phaseList;
+		else { 
+			if (this.phaseList == null || phasesLastRetrieved < System.currentTimeMillis() - (PHASES_TIMEOUT * 1000)) {
+				ObjectMapper mapper = new ObjectMapper();
+				String extensionStoreRoot = AbstractExtensionUpdater.getExtensionStoreRoot();
+				phasesLastRetrieved = System.currentTimeMillis();
+				try {
+					NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
+					transport.connect(extensionStoreRoot);
+					String update = transport.get("store/phases");
+					JsonExtensionPhaseList phaseList = mapper.readValue(update, JsonExtensionPhaseList.class);
+					this.phaseList = phaseList;
+				} catch (IOException ioe) {
+					this.phaseList = l;
+					throw new RemoteException(String.format("Failed to get extension phases from %s.", extensionStoreRoot),
+							ioe);
+				}
+			}
+			return this.phaseList;
+		}
 	}
 
 	@Override

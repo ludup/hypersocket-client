@@ -52,7 +52,9 @@
 		<org.springframework.version>3.1.4.RELEASE</org.springframework.version>
 		<aspectj.version>1.6.12</aspectj.version>
 		<project.build.sourceEncoding>ISO-8859-1</project.build.sourceEncoding>
-		<javafx.version>11.0.1</javafx.version>
+		
+		<!-- NOTE: Make sure x-client-logonbox-vpn-gui-jfx/pom.xml is updated as well -->
+		<javafx.version>11.0.2</javafx.version>
 	</properties>
 
 	<modules>
