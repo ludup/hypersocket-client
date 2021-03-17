@@ -10,8 +10,9 @@ import com.hypersocket.extensions.JsonExtensionUpdate;
 
 public interface ClientService extends Remote {
 	
-	int CONNECT_TIMEOUT = 10;
-	int HANDSHAKE_TIMEOUT = 180;
+	int CONNECT_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.connectTimeout", "20"));
+	int HANDSHAKE_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.handshakeTimeout", "180"));
+	int SERVICE_WAIT_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.serviceWaitTimeout", "2"));
 
 	default String[] getMissingPackages() throws RemoteException {
 		return new String[0];
