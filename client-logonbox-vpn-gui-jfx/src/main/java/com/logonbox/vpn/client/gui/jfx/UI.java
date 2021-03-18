@@ -3,6 +3,7 @@ package com.logonbox.vpn.client.gui.jfx;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -191,14 +192,14 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	final static ResourceBundle bundle = ResourceBundle.getBundle(UI.class.getName());
-	
+
 	static {
 		ToasterSettings settings = new ToasterSettings();
 		settings.setAppName(bundle.getString("appName"));
 		settings.setSystemTrayIconMode(SystemTrayIconMode.HIDDEN);
 		ToasterFactory.setSettings(settings);
 	}
-	
+
 	static int DROP_SHADOW_SIZE = 11;
 
 	final static Logger log = LoggerFactory.getLogger(UI.class);
@@ -261,15 +262,14 @@ public class UI extends AbstractController implements Listener {
 	public void bridgeEstablished() {
 
 		LOG.info("Bridge established.");
-		
+
 		/*
 		 * If we were waiting for this, it's part of the update process. We don't want
 		 * the connection continuing
 		 */
 		if (awaitingBridgeEstablish != null) {
 			awaitingRestart = true;
-		}
-		else {
+		} else {
 			reloadState();
 		}
 
@@ -1030,8 +1030,7 @@ public class UI extends AbstractController implements Listener {
 					 * couldn't get a custom URL handler to work either).
 					 */
 					byte[] localCss = IOUtils.toByteArray(context.getCustomLocalWebCSSFile().toURI());
-					String datauri = "data:text/css;base64," + DatatypeConverter
-							.printBase64Binary(localCss);
+					String datauri = "data:text/css;base64," + DatatypeConverter.printBase64Binary(localCss);
 					webView.getEngine().setUserStyleSheetLocation(datauri);
 
 					setupPage();
@@ -1262,42 +1261,42 @@ public class UI extends AbstractController implements Listener {
 			if(Client.allowBranding)
 				branding = context.getBridge().getClientService().getBranding(getSelectedConnection());
 			if (branding == null) {
-				if(logoFile != null) {
-					log.info(String.format("Removing branding."));
+				log.info(String.format("Removing branding."));
+				if (logoFile != null) {
 					logoFile.delete();
+					logoFile = null;
 				}
-			}
-			else {
+			} else {
 				log.info(String.format("Adding custom branding"));
 				String logo = branding.getLogo();
-				if(StringUtils.isNotBlank(logo)) {
+				if (StringUtils.isNotBlank(logo)) {
 					log.info(String.format("Attempting to cache logo"));
 					String basename = FilenameUtils.getExtension(logo);
-					if(!basename.equals(""))
-						basename= "." + basename;
-					File newLogoFile = new File("tmp" + File.separator + "logo" + basename);
-					if(logoFile != null && !newLogoFile.equals(logoFile)) {
-						logoFile.delete();
-					}
+					if (!basename.equals(""))
+						basename = "." + basename;
 					try {
+						File newLogoFile = File.createTempFile("lpvpnc", "logo" + basename);
+						newLogoFile.deleteOnExit();
+						if (logoFile != null && !newLogoFile.equals(logoFile)) {
+							logoFile.delete();
+						}
 						URL logoUrl = new URL(logo);
-						try(InputStream urlIn = logoUrl.openStream()) {
-							try(OutputStream out = new FileOutputStream(newLogoFile)) {
+						try (InputStream urlIn = logoUrl.openStream()) {
+							try (OutputStream out = new FileOutputStream(newLogoFile)) {
 								urlIn.transferTo(out);
 							}
 						}
-						newLogoFile.deleteOnExit();
 						logoFile = newLogoFile;
 						branding.setLogo(newLogoFile.toURI().toString());
 						log.info(String.format("Logo cached from %s to %s", logoUrl, newLogoFile.toURI()));
-					}
-					catch(Exception e) {
+					} catch (Exception e) {
 						log.error(String.format("Failed to cache logo"), e);
+						branding.setLogo(null);
 					}
 				}
 			}
 		} catch (RemoteException e) {
-			throw new IllegalStateException("Impossible!", e);
+			throw new IllegalStateException("Failed to retrieve state from local service.", e);
 		}
 	}
 
@@ -1310,7 +1309,7 @@ public class UI extends AbstractController implements Listener {
 		if ((branding == null || StringUtils.isBlank(branding.getLogo())
 				&& !defaultLogo.equals(titleBarImageView.getImage().getUrl()))) {
 			titleBarImageView.setImage(new Image(defaultLogo, true));
-		} else if (!defaultLogo.equals(branding.getLogo())) {
+		} else if (branding != null && !defaultLogo.equals(branding.getLogo()) && !StringUtils.isBlank(branding.getLogo())) {
 			titleBarImageView.setImage(new Image(branding.getLogo(), true));
 		}
 	}

@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.windows.service.NetworkConfigurationService;
+import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
 import com.sshtools.forker.client.impl.jna.win32.Kernel32;
 import com.sshtools.forker.common.XAdvapi32;
@@ -52,6 +53,8 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	private static final String INTERFACE_PREFIX = "net";
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsPlatformServiceImpl.class);
+
+	private static final int SERVICE_INSTALL_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.serviceInstallTimeout", "10"));
 
 	private static Preferences PREFS = null;
 	private Object lock = new Object();
@@ -116,15 +119,16 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 					String publicKey = getPublicKey(name);
 					if (publicKey == null) {
 						/* No addresses, wireguard not using it */
-						LOG.info(String.format("%s is free.", name));
+						LOG.info(String.format("%s (%s) is free.", name, nicByName.getDisplayName()));
 						ip = get(name);
 						maxIface = i;
 						break;
 					} else if (publicKey.equals(configuration.getUserPublicKey())) {
-						throw new IllegalStateException(
-								String.format("Peer with public key %s on %s is already active.", publicKey, name));
+						LOG.warn(
+								String.format("Peer with public key %s on %s is already active (by %s).", publicKey, name, nicByName.getDisplayName()));
+						return get(name);
 					} else {
-						LOG.info(String.format("%s is already in use.", name));
+						LOG.info(String.format("%s is already in use (by %s).", name, nicByName.getDisplayName()));
 					}
 				} else
 					LOG.info(String.format("%s is already in use by something other than WinTun (%s).", name,
@@ -185,7 +189,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 		/* The service may take a short while to appear */
 		int i = 0;
-		for (; i < 10; i++) {
+		for (; i < SERVICE_INSTALL_TIMEOUT; i++) {
 			if (Services.get().hasService(TUNNEL_SERVICE_NAME_PREFIX + "$" + ip.getName()))
 				break;
 			try {
@@ -205,6 +209,13 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		 */
 		long connectionStarted = ((System.currentTimeMillis() / 1000l) - 1) * 1000l;
 
+		LOG.info(String.format("Waiting %d seconds for service to settle.", ClientService.SERVICE_WAIT_TIMEOUT));
+		try {
+			Thread.sleep(ClientService.SERVICE_WAIT_TIMEOUT);
+		} catch (InterruptedException e) {
+		}		
+		LOG.info("Service should be settled.");
+
 		if (ip.isUp()) {
 			LOG.info(String.format("Service for %s is already up.", ip.getName()));
 		} else {
@@ -222,7 +233,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		 * we don't get a handshake in that time, then consider this a failed
 		 * connection. We don't know WHY, just it has failed
 		 */
-		LOG.info(String.format("Waiting for handshake. Hand shake should be after %d", connectionStarted));
+		LOG.info(String.format("Waiting for handshake for %d seconds. Hand shake should be after %d", ClientService.HANDSHAKE_TIMEOUT, connectionStarted));
 		return waitForFirstHandshake(configuration, ip, connectionStarted);
 
 	}

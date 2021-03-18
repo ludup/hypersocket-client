@@ -383,7 +383,7 @@ public class Client extends Application implements X509TrustManager {
 		// Create all-trusting host name verifier
 		HostnameVerifier allHostsValid = new HostnameVerifier() {
 			public boolean verify(String hostname, SSLSession session) {
-				System.out.println("VERIFY HOSTNAME:" + hostname + " : " + session);
+				log.debug(String.format("Verify hostname %s: %s", hostname, session));
 				return true;
 			}
 		};
