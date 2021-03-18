@@ -1308,7 +1308,7 @@ public class UI extends AbstractController implements Listener {
 		if ((branding == null || StringUtils.isBlank(branding.getLogo())
 				&& !defaultLogo.equals(titleBarImageView.getImage().getUrl()))) {
 			titleBarImageView.setImage(new Image(defaultLogo, true));
-		} else if (!defaultLogo.equals(branding.getLogo())) {
+		} else if (branding != null && !defaultLogo.equals(branding.getLogo()) && !StringUtils.isBlank(branding.getLogo())) {
 			titleBarImageView.setImage(new Image(branding.getLogo(), true));
 		}
 	}
