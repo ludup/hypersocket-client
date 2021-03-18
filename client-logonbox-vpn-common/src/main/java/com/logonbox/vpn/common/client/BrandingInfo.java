@@ -10,8 +10,17 @@ public class BrandingInfo implements Serializable {
 	
 	private String foreground = DEFAULT_FOREGROUND;
 	private String background = DEFAULT_BACKGROUND;
+	private String name = "LogonBox";
 
 	public BrandingInfo() {
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
 	}
 
 	public String getForeground() {
