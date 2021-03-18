@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.prefs.Preferences;
 
 import org.apache.commons.lang3.SystemUtils;
@@ -211,7 +212,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 		LOG.info(String.format("Waiting %d seconds for service to settle.", ClientService.SERVICE_WAIT_TIMEOUT));
 		try {
-			Thread.sleep(ClientService.SERVICE_WAIT_TIMEOUT);
+			Thread.sleep(TimeUnit.SECONDS.toMillis(ClientService.SERVICE_WAIT_TIMEOUT));
 		} catch (InterruptedException e) {
 		}		
 		LOG.info("Service should be settled.");
