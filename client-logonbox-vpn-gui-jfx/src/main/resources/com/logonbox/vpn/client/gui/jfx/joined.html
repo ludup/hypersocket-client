@@ -36,8 +36,10 @@
 		</div>
 	</div>
 	<script type="text/javascript">
-		$('#disconnect').off('click').on('click', function() {
-			bridge.unjoin(null);
+		$(function() {
+			$('#disconnect').off('click').on('click', function() {
+				bridge.unjoin(null);
+			});
 		});
 	</script>
 </body>

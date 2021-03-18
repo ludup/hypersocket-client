@@ -3,7 +3,6 @@ package com.logonbox.vpn.client.gui.jfx;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -690,8 +689,8 @@ public class UI extends AbstractController implements Listener {
 	protected boolean checkForInvalidatedSession(Throwable value) {
 		/*
 		 * This is pretty terrible. JavFX's WebEngine$LoadWorker constructs a new
-		 * <strong>Throwable</strong>! with Englist text as the only way of
-		 * distinguising the actual error! This is ridiculous. Hopefully it will get
+		 * <strong>Throwable</strong>! with English text as the only way of
+		 * distinguishing the actual error! This is ridiculous. Hopefully it will get
 		 * fixed, but then this will probably break.
 		 */
 		if (value != null && value.getMessage() != null) {
@@ -731,6 +730,9 @@ public class UI extends AbstractController implements Listener {
 		String address = cfg == null ? "" : cfg.getAddress();
 		String usernameHint = cfg == null ? "" : cfg.getUsernameHint();
 		String connectAtStartup = cfg == null ? "false" : String.valueOf(cfg.isConnectAtStartup());
+		String clientVersion = HypersocketVersion.getVersion();
+		String brand = MessageFormat.format(resources.getString("brand"), ( branding == null || branding.getResource() == null || 
+				StringUtils.isBlank(branding.getResource().getName()) ? "LogonBox" : branding.getResource().getName() ));
 
 		NamedNodeMap attrs = node.getAttributes();
 		for (int i = 0; i < attrs.getLength(); i++) {
@@ -755,6 +757,10 @@ public class UI extends AbstractController implements Listener {
 						node.setAttribute(node.getAttribute("data-attr-name"), usernameHint);
 					else if (val.equals("endpoint"))
 						node.setAttribute(node.getAttribute("data-attr-name"), endpointAddress);
+					else if (val.equals("brand"))
+						node.setAttribute(node.getAttribute("data-attr-name"), brand);
+					else if (val.equals("clientVersion"))
+						node.setAttribute(node.getAttribute("data-attr-name"), clientVersion);
 					else if (val.equals("publicKey"))
 						node.setAttribute(node.getAttribute("data-attr-name"), publicKey);
 					else if (val.equals("userPublicKey"))
@@ -780,6 +786,10 @@ public class UI extends AbstractController implements Listener {
 								args.add(usernameHint);
 							else if (i18nArg.equals("endpoint"))
 								args.add(endpointAddress);
+							else if (i18nArg.equals("clientVersion"))
+								args.add(clientVersion);
+							else if (i18nArg.equals("brand"))
+								args.add(brand);
 							else if (i18nArg.equals("publicKey"))
 								args.add(publicKey);
 							else if (i18nArg.equals("userPublicKey"))
@@ -827,6 +837,10 @@ public class UI extends AbstractController implements Listener {
 						node.setTextContent(usernameHint);
 					else if (val.equals("endpoint"))
 						node.setTextContent(endpointAddress);
+					else if (val.equals("brand"))
+						node.setTextContent(brand);
+					else if (val.equals("clientVersion"))
+						node.setTextContent(clientVersion);
 					else if (val.equals("publicKey"))
 						node.setTextContent(publicKey);
 					else if (val.equals("userPublicKey"))
