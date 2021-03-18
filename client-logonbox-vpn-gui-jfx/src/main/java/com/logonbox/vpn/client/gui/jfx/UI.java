@@ -1270,11 +1270,9 @@ public class UI extends AbstractController implements Listener {
 					String basename = FilenameUtils.getExtension(logo);
 					if (!basename.equals(""))
 						basename = "." + basename;
-					File tmpDir = new File("tmp");
 					try {
-						if (!tmpDir.exists() && !tmpDir.mkdirs())
-							throw new IOException(String.format("Failed to create temporary directory %s.", tmpDir));
-						File newLogoFile = new File(tmpDir, "logo" + basename);
+						File newLogoFile = File.createTempFile("lpvpnc", "logo" + basename);
+						newLogoFile.deleteOnExit();
 						if (logoFile != null && !newLogoFile.equals(logoFile)) {
 							logoFile.delete();
 						}
@@ -1284,7 +1282,6 @@ public class UI extends AbstractController implements Listener {
 								urlIn.transferTo(out);
 							}
 						}
-						newLogoFile.deleteOnExit();
 						logoFile = newLogoFile;
 						branding.setLogo(newLogoFile.toURI().toString());
 						log.info(String.format("Logo cached from %s to %s", logoUrl, newLogoFile.toURI()));
