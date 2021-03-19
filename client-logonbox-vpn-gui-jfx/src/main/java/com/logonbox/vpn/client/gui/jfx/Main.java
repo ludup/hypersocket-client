@@ -105,22 +105,6 @@ public class Main implements Callable<Integer> {
 			log.info("I am currently using working directory " + new File(".").getCanonicalPath());
 		} catch (IOException e) {
 		}
-
-		/*
-		 * This is a work around to some weird problem where JavaFX (no longer) loads
-		 * relative resources from the classpath in webview. Meaning adding stuff like
-		 * Bootstrap, Fontawesome to any local content is a frickin nightmare.
-		 * 
-		 * All local resources can use app://<relativeResourceName> instead of just
-		 * <relativeResourceName> to work around this.
-		 */
-		URL.setURLStreamHandlerFactory(protocol -> {
-			if (protocol.equals("app")) {
-				return new AppStreamHandler();
-			} else {
-				return null;
-			}
-		});
 	}
 
 	/*

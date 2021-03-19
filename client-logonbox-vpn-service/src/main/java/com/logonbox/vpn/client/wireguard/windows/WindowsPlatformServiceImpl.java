@@ -234,7 +234,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		 * we don't get a handshake in that time, then consider this a failed
 		 * connection. We don't know WHY, just it has failed
 		 */
-		LOG.info(String.format("Waiting for handshake for %d seconds. Hand shake should be after %d", ClientService.HANDSHAKE_TIMEOUT, connectionStarted));
+		LOG.info(String.format("Waiting for handshake for %d seconds. Hand shake should be after %d", ClientService.CONNECT_TIMEOUT, connectionStarted));
 		return waitForFirstHandshake(configuration, ip, connectionStarted);
 
 	}
@@ -369,7 +369,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	}
 
 	protected boolean isWireGuardInterface(NetworkInterface nif) {
-		return super.isWireGuardInterface(nif) && nif.getDisplayName().equals("Wintun Userspace Tunnel");
+		return super.isWireGuardInterface(nif) && nif.getDisplayName().startsWith("Wintun Userspace Tunnel");
 	}
 
 	@Override

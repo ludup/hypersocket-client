@@ -111,6 +111,7 @@ public class UI extends AbstractController implements Listener {
 		}
 
 		public void configure(String usernameHint, String configIniFile) {
+			LOG.info(String.format("Connect user: %s, Config: %s", usernameHint, configIniFile));
 			UI.this.configure(usernameHint, configIniFile, UI.this.connections.getSelectionModel().getSelectedItem());
 		}
 
@@ -321,11 +322,12 @@ public class UI extends AbstractController implements Listener {
 	}
 
 	public void disconnect(Connection sel, String reason) {
+		if (reason == null)
+			LOG.info("Requesting disconnect, no reason given");
+		else
+			LOG.info(String.format("Requesting disconnect, because '%s'", reason));
+
 		try {
-			if (reason == null)
-				LOG.info("Requesting disconnect, no reason given");
-			else
-				LOG.info(String.format("Requesting disconnect, because '%s'", reason));
 			context.getBridge().getClientService().disconnect(sel, reason);
 		} catch (Exception e) {
 			showError("Failed to disconnect.", e);
@@ -459,7 +461,7 @@ public class UI extends AbstractController implements Listener {
 		default:
 			toastType = ToastType.NONE;
 		}
-		Toast.toast(toastType, "Hypersocket Client", msg);
+		Toast.toast(toastType, resources.getString("appName"), msg);
 
 	}
 
@@ -532,13 +534,17 @@ public class UI extends AbstractController implements Listener {
 	@Override
 	public void updateFailure(String app, String message) {
 		LOG.info(String.format("Failed to update app %s. %s", app, message));
-		resetState();
 		try {
 			context.getBridge().notify(message, GUICallback.NOTIFY_ERROR);
 		} catch (RemoteException e) {
 			// Not actually remote
 		}
-		context.getBridge().disconnectAll();
+		if(StringUtils.isBlank(message))
+			showError(MessageFormat.format(resources.getString("updateFailureNoMessage"), app));
+		else
+			showError(MessageFormat.format(resources.getString("updateFailure"), app, message));
+//		resetState();
+		//context.getOpQueue().execute(() -> context.getBridge().disconnectAll());
 	}
 
 	@Override

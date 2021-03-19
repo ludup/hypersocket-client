@@ -99,7 +99,7 @@ public class Client extends Application implements X509TrustManager {
 	static UUID localWebServerCookie = UUID.randomUUID();
 
 	private Bridge bridge;
-	private ExecutorService loadQueue = Executors.newSingleThreadExecutor();
+	private ExecutorService opQueue = Executors.newSingleThreadExecutor();
 	private boolean waitingForExitChoice;
 	private Stage primaryStage;
 	private MiniHttpServer miniHttp;
@@ -113,6 +113,7 @@ public class Client extends Application implements X509TrustManager {
 	@Override
 	public void init() throws Exception {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
 			public void run() {
 				cleanUp();
 			}
@@ -316,6 +317,7 @@ public class Client extends Application implements X509TrustManager {
 
 				if (result.get() == disconnect) {
 					new Thread() {
+						@Override
 						public void run() {
 							bridge.disconnectAll();
 							exitApp();
@@ -333,6 +335,7 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	protected void exitApp() {
+		opQueue.shutdown();
 		System.exit(0);
 	}
 
@@ -351,8 +354,8 @@ public class Client extends Application implements X509TrustManager {
 		}
 	}
 
-	public ExecutorService getLoadQueue() {
-		return loadQueue;
+	public ExecutorService getOpQueue() {
+		return opQueue;
 	}
 
 	public Bridge getBridge() {
@@ -360,8 +363,8 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	public void clearLoadQueue() {
-		loadQueue.shutdownNow();
-		loadQueue = Executors.newSingleThreadExecutor();
+		opQueue.shutdownNow();
+		opQueue = Executors.newSingleThreadExecutor();
 	}
 
 	public boolean isWaitingForExitChoice() {
@@ -382,6 +385,7 @@ public class Client extends Application implements X509TrustManager {
 
 		// Create all-trusting host name verifier
 		HostnameVerifier allHostsValid = new HostnameVerifier() {
+			@Override
 			public boolean verify(String hostname, SSLSession session) {
 				log.debug(String.format("Verify hostname %s: %s", hostname, session));
 				return true;

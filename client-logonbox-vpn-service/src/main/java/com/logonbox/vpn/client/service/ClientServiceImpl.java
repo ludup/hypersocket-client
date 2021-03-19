@@ -372,8 +372,9 @@ public class ClientServiceImpl implements ClientService, Listener {
 						connection.getPort()));
 			}
 		}
-		if (highestVersionUpdate == null)
+		if (highestVersionUpdate == null) {
 			throw new RemoteException("Failed to get most recent version from any servers.");
+		}
 		return highestVersionUpdate;
 	}
 
@@ -470,10 +471,10 @@ public class ClientServiceImpl implements ClientService, Listener {
 					try {
 						guiRegistry.onUpdateInit(appsToUpdate);
 						try {
-							guiJob.update();
+							boolean atLeastOneUpdate = guiJob.update();
 
 							log.info("Update complete, restarting.");
-							guiRegistry.onUpdateDone(true, null);
+							guiRegistry.onUpdateDone(atLeastOneUpdate, null);
 
 						} catch (IOException e) {
 							log.error("Failed to update GUI.", e);
@@ -733,11 +734,12 @@ public class ClientServiceImpl implements ClientService, Listener {
 								guiJob = new ClientUpdater(guiRegistry, guiRegistry.getGUI().getExtensionPlace(),
 										ExtensionTarget.CLIENT_GUI, context);
 								guiRegistry.onUpdateInit(appsToUpdate);
-								guiJob.update();
-
-								guiRegistry.onUpdateDone(true, null);
-								log.info("Update complete, restarting.");
-								context.getRestartCallback().run();
+								boolean atLeastOneUpdate = guiJob.update();
+								guiRegistry.onUpdateDone(atLeastOneUpdate, null);
+								if(atLeastOneUpdate) {
+									log.info("Update complete, restarting.");
+									context.getRestartCallback().run();
+								}
 							} else {
 								guiRegistry.onUpdateDone(true, null);
 								log.info("Update complete, restarting.");

@@ -186,6 +186,7 @@ public class GUIRegistryImpl implements GUIRegistry {
 	public void failedToConnect(Connection connection, String reply) {
 		synchronized (lock) {
 			try {
+				log.info(String.format("Sending connection failure to GUIs. %s, %s", gui == null ? "No GUI" : "GUI available", guiAttached ? "GUI Attached" : "Gui Not Attached"  ));
 				if (gui != null && guiAttached) {
 					gui.failedToConnect(connection, "Could not connect. " + reply);
 				}

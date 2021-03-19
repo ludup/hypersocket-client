@@ -84,12 +84,16 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	protected Map<String, ExtensionVersion> onResolveExtensions(String version) throws IOException {
 		if (cctx.getClientService().isTrackServerVersion()) {
-			JsonExtensionUpdate v = cctx.getClientService().getUpdates();
-			return ExtensionHelper.resolveExtensions(true,
-					FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
-					new String[] { "logonbox-vpn-client" }, v.getResource().getLatestVersion(), HypersocketVersion.getSerial(),
-					"LogonBox VPN Client", v.getResource().getCustomer(), extensionPlace, true, null,
-					getUpdateTargets());
+			if(cctx.getClientService().getConnectionService().getConnections().isEmpty())
+				return Collections.emptyMap();
+			else {
+				JsonExtensionUpdate v = cctx.getClientService().getUpdates();
+				return ExtensionHelper.resolveExtensions(true,
+						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
+						new String[] { "logonbox-vpn-client" }, v.getResource().getLatestVersion(), HypersocketVersion.getSerial(),
+						"LogonBox VPN Client", v.getResource().getCustomer(), extensionPlace, true, null,
+						getUpdateTargets());
+			}
 		} else {
 			JsonExtensionPhaseList v = cctx.getClientService().getPhases();
 			String configuredPhase = cctx.getConfigurationService().getValue("phase", "");

@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.SocketException;
 import java.net.URL;
@@ -15,6 +16,8 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.RMIServerSocketFactory;
+import java.rmi.server.RMISocketFactory;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Properties;
 import java.util.Random;
@@ -109,6 +112,7 @@ public class Main implements LocalContext {
 	private Runnable restartCallback;
 	private Runnable shutdownCallback;
 	private ExecutorService workerExecutor;
+	private RMIServerSocketFactory regFactory;
 
 	public Main(Runnable restartCallback, Runnable shutdownCallback, String[] args) {
 		this.restartCallback = restartCallback;
@@ -129,6 +133,12 @@ public class Main implements LocalContext {
 			throw new UnsupportedOperationException(
 					String.format("%s not currently supported.", System.getProperty("os.name")));
 
+		regFactory = new RMIServerSocketFactory() {
+			@Override
+			public ServerSocket createServerSocket(int port) throws IOException {
+				return new ServerSocket(port + 1, 0, InetAddress.getByName("127.0.0.1"));
+			}
+		};
 	}
 
 	@Override
@@ -317,7 +327,7 @@ public class Main implements LocalContext {
 			port = Integer.parseInt(properties.getProperty("port", "50000"));
 
 			try {
-				ServerSocket ss = new ServerSocket(port);
+				ServerSocket ss = new ServerSocket(port, 1, InetAddress.getByName("127.0.0.1"));
 				ss.close();
 				// The port is free, we will try to use it again first
 			} catch (SocketException se) {
@@ -325,7 +335,7 @@ public class Main implements LocalContext {
 				// Already running, see if it is RMI
 				try {
 					@SuppressWarnings("unused")
-					Registry r = LocateRegistry.getRegistry(port);
+					Registry r = LocateRegistry.getRegistry("127.0.0.1", port, RMISocketFactory.getDefaultSocketFactory());
 					isExistingClient = true;
 				} catch (RemoteException re) {
 					/*
@@ -337,7 +347,7 @@ public class Main implements LocalContext {
 				if (isExistingClient) {
 					// It does appear to RMI registry, so we'll assume it's an existing running
 					// client
-					log.error("The Hypersocket client is already running on port " + port);
+					log.error("The VPN client is already running on port " + port);
 					return false;
 				}
 			} catch (IOException ioe) {
@@ -358,7 +368,7 @@ public class Main implements LocalContext {
 				if (log.isInfoEnabled()) {
 					log.info("Trying RMI server on port " + port);
 				}
-				registry = LocateRegistry.createRegistry(port);
+				registry = LocateRegistry.createRegistry(port, RMISocketFactory.getDefaultSocketFactory(), regFactory);
 				if (log.isInfoEnabled()) {
 					log.info("RMI server started on port " + port);
 				}

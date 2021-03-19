@@ -3,11 +3,16 @@ package com.logonbox.vpn.client.gui.jfx;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.rmi.ConnectException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.RMIClientSocketFactory;
+import java.rmi.server.RMIServerSocketFactory;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
@@ -185,7 +190,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 				log.debug("Connecting to local service on port " + port);
 			}
 
-			Registry registry = LocateRegistry.getRegistry(port);
+			Registry registry = LocateRegistry.getRegistry("127.0.0.1", port + 1);
 
 			configurationService = (ConfigurationService) registry.lookup("configurationService");
 
