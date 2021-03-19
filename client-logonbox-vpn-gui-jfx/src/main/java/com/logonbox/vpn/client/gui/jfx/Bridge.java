@@ -30,6 +30,7 @@ import com.logonbox.vpn.common.client.ConnectionService;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.GUICallback;
+import com.logonbox.vpn.common.client.LocalRMIClientSocketFactory;
 
 import javafx.application.Platform;
 
@@ -186,11 +187,11 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 		try {
 
-			if (log.isDebugEnabled()) {
-				log.debug("Connecting to local service on port " + port);
+			if (log.isInfoEnabled()) {
+				log.info("Connecting to local service on port " + port);
 			}
 
-			Registry registry = LocateRegistry.getRegistry("127.0.0.1", port + 1);
+			Registry registry = LocateRegistry.getRegistry("127.0.0.1", port, new LocalRMIClientSocketFactory());
 
 			configurationService = (ConfigurationService) registry.lookup("configurationService");
 
@@ -207,6 +208,7 @@ public class Bridge extends UnicastRemoteObject implements GUICallback {
 
 			new RMIStatusThread().start();
 		} catch (Throwable e) {
+			e.printStackTrace();
 			int maxAttempts = Integer.parseInt(System.getProperty("hypersocket.maxAttempts", "0"));
 			if (maxAttempts > 0 && failedConnectionAttempts > maxAttempts) {
 				log.info("Shutting down client. Cannot connect to service");

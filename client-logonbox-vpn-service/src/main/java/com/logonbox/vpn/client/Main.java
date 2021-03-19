@@ -16,6 +16,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.RMIClientSocketFactory;
 import java.rmi.server.RMIServerSocketFactory;
 import java.rmi.server.RMISocketFactory;
 import java.rmi.server.UnicastRemoteObject;
@@ -42,6 +43,8 @@ import com.logonbox.vpn.common.client.ConfigurationService;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionService;
 import com.logonbox.vpn.common.client.GUIRegistry;
+import com.logonbox.vpn.common.client.LocalRMIClientSocketFactory;
+import com.logonbox.vpn.common.client.LocalRMIServerSocketFactory;
 
 public class Main implements LocalContext {
 
@@ -115,7 +118,8 @@ public class Main implements LocalContext {
 	private Runnable restartCallback;
 	private Runnable shutdownCallback;
 	private ExecutorService workerExecutor;
-	private RMIServerSocketFactory regFactory;
+	private RMIServerSocketFactory serverSocketFactory;
+	private RMIClientSocketFactory clientSocketFactory;
 
 	public Main(Runnable restartCallback, Runnable shutdownCallback, String[] args) {
 		this.restartCallback = restartCallback;
@@ -136,12 +140,8 @@ public class Main implements LocalContext {
 			throw new UnsupportedOperationException(
 					String.format("%s not currently supported.", System.getProperty("os.name")));
 
-		regFactory = new RMIServerSocketFactory() {
-			@Override
-			public ServerSocket createServerSocket(int port) throws IOException {
-				return new ServerSocket(port + 1, 0, InetAddress.getByName("127.0.0.1"));
-			}
-		};
+		serverSocketFactory = new LocalRMIServerSocketFactory();
+		clientSocketFactory = new LocalRMIClientSocketFactory();
 	}
 
 	@Override
@@ -266,7 +266,7 @@ public class Main implements LocalContext {
 			log.info(String.format("Publishing service %s (%s)", name, type.getName()));
 		}
 
-		Remote stub = UnicastRemoteObject.exportObject(obj, port);
+		Remote stub = UnicastRemoteObject.exportObject(obj, port, clientSocketFactory, serverSocketFactory);
 		registry.rebind(name, stub);
 
 		if (log.isInfoEnabled()) {
@@ -371,14 +371,14 @@ public class Main implements LocalContext {
 				if (log.isInfoEnabled()) {
 					log.info("Trying RMI server on port " + port);
 				}
-				registry = LocateRegistry.createRegistry(port, RMISocketFactory.getDefaultSocketFactory(), regFactory);
+				registry = LocateRegistry.createRegistry(port, clientSocketFactory, serverSocketFactory);
 				if (log.isInfoEnabled()) {
 					log.info("RMI server started on port " + port);
 				}
 				properties.put("port", String.valueOf(port));
 				FileOutputStream out = new FileOutputStream(rmiPropertiesFile);
 				try {
-					properties.store(out, "Hypersocket Client Service");
+					properties.store(out, "LogonBox VPN Client Service");
 				} finally {
 					out.close();
 				}

@@ -166,7 +166,8 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		return null;
 	}
 	
-	protected List<I> ips(boolean wireguardInterface) {
+	@Override
+	public List<I> ips(boolean wireguardInterface) {
 		List<I> ips = new ArrayList<>();
 		try {
 			for (Enumeration<NetworkInterface> nifEn = NetworkInterface.getNetworkInterfaces(); nifEn
@@ -179,8 +180,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				}
 			}
 		} catch (Exception e) {
-			// TODO throw
-			e.printStackTrace();
+			throw new IllegalStateException("Failed to get interfaces.", e);
 		}
 		return ips;
 	}

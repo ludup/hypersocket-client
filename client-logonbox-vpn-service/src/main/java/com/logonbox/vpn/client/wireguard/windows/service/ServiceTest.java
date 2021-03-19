@@ -2,16 +2,38 @@ package com.logonbox.vpn.client.wireguard.windows.service;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.NetworkInterface;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Enumeration;
 
+import com.logonbox.vpn.client.wireguard.windows.WindowsIP;
 import com.logonbox.vpn.client.wireguard.windows.WindowsPlatformServiceImpl;
 
 public class ServiceTest {
 
 	public static void main(String[] args) throws Exception {
-		if (args.length > 0 && args[0].equals("uninstall")) {
+		
+		if (args.length > 0 && args[0].equals("status")) {
+			for (Enumeration<NetworkInterface> nifEn = NetworkInterface.getNetworkInterfaces(); nifEn
+					.hasMoreElements();) {
+				NetworkInterface nif = nifEn.nextElement();
+				System.out.println("   -> " + nif.getName() + " : " + nif.getMTU() + " np:");
+			}	
+		}
+		else if (args.length > 0 && args[0].equals("ips")) {
+			WindowsPlatformServiceImpl w = new WindowsPlatformServiceImpl();
+			System.out.println("WGs");
+			for (WindowsIP ip : w.ips(true)) {
+				System.out.println("   -> " + ip.getName());
+			}	
+			System.out.println("All");
+			for (WindowsIP ip : w.ips(false)) {
+				System.out.println("   -> " + ip.getName());
+			}	
+		}
+		else if (args.length > 0 && args[0].equals("uninstall")) {
 
 			WindowsPlatformServiceImpl w = new WindowsPlatformServiceImpl();
 			if (args.length > 1) {

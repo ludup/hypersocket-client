@@ -19,14 +19,7 @@ public interface VirtualInetAddress {
 
 	void down() throws IOException;
 
-	default String getMac() {
-		try {
-			NetworkInterface iface = getByName(getName());
-			return iface == null ? null : IpUtil.toIEEE802(iface.getHardwareAddress());
-		} catch (IOException ioe) {
-			return null;
-		}
-	}
+	String getMac();
 
 	default NetworkInterface getByName(String name) throws IOException {
 		/* NOTE: This is pretty much useless  to lookup the network by the 
@@ -48,6 +41,8 @@ public interface VirtualInetAddress {
 	int getMtu();
 
 	String getName();
+	
+	String getDisplayName();
 
 	String getPeer();
 

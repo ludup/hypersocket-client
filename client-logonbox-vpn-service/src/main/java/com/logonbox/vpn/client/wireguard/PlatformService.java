@@ -2,6 +2,7 @@ package com.logonbox.vpn.client.wireguard;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
@@ -80,5 +81,13 @@ public interface PlatformService<I extends VirtualInetAddress> {
 	 * @throws IOException on any error
 	 */
 	void disconnect(VPNSession session) throws IOException;
+
+	/**
+	 * Get all interfaces.
+	 * 
+	 * @param wireguardOnly only wireguard interfaces
+	 * @return interfaces
+	 */
+	List<I> ips(boolean wireguardOnly);
 
 }

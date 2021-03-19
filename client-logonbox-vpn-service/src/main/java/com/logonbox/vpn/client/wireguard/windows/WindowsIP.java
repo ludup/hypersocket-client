@@ -21,10 +21,12 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
 	private WindowsPlatformServiceImpl platform;
 	private Object lock = new Object();
+	private String displayName;
 
-	public WindowsIP(String name, WindowsPlatformServiceImpl platform) {
+	public WindowsIP(String name, String displayName, WindowsPlatformServiceImpl platform) {
 		this.platform = platform;
 		this.name = name;
+		this.displayName = displayName;
 	}
 
 	@Override
@@ -117,6 +119,16 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 				throw new IOException("Failed to bring up interface service.", e);
 			}
 		}
+	}
+
+	@Override
+	public String getMac() {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public String getDisplayName() {
+		return displayName;
 	}
 
 }

@@ -473,7 +473,10 @@ public class ClientServiceImpl implements ClientService, Listener {
 						try {
 							boolean atLeastOneUpdate = guiJob.update();
 
-							log.info("Update complete, restarting.");
+							if(atLeastOneUpdate)
+								log.info("Update complete, at least one found so restarting.");
+							else
+								log.info("No updates available.");
 							guiRegistry.onUpdateDone(atLeastOneUpdate, null);
 
 						} catch (IOException e) {
