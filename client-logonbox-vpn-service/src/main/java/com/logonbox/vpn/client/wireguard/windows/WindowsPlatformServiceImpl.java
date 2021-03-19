@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,6 +34,7 @@ import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.windows.service.NetworkConfigurationService;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
+import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.client.impl.jna.win32.Kernel32;
 import com.sshtools.forker.common.XAdvapi32;
 import com.sshtools.forker.common.XWinsvc;
@@ -92,6 +94,43 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		super(INTERFACE_PREFIX);
 	}
 
+	
+	@Override
+	public List<WindowsIP> ips(boolean wireguardInterface) {
+		Set<WindowsIP> ips = new LinkedHashSet<>(super.ips(wireguardInterface));
+		try {
+			String name = null;
+			
+			/* NOTE: Workaround. NetworkInterface.getNetworkInterfaces() doesn't discover 
+			 * active WireGuard interfaces for some reason, so use ipconfig /all to 
+			 * create a merged list. 
+			 */
+			for(String line : OSCommand.adminCommandAndCaptureOutput("ipconfig", "/all")) {
+				line = line.trim();
+				if(line.startsWith("Unknown adapter")) {
+					String[] args = line.split("\\s+");
+					if(args.length > 1 && args[2].startsWith(getInterfacePrefix())) {
+						name = args[2].split(":")[0];
+					}
+				}
+				else if(name != null && line.startsWith("Description ")) {
+					String[] args = line.split(":");
+					if(args.length > 1) {
+						String description = args[1].trim();
+						if(description.equals("WireGuard Tunnel")) {
+							WindowsIP vaddr = new WindowsIP(name, description, this);
+							ips.add(vaddr);
+							break;
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to list interfaces.", e);
+		}
+		return new ArrayList<WindowsIP>(ips);
+	}
+	
 	@Override
 	public WindowsIP connect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
 		WindowsIP ip = null;
@@ -111,7 +150,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			 */
 			if (exists(name, false)) {
 				/* Get if this is actually a Wireguard interface. */
-				NetworkInterface nicByName = NetworkInterface.getByName(name);
+				WindowsIP nicByName = get(name);
 				if (isWireGuardInterface(nicByName)) {
 					/* Interface exists and is wireguard, is it connected? */
 
@@ -148,7 +187,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			String name = getInterfacePrefix() + maxIface;
 			LOG.info(String.format("No existing unused interfaces, creating new one (%s) for public key .", name,
 					configuration.getUserPublicKey()));
-			ip = new WindowsIP(name, this);
+			ip = new WindowsIP(name, "Wintun Userspace Tunnel", this);
 			LOG.info(String.format("Created %s", name));
 		} else
 			LOG.info(String.format("Using %s", ip.getName()));
@@ -183,7 +222,9 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 
 		/* Install service for the network interface */
+		boolean install = false;
 		if (!Services.get().hasService(TUNNEL_SERVICE_NAME_PREFIX + "$" + ip.getName())) {
+			install = true;
 			installService(ip.getName(), cwd);
 		} else
 			LOG.info(String.format("Service for %s already exists.", ip.getName()));
@@ -221,7 +262,16 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			LOG.info(String.format("Service for %s is already up.", ip.getName()));
 		} else {
 			LOG.info(String.format("Bringing up %s", ip.getName()));
-			ip.up();
+			try {
+				ip.up();
+			}
+			catch(IOException ioe) {
+				/* Just installed service failed, clean it up */
+				if(install) {
+					ip.delete(); 
+				}
+				throw ioe;
+			}
 		}
 
 		/*
@@ -247,7 +297,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 	@Override
 	protected WindowsIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
-		return new WindowsIP(nif.getName(), this);
+		return new WindowsIP(nif.getName(), nif.getDisplayName(), this);
 	}
 
 	@Override
@@ -314,7 +364,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 					if (sidType != null) {
 						XWinsvc.SERVICE_SID_INFO info = new XWinsvc.SERVICE_SID_INFO();
 						info.dwServiceSidType = sidType;
-						success = advapi32.ChangeServiceConfig2(service, XWinsvc.SERVICE_CONFIG_SERVICE_SID_INFO, info);
+						success = advapi32.ChangeServiceConfig2(service, Winsvc.SERVICE_CONFIG_SERVICE_SID_INFO, info);
 						if (!success) {
 							int err = Native.getLastError();
 							throw new IOException(String.format("Failed to set SERVICE_SID_INFO. %d. %s", err,
@@ -368,8 +418,17 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		LOG.info(String.format("Installed service for %s", name));
 	}
 
+	@Override
 	protected boolean isWireGuardInterface(NetworkInterface nif) {
 		return super.isWireGuardInterface(nif) && nif.getDisplayName().startsWith("Wintun Userspace Tunnel");
+	}
+
+	protected boolean isWireGuardInterface(WindowsIP nif) {
+		return isMatchesPrefix(nif) && nif.getDisplayName().startsWith("Wintun Userspace Tunnel");
+	}
+
+	protected boolean isMatchesPrefix(WindowsIP nif) {
+		return nif.getName().startsWith(getInterfacePrefix());
 	}
 
 	@Override

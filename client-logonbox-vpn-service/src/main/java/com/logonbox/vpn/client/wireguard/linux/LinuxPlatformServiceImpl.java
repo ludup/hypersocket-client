@@ -53,7 +53,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	}
 	
 	@Override
-	protected List<LinuxIP> ips(boolean wireguardOnly) {
+	public List<LinuxIP> ips(boolean wireguardOnly) {
 		/* TODO: Check if this is still needed, the pure Java version looks like it might be OK */
 		List<LinuxIP> l = new ArrayList<>();
 		LinuxIP lastLink = null;

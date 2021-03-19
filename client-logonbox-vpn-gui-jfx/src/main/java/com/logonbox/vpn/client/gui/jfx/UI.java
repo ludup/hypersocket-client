@@ -16,6 +16,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -1389,9 +1390,9 @@ public class UI extends AbstractController implements Listener {
 		}
 	}
 
-	private List<Connection> getConnections() {
+	private List<ConnectionStatus> getConnections() {
 		try {
-			return context.getBridge().getConnectionService().getConnections();
+			return context.getBridge().getClientService().getStatus();
 		} catch (RemoteException e) {
 			throw new IllegalStateException(e.getMessage(), e);
 		}
@@ -1444,13 +1445,31 @@ public class UI extends AbstractController implements Listener {
 
 	private void rebuildConnections(final Connection sel) {
 		connections.getItems().clear();
-		if (context.getBridge().isConnected()) {
-			connections.getItems().addAll(getConnections());
+		List<ConnectionStatus> connectionList = context.getBridge().isConnected() ? getConnections() : Collections.emptyList();
+		Connection connected = null;
+		Connection connecting = null;
+		for(ConnectionStatus s : connectionList) {
+			connections.getItems().add(s.getConnection());
+			if(connected == null && s.getStatus() == Type.CONNECTED) {
+				connected = s.getConnection();
+			}
+			if(connecting == null && s.getStatus() == Type.CONNECTING) {
+				connecting = s.getConnection();
+			}
 		}
 		if (sel != null && connections.getItems().contains(sel))
 			connections.getSelectionModel().select(sel);
-		else if (connections.getSelectionModel().isEmpty() && !connections.getItems().isEmpty())
-			connections.getSelectionModel().select(connections.getItems().get(0));
+		else if (connections.getSelectionModel().isEmpty() && !connections.getItems().isEmpty()) {
+			/* Prefer connected connection */
+			if(connected == null) {
+				if(connecting == null)
+					connections.getSelectionModel().select(connections.getItems().get(0));
+				else
+					connections.getSelectionModel().select(connecting);
+			}
+			else
+				connections.getSelectionModel().select(connected);
+		}
 	}
 
 	private void resetAwaingBridgeEstablish() {

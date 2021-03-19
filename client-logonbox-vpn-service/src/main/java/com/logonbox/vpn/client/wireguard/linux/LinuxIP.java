@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -22,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
+import com.logonbox.vpn.client.wireguard.IpUtil;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
 import com.sshtools.forker.client.EffectiveUserFactory;
 import com.sshtools.forker.client.ForkerBuilder;
@@ -503,6 +505,26 @@ public class LinuxIP implements VirtualInetAddress {
 			} catch (IOException ioe) {
 				throw new IllegalStateException("Failed to write resolv.conf", ioe);
 			}
+		}
+	}
+
+	@Override
+	public String getMac() {
+		try {
+			NetworkInterface iface = getByName(getName());
+			return iface == null ? null : IpUtil.toIEEE802(iface.getHardwareAddress());
+		} catch (IOException ioe) {
+			return null;
+		}
+	}
+
+	@Override
+	public String getDisplayName() {
+		try {
+			NetworkInterface iface = getByName(getName());
+			return iface == null ? "Unknown" : iface.getDisplayName();
+		} catch (IOException ioe) {
+			return "Unknown";
 		}
 	}
 }

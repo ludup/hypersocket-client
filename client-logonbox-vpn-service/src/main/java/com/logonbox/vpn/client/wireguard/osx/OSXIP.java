@@ -69,4 +69,14 @@ public class OSXIP implements VirtualInetAddress {
 		throw new UnsupportedOperationException("TODO");
 	}
 
+	@Override
+	public String getMac() {
+		throw new UnsupportedOperationException("TODO");
+	}
+
+	@Override
+	public String getDisplayName() {
+		throw new UnsupportedOperationException("TODO");
+	}
+
 }
