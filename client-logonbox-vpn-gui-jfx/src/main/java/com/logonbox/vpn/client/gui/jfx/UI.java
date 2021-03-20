@@ -1073,8 +1073,7 @@ public class UI extends AbstractController implements Listener {
 					java.net.CookieHandler.getDefault().put(uri.resolve("/"), headers);
 
 					LOG.info(String.format("Loading location %s", loc));
-//					webView.getEngine().load(loc);
-					webView.getEngine().loadContent("<html><body><h1>Stuff!</h2></body></html>");
+					webView.getEngine().load(loc);
 				}
 
 				sidebar.setVisible(false);
