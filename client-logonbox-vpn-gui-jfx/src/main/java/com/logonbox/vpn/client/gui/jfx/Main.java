@@ -3,7 +3,6 @@ package com.logonbox.vpn.client.gui.jfx;
 import java.awt.Image;
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.util.concurrent.Callable;
 
 import javax.swing.UIManager;
@@ -13,17 +12,16 @@ import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.logonbox.vpn.common.client.AbstractDBusClient;
+
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 @Command(name = "logonbox-vpn-gui", mixinStandardHelpOptions = true, description = "Start the LogonBox VPN graphical user interface.")
-public class Main implements Callable<Integer> {
+public class Main extends AbstractDBusClient implements Callable<Integer> {
 	static Logger log = LoggerFactory.getLogger(Main.class);
-
-	private Runnable restartCallback;
-	private Runnable shutdownCallback;
 
 	private static Main instance;
 
@@ -71,11 +69,9 @@ public class Main implements Callable<Integer> {
 	@Parameters(index = "0", arity = "0..1", description = "Connect to a particular server using a URI. Acceptable formats include <server[<port>]> or https://<server[<port>]>[/path]. If a pre-configured connection matching this URI already exists, it will be used.")
 	private String uri;
 
-	public Main(Runnable restartCallback, Runnable shutdownCallback) {
+	public Main() {
 		instance = this;
-
-		this.restartCallback = restartCallback;
-		this.shutdownCallback = shutdownCallback;
+		setSupportsAuthorization(true);
 
 		// http://stackoverflow.com/questions/24159825/changing-application-dock-icon-javafx-programatically
 		try {
@@ -180,11 +176,16 @@ public class Main implements Callable<Integer> {
 	}
 
 	public void restart() {
-		restartCallback.run();
+		System.exit(99);
 	}
 
 	public void shutdown() {
-		shutdownCallback.run();
+		System.exit(0);
+	}
+
+	@Override
+	protected boolean isInteractive() {
+		return true;
 	}
 
 	/**
@@ -194,39 +195,11 @@ public class Main implements Callable<Integer> {
 		if(Client.get() == null) {
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 			System.exit(
-					new CommandLine(new Main(new DefaultRestartCallback(), new DefaultShutdownCallback())).execute(args));
+					new CommandLine(new Main()).execute(args));
 		}
 		else {
 			/* Re-use, a second instance was started but intercepted by forker */
 			Client.get().open();
-		}
-
-	}
-
-	static class DefaultRestartCallback implements Runnable {
-
-		@Override
-		public void run() {
-
-			if (log.isInfoEnabled()) {
-				log.info("Shutting down with forker restart code.");
-			}
-
-			System.exit(90);
-		}
-
-	}
-
-	static class DefaultShutdownCallback implements Runnable {
-
-		@Override
-		public void run() {
-
-			if (log.isInfoEnabled()) {
-				log.info("Shutting down using default shutdown mechanism");
-			}
-
-			System.exit(0);
 		}
 
 	}

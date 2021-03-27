@@ -44,7 +44,7 @@ public class WindowsWireGuardNamedPipe implements Closeable, Runnable {
 		 */
 		// based on
 		// https://msdn.microsoft.com/en-us/library/windows/desktop/aa365588(v=vs.85).aspx
-		// \\.\pipe\ProtectedPrefix\Administrators\LogonBoxVPN\` + tunnelName
+		// \\.\pipe\ProtectedPrefix\Administrators\VPN\` + tunnelName
 		
 		/*
 		 * TODO:
@@ -52,7 +52,7 @@ public class WindowsWireGuardNamedPipe implements Closeable, Runnable {
 		 * No idea what's going on here. Can't seem to create a DLL that uses a different 
 		 * pipe name :\
 		 */
-//		pipeName = "\\\\.\\pipe\\ProtectedPrefix\\Administrators\\LogonBoxVPN\\" + name;
+//		pipeName = "\\\\.\\pipe\\ProtectedPrefix\\Administrators\\VPN\\" + name;
 		pipeName = "\\\\.\\pipe\\ProtectedPrefix\\Administrators\\WireGuard\\" + name;
 		
 		LOG.info(String.format("Opening named pipe %s", pipeName));
@@ -60,7 +60,7 @@ public class WindowsWireGuardNamedPipe implements Closeable, Runnable {
 		// https://msdn.microsoft.com/en-us/library/windows/desktop/aa365592(v=vs.85).aspx
 		assertCallSucceeded("WaitNamedPipe",
 				Kernel32.INSTANCE.WaitNamedPipe(pipeName, (int) TimeUnit.SECONDS.toMillis(15L)));
-		LOG.info("Connected to server");
+		LOG.info("Ready to server");
 
 		hNamedPipe = assertValidHandle("CreateNamedPipe",
 				Kernel32.INSTANCE.CreateFile(pipeName, WinNT.GENERIC_READ | WinNT.GENERIC_WRITE, 0, // no sharing

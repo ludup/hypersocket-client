@@ -18,9 +18,16 @@ import javafx.beans.value.ObservableValue;
 import javafx.scene.paint.Color;
 
 public class Configuration {
+	public static final String TRAY_MODE = "trayMode";
+	public static final String TRAY_MODE_DARK = "dark";
+	public static final String TRAY_MODE_COLOR = "color";
+	public static final String TRAY_MODE_LIGHT = "light";
+	public static final String TRAY_MODE_AUTO = "auto";
+	public static final String TRAY_MODE_OFF = "off";
 
 	private StringProperty temporaryOnStartConnection = new SimpleStringProperty();
 	private StringProperty saveCredentialsConnections = new SimpleStringProperty();
+	private StringProperty trayMode = new SimpleStringProperty();
 	private IntegerProperty w = new SimpleIntegerProperty();
 	private IntegerProperty h = new SimpleIntegerProperty();
 	private IntegerProperty x = new SimpleIntegerProperty();
@@ -120,6 +127,9 @@ public class Configuration {
 		temporaryOnStartConnection
 				.addListener(new StringPreferenceUpdateChangeListener(node, "temporaryOnStartConnection"));
 
+		trayMode.set(node.get("trayMode", TRAY_MODE_AUTO));
+		trayMode.addListener(new StringPreferenceUpdateChangeListener(node, "trayMode"));
+
 		saveCredentialsConnections.set(node.get("saveCredentialsConnections", ""));
 		saveCredentialsConnections
 				.addListener(new StringPreferenceUpdateChangeListener(node, "saveCredentialsConnections"));
@@ -160,6 +170,10 @@ public class Configuration {
 	}
 
 	public StringProperty temporaryOnStartConnectionProperty() {
+		return temporaryOnStartConnection;
+	}
+
+	public StringProperty trayModeProperty() {
 		return temporaryOnStartConnection;
 	}
 

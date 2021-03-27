@@ -26,12 +26,17 @@ public class OSXPlatformServiceImpl extends AbstractPlatformServiceImpl<OSXIP> {
 	}
 
 	@Override
+	protected String getDefaultGateway() throws IOException {
+		throw new UnsupportedOperationException("TODO");
+	}
+
+	@Override
 	protected OSXIP createVirtualInetAddress(NetworkInterface nif) {
 		throw new UnsupportedOperationException("TODO");
 	}
 
 	@Override
-	public OSXIP connect(VPNSession logonBoxVPNSession, Connection configuration)
+	protected OSXIP onConnect(VPNSession logonBoxVPNSession, Connection configuration)
 			throws IOException {
 		throw new UnsupportedOperationException("TODO");
 	}

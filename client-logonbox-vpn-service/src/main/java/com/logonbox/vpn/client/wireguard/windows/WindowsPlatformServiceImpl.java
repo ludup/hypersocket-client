@@ -18,7 +18,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -130,9 +129,37 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 		return new ArrayList<WindowsIP>(ips);
 	}
+
+	@Override
+	protected void addRouteAll(Connection connection) throws IOException {
+		LOG.info("Routing traffic all through VPN");
+		OSCommand.admin("route", "add", connection.getEndpointAddress(), getDefaultGateway());
+	}
+
+	@Override
+	protected void removeRouteAll(VPNSession session) throws IOException {
+		LOG.info("Removing routing of all track through VPN");
+		OSCommand.admin("route", "delete", session.getConnection().getEndpointAddress(), getDefaultGateway());
+	}
+
+	@Override
+	protected String getDefaultGateway() throws IOException {
+		for(String line : OSCommand.adminCommandAndIterateOutput("ipconfig")) {
+			line = line.trim();
+			if(line.startsWith("Default Gateway ")) {
+				int idx = line.indexOf(":");
+				if(idx != -1) {
+					line = line.substring(idx + 1).trim();
+					if(!line.equals("0.0.0.0"))
+						return line;
+				}
+			}
+		}
+		throw new IOException("Could not get default gateway.");
+	}
 	
 	@Override
-	public WindowsIP connect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
+	protected WindowsIP onConnect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
 		WindowsIP ip = null;
 
 		/*
@@ -273,6 +300,9 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 				throw ioe;
 			}
 		}
+		
+		/* DNS */
+		dns(configuration, ip);
 
 		/*
 		 * TODO the pipe is not yet working, falling back to using wg.exe for now

@@ -1,82 +1,92 @@
 package com.logonbox.vpn.client.service;
 
 import java.io.IOException;
-import java.net.UnknownHostException;
-import java.rmi.RemoteException;
+import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
+import org.freedesktop.dbus.exceptions.DBusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hypersocket.client.HypersocketClient;
-import com.hypersocket.client.UserCancelledException;
 import com.hypersocket.extensions.AbstractExtensionUpdater;
 import com.hypersocket.extensions.ExtensionPlace;
 import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.extensions.JsonExtensionUpdate;
 import com.hypersocket.json.version.Version;
-import com.hypersocket.netty.NettyClientTransport;
 import com.logonbox.vpn.client.LocalContext;
+import com.logonbox.vpn.client.dbus.VPNConnectionImpl;
 import com.logonbox.vpn.client.service.updates.ClientUpdater;
-import com.logonbox.vpn.client.service.vpn.ConnectionServiceImpl;
-import com.logonbox.vpn.client.service.vpn.ConnectionServiceImpl.Listener;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
-import com.logonbox.vpn.common.client.Branding;
 import com.logonbox.vpn.common.client.ClientService;
-import com.logonbox.vpn.common.client.ConfigurationService;
+import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.Connection;
-import com.logonbox.vpn.common.client.ConnectionService;
+import com.logonbox.vpn.common.client.ConnectionImpl;
+import com.logonbox.vpn.common.client.ConnectionRepository;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
+import com.logonbox.vpn.common.client.Keys.KeyPair;
 import com.logonbox.vpn.common.client.ConnectionStatusImpl;
-import com.logonbox.vpn.common.client.GUICallback;
-import com.logonbox.vpn.common.client.GUIRegistry;
+import com.logonbox.vpn.common.client.Keys;
+import com.logonbox.vpn.common.client.UserCancelledException;
+import com.logonbox.vpn.common.client.dbus.VPN;
+import com.logonbox.vpn.common.client.dbus.VPNConnection;
+import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 
-public class ClientServiceImpl implements ClientService, Listener {
+public class ClientServiceImpl implements ClientService {
 
 	static Logger log = LoggerFactory.getLogger(ClientServiceImpl.class);
 
 	static final int POLL_RATE = 30;
 
+	private static final int AUTHORIZE_TIMEOUT = Integer
+			.parseInt(System.getProperty("logonbox.vpn.authorizeTimeout", "180"));
 	private static final int PHASES_TIMEOUT = 3600 * 24;
+	private static final long PING_TIMEOUT = TimeUnit.SECONDS.toMillis(30);
 
 	protected Map<Connection, VPNSession> activeSessions = new HashMap<>();
-	protected Set<Connection> authorizingClients = new HashSet<>();
-	protected ConfigurationService configurationService;
+	protected Map<Connection, ScheduledFuture<?>> authorizingClients = new HashMap<>();
+	protected Set<Connection> disconnectingClients = new HashSet<>();
 	protected Map<Connection, VPNSession> connectingSessions = new HashMap<>();
-
+	private AtomicLong transientConnectionId = new AtomicLong();
 	private int appsToUpdate;
 
 	private LocalContext context;
-	private UUID deviceUUID;
 	private boolean guiNeedsSeparateUpdate;
 	private boolean needsUpdate;
-	private ClientUpdater serviceUpdateJob;
 	private Semaphore startupLock = new Semaphore(1);
 	private ScheduledExecutorService timer;
 	private boolean updating;
 	private long phasesLastRetrieved = 0;
-
 	private JsonExtensionPhaseList phaseList;
+	private ConfigurationRepository configurationRepository;
+	private ConnectionRepository connectionRepository;
 
-	public ClientServiceImpl(LocalContext context) {
+	public ClientServiceImpl(LocalContext context, ConnectionRepository connectionRepository,
+			ConfigurationRepository configurationRepository) {
 		this.context = context;
+		this.configurationRepository = configurationRepository;
+		this.connectionRepository = connectionRepository;
 
 		try {
 			startupLock.acquire();
@@ -84,25 +94,79 @@ public class ClientServiceImpl implements ClientService, Listener {
 			throw new RuntimeException(e);
 		}
 
-		((ConnectionServiceImpl) context.getConnectionService()).addListener(this);
-
 		timer = Executors.newScheduledThreadPool(1);
+		timer.scheduleAtFixedRate(() -> {
+			long now = System.currentTimeMillis();
+			Set<VPNFrontEnd> toRemove = new LinkedHashSet<>();
+			synchronized (context.getFrontEnds()) {
+				for (VPNFrontEnd fe : context.getFrontEnds()) {
+					if (fe.getLastPing() < now - PING_TIMEOUT) {
+						toRemove.add(fe);
+					}
+				}
+			}
+			for (VPNFrontEnd fe : toRemove) {
+				log.warn(String.format("Front-end with source %s hasn't pinged for at least %dms", fe.getSource(),
+						PING_TIMEOUT));
+				context.deregisterFrontEnd(fe.getSource());
+			}
+		}, 5, 5, TimeUnit.SECONDS);
 	}
 
 	@Override
-	public void authorized(Connection connection) throws RemoteException {
-		synchronized (activeSessions) {
-			if (!authorizingClients.contains(connection)) {
-				throw new RemoteException("No authorization request.");
+	public String getDeviceName() {
+		String hostname = SystemUtils.getHostName();
+		if (StringUtils.isBlank(hostname)) {
+			try {
+				hostname = InetAddress.getLocalHost().getHostName();
+			} catch (Exception e) {
+				hostname = "Unknown Host";
 			}
-			authorizingClients.remove(connection);
 		}
-		getConnectionService().save(connection);
+		String os = System.getProperty("os.name");
+		if (SystemUtils.IS_OS_WINDOWS) {
+			os = "Windows";
+		} else if (SystemUtils.IS_OS_LINUX) {
+			os = "Linux";
+		} else if (SystemUtils.IS_OS_MAC_OSX) {
+			os = "Mac OSX";
+		}
+		return os + " " + hostname;
+	}
+
+	@Override
+	public void authorized(Connection connection) {
+		synchronized (activeSessions) {
+			if (!authorizingClients.containsKey(connection)) {
+				throw new IllegalStateException("No authorization request.");
+			}
+			authorizingClients.remove(connection).cancel(false);
+		}
+		save(connection);
 		connect(connection);
 	}
 
 	@Override
-	public void connect(Connection c) throws RemoteException {
+	public Connection connect(String owner, String uri) {
+		synchronized (activeSessions) {
+			if (hasStatus(owner, uri)) {
+				Connection connection = getStatus(owner, uri).getConnection();
+				connect(connection);
+				return connection;
+			}
+		}
+
+		/* New temporary connection */
+		ConnectionImpl connection = new ConnectionImpl();
+		connection.setId(transientConnectionId.decrementAndGet());
+		connection.updateFromUri(uri);
+		connection.setConnectAtStartup(false);
+		connect(connection);
+		return connection;
+	}
+
+	@Override
+	public void connect(Connection c) {
 		synchronized (activeSessions) {
 			checkValidConnect(c);
 			if (log.isInfoEnabled()) {
@@ -110,214 +174,168 @@ public class ClientServiceImpl implements ClientService, Listener {
 			}
 
 			VPNSession task = createJob(c);
-			task.setTask(timer.schedule(() -> doConnect(task), 500, TimeUnit.MILLISECONDS));
+			task.setTask(timer.schedule(() -> doConnect(task), 1, TimeUnit.MILLISECONDS));
 		}
 	}
 
 	@Override
-	public void connectionAdded(Connection connection) {
-		try {
-			context.getGuiRegistry().connectionAdded(connection);
-		} catch (RemoteException e) {
-			log.error("Failed to signal connection added.", e);
-		}
-	}
-
-	@Override
-	public void connectionAdding(Connection connection) {
-	}
-
-	@Override
-	public void connectionRemoved(Connection connection) {
-		try {
-			context.getGuiRegistry().connectionRemoved(connection);
-		} catch (RemoteException e) {
-			log.error("Failed to signal connection removed.", e);
-		}
-	}
-
-	@Override
-	public void connectionRemoving(Connection connection) {
-		try {
-			synchronized (activeSessions) {
-				if (getStatus(connection) == Type.CONNECTED) {
-					if (StringUtils.isNotBlank(connection.getUserPublicKey())) {
-						VirtualInetAddress addr = getContext().getPlatformService()
-								.getByPublicKey(connection.getPublicKey());
-						if (addr != null) {
-							addr.delete();
-						}
-					}
-					disconnect(connection, null);
-				}
-			}
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to disconnect.", e);
-		}
-	}
-
-	@Override
-	public void connectionUpdated(Connection connection) {
-		try {
-			context.getGuiRegistry().connectionUpdated(connection);
-		} catch (RemoteException e) {
-			log.error("Failed to signal connection updated.", e);
-		}
-	}
-
-	@Override
-	public void connectionUpdating(Connection connection) {
-	}
-
-	public ClientContext createClientContent(HypersocketClient<Connection> client) {
-		return new ClientContext() {
-
-			@Override
-			public HypersocketClient<Connection> getClient() {
-				return client;
-			}
-
-			@Override
-			public LocalContext getLocalContext() {
-				return getContext();
-			}
-		};
-	}
-
-	@Override
-	public void deauthorize(Connection connection) throws RemoteException {
+	public void deauthorize(Connection connection) {
 		synchronized (activeSessions) {
 			connection.deauthorize();
-			authorizingClients.remove(connection);
+			ScheduledFuture<?> f = authorizingClients.remove(connection);
+			if (f != null)
+				f.cancel(false);
 		}
-		getConnectionService().save(connection);
+		save(connection);
 
 	}
 
 	@Override
-	public void disconnect(Connection c, String reason) throws RemoteException {
+	public void disconnect(Connection c, String reason) {
 
 		if (log.isInfoEnabled()) {
-			log.info("Disconnecting connection with id " + c.getId() + "/" + c.getHostname());
+			log.info(String.format("Disconnecting connection with id %d, %s because '%s'", c.getId(), c.getHostname(),
+					reason == null ? "" : reason));
 		}
 		boolean disconnect = false;
-		try {
-			beforeDisconnectClient(c);
-		} catch (IOException e) {
-			throw new RemoteException("Failed to disconnect.", e);
-		}
+		VPNSession wireguardSession = null;
 		synchronized (activeSessions) {
-			if (authorizingClients.contains(c)) {
-				if (log.isInfoEnabled()) {
-					log.info("Was authorizing, cancelling");
+			if (!disconnectingClients.contains(c)) {
+				if (authorizingClients.containsKey(c)) {
+					if (log.isInfoEnabled()) {
+						log.info("Was authorizing, cancelling");
+					}
+					cancelAuthorize(c);
+					disconnect = true;
 				}
-				authorizingClients.remove(c);
-				disconnect = true;
-			}
-			if (activeSessions.containsKey(c)) {
-				if (log.isInfoEnabled()) {
-					log.info("Was connected, disconnecting");
+				if (activeSessions.containsKey(c)) {
+					if (log.isInfoEnabled()) {
+						log.info("Was connected, disconnecting");
+					}
+					disconnect = true;
+					wireguardSession = activeSessions.remove(c);
 				}
-				disconnect = true;
-				activeSessions.remove(c);
-			}
-			if (connectingSessions.containsKey(c)) {
-				if (log.isInfoEnabled()) {
-					log.info("Was connecting, cancelling");
+				if (connectingSessions.containsKey(c)) {
+					if (log.isInfoEnabled()) {
+						log.info("Was connecting, cancelling");
+					}
+					try {
+						connectingSessions.get(c).close();
+					} catch (IOException e) {
+					}
+					connectingSessions.remove(c);
+					disconnect = true;
 				}
-				try {
-					connectingSessions.get(c).close();
-				} catch (IOException e) {
-				}
-				connectingSessions.remove(c);
-				disconnect = true;
 			}
 
 			if (!disconnect) {
-				throw new RemoteException("Not connected.");
+				throw new IllegalStateException("Not connected.");
 			}
+			disconnectingClients.add(c);
 		}
+
 		try {
-			disconnectClient(c);
-		} catch (IOException e) {
-			throw new RemoteException("Failed to disconnect.");
+			try {
+
+				timer.execute(() -> {
+					try {
+						if (log.isInfoEnabled()) {
+							log.info("Sending disconnecting event");
+						}
+						context.sendMessage(new VPNConnection.Disconnecting(
+								String.format("/com/logonbox/vpn/%d", c.getId()), reason));
+					} catch (DBusException e) {
+						log.error("Failed to send disconnected event.", e);
+					}
+				});
+
+				try {
+					if (wireguardSession != null) {
+						if (log.isInfoEnabled()) {
+							log.info("Closing wireguard session");
+						}
+						wireguardSession.close();
+						if (log.isInfoEnabled()) {
+							log.info("WireGuard session closed");
+						}
+					}
+				} catch (Exception e) {
+					log.error("Failed to disconnect cleanly.", e);
+				}
+			} finally {
+				disconnectingClients.remove(c);
+			}
+		} finally {
+			timer.execute(() -> {
+				try {
+					if (log.isInfoEnabled()) {
+						log.info("Sending disconnected event on bus");
+					}
+					context.sendMessage(
+							new VPNConnection.Disconnected(String.format("/com/logonbox/vpn/%d", c.getId()), reason));
+
+					if (log.isInfoEnabled()) {
+						log.info("Sent disconnected event on bus");
+					}
+				} catch (DBusException e) {
+					throw new IllegalStateException("Failed to send disconnected message.", e);
+				}
+			});
 		}
-		/**
-		 * Force removal here for final chance clean up
-		 */
-		context.getGuiRegistry().disconnected(c, reason);
 	}
 
-	public void disconnected(Connection connection, HypersocketClient<Connection> client) {
-		synchronized (activeSessions) {
-			authorizingClients.remove(client.getAttachment());
-			activeSessions.remove(client.getAttachment());
-			connectingSessions.remove(client.getAttachment());
+	private ScheduledFuture<?> cancelAuthorize(Connection c) {
+		ScheduledFuture<?> s = authorizingClients.remove(c);
+		if (s != null) {
+			log.info(String.format("Removed authorization timeout for %s", c.getUri(true)));
+			s.cancel(false);
 		}
-		context.getGuiRegistry().notify(client.getHost() + " disconnected", GUICallback.NOTIFY_DISCONNECT);
+		return s;
 	}
 
 	public void failedToConnect(Connection connection, Throwable jpe) {
 		synchronized (activeSessions) {
-			authorizingClients.remove(connection);
+			ScheduledFuture<?> f = authorizingClients.remove(connection);
+			if (f != null)
+				f.cancel(false);
 			connectingSessions.remove(connection);
 		}
-	}
-
-	public void finishedConnecting(Connection connection, VPNSession job) {
-		synchronized (activeSessions) {
-			connectingSessions.remove(connection);
-			activeSessions.put(connection, job);
-			context.getGuiRegistry().started(connection);
-		}
-	}
-
-	@Override
-	public ConfigurationService getConfigurationService() throws RemoteException {
-		return configurationService;
-	}
-
-	@Override
-	public ConnectionService getConnectionService() throws RemoteException {
-		return context.getConnectionService();
 	}
 
 	public LocalContext getContext() {
 		return context;
 	}
 
-	public GUIRegistry getGuiRegistry() {
-		return context.getGuiRegistry();
-	}
-
 	@Override
-	public String[] getMissingPackages() throws RemoteException {
+	public String[] getMissingPackages() {
 		return getContext().getPlatformService().getMissingPackages();
 	}
 
-	public JsonExtensionPhaseList getPhases() throws RemoteException {
+	@Override
+	public JsonExtensionPhaseList getPhases() {
 		JsonExtensionPhaseList l = new JsonExtensionPhaseList();
-		if(isTrackServerVersion()) {
-			/* Return an empty phase list, the client should not be 
-			 * showing a phase list if tracking server version
+		if (isTrackServerVersion()) {
+			/*
+			 * Return an empty phase list, the client should not be showing a phase list if
+			 * tracking server version
 			 */
 			return l;
-		}
-		else { 
+		} else {
 			if (this.phaseList == null || phasesLastRetrieved < System.currentTimeMillis() - (PHASES_TIMEOUT * 1000)) {
 				ObjectMapper mapper = new ObjectMapper();
 				String extensionStoreRoot = AbstractExtensionUpdater.getExtensionStoreRoot();
 				phasesLastRetrieved = System.currentTimeMillis();
 				try {
-					NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
-					transport.connect(extensionStoreRoot);
-					String update = transport.get("store/phases");
-					JsonExtensionPhaseList phaseList = mapper.readValue(update, JsonExtensionPhaseList.class);
-					this.phaseList = phaseList;
+					URL url = new URL(extensionStoreRoot + "/api/store/phases");
+					URLConnection urlConnection = url.openConnection();
+					this.phaseList = l;
+					try (InputStream in = urlConnection.getInputStream()) {
+						this.phaseList = mapper.readValue(in, JsonExtensionPhaseList.class);
+					}
 				} catch (IOException ioe) {
 					this.phaseList = l;
-					throw new RemoteException(String.format("Failed to get extension phases from %s.", extensionStoreRoot),
-							ioe);
+					throw new IllegalStateException(
+							String.format("Failed to get extension phases from %s.", extensionStoreRoot), ioe);
 				}
 			}
 			return this.phaseList;
@@ -325,10 +343,101 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	@Override
-	public List<ConnectionStatus> getStatus() throws RemoteException {
+	public boolean hasStatus(String owner, String uri) {
+		synchronized (activeSessions) {
+			List<ConnectionStatus> status = getStatus(owner);
+			for (ConnectionStatus s : status) {
+				if (s.getConnection().getUri(true).equals(uri)) {
+					return true;
+				}
+			}
+			for (ConnectionStatus s : status) {
+				if (s.getConnection().getUri(false).equals(uri)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	@Override
+	public ConnectionStatus getStatus(String owner, String uri) {
+		synchronized (activeSessions) {
+			List<ConnectionStatus> status = getStatus(owner);
+			for (ConnectionStatus s : status) {
+				if (s.getConnection().getUri(true).equals(uri)) {
+					return s;
+				}
+			}
+			for (ConnectionStatus s : status) {
+				if (s.getConnection().getUri(false).equals(uri)) {
+					return s;
+				}
+			}
+		}
+		throw new IllegalArgumentException(String.format("No connection with URI %s.", uri));
+	}
+
+	@Override
+	public ConnectionStatus getStatus(long id) {
+		synchronized (activeSessions) {
+			List<ConnectionStatus> status = getStatus(null);
+			for (ConnectionStatus s : status) {
+				if (s.getConnection().getId() == id) {
+					return s;
+				}
+			}
+		}
+		throw new IllegalStateException(String.format("Failed to get status for %d.", id));
+	}
+
+	@Override
+	public ConnectionStatus getStatusForPublicKey(String publicKey) {
+		synchronized (activeSessions) {
+			List<ConnectionStatus> status = getStatus(null);
+			for (ConnectionStatus s : status) {
+				if (publicKey.equals(s.getConnection().getUserPublicKey())) {
+					return s;
+				}
+			}
+		}
+		throw new IllegalStateException(String.format("Failed to get status for %s.", publicKey));
+	}
+
+	@Override
+	public void delete(Connection connection) {
+		try {
+			try {
+				context.sendMessage(new VPN.ConnectionRemoving("/com/logonbox/vpn", connection.getId()));
+				synchronized (activeSessions) {
+					if (getStatusType(connection) == Type.CONNECTED) {
+						if (StringUtils.isNotBlank(connection.getUserPublicKey())) {
+							VirtualInetAddress addr = getContext().getPlatformService()
+									.getByPublicKey(connection.getPublicKey());
+							if (addr != null) {
+								addr.delete();
+							}
+						}
+						disconnect(connection, null);
+					}
+				}
+			} catch (Exception e) {
+				throw new IllegalStateException("Failed to disconnect.", e);
+			}
+			connectionRepository.delete(connection);
+			context.sendMessage(new VPN.ConnectionRemoved("/com/logonbox/vpn", connection.getId()));
+			context.getConnection().unExportObject(String.format("/com/logonbox/vpn/%d", connection.getId()));
+
+		} catch (DBusException e) {
+			throw new IllegalStateException("Failed to delete.", e);
+		}
+	}
+
+	@Override
+	public List<ConnectionStatus> getStatus(String owner) {
 
 		List<ConnectionStatus> ret = new ArrayList<ConnectionStatus>();
-		Collection<Connection> connections = context.getConnectionService().getConnections();
+		Collection<Connection> connections = connectionRepository.getConnections(owner);
 		List<Connection> added = new ArrayList<Connection>();
 		synchronized (activeSessions) {
 			addConnections(ret, connections, added);
@@ -340,32 +449,37 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	@Override
-	public Type getStatus(Connection c) {
-		if (authorizingClients.contains(c))
-			return Type.AUTHORIZING;
-		if (activeSessions.containsKey(c))
-			return Type.CONNECTED;
-		if (connectingSessions.containsKey(c))
-			return Type.CONNECTING;
-		return Type.DISCONNECTED;
+	public Type getStatusType(Connection c) {
+		synchronized (activeSessions) {
+			if (authorizingClients.containsKey(c))
+				return Type.AUTHORIZING;
+			if (activeSessions.containsKey(c))
+				return Type.CONNECTED;
+			if (connectingSessions.containsKey(c))
+				return Type.CONNECTING;
+			if (disconnectingClients.contains(c))
+				return Type.DISCONNECTING;
+			return Type.DISCONNECTED;
+		}
 	}
 
 	@Override
-	public JsonExtensionUpdate getUpdates() throws RemoteException {
+	public JsonExtensionUpdate getUpdates() {
 		ObjectMapper mapper = new ObjectMapper();
 		/* Find the server with the highest version */
 		Version highestVersion = null;
 		JsonExtensionUpdate highestVersionUpdate = null;
-		for (Connection connection : context.getConnectionService().getConnections()) {
+		for (Connection connection : connectionRepository.getConnections(null)) {
 			try {
-				NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
-				transport.connect(connection.getHostname(), connection.getPort(), "/");
-				String update = transport.get("extensions/checkVersion");
-				JsonExtensionUpdate extensionUpdate = mapper.readValue(update, JsonExtensionUpdate.class);
-				Version version = new Version(extensionUpdate.getResource().getLatestVersion());
-				if (highestVersion == null || version.compareTo(highestVersion) > 0) {
-					highestVersion = version;
-					highestVersionUpdate = extensionUpdate;
+				URL url = new URL(connection.getUri(false) + "/api/extensions/checkVersion");
+				URLConnection urlConnection = url.openConnection();
+				try (InputStream in = urlConnection.getInputStream()) {
+					JsonExtensionUpdate extensionUpdate = mapper.readValue(in, JsonExtensionUpdate.class);
+					Version version = new Version(extensionUpdate.getResource().getLatestVersion());
+					if (highestVersion == null || version.compareTo(highestVersion) > 0) {
+						highestVersion = version;
+						highestVersionUpdate = extensionUpdate;
+					}
 				}
 			} catch (IOException ioe) {
 				log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
@@ -373,68 +487,40 @@ public class ClientServiceImpl implements ClientService, Listener {
 			}
 		}
 		if (highestVersionUpdate == null) {
-			throw new RemoteException("Failed to get most recent version from any servers.");
+			throw new IllegalStateException("Failed to get most recent version from any servers.");
 		}
 		return highestVersionUpdate;
 	}
 
 	@Override
-	public Branding getBranding(Connection connection) throws RemoteException {
-		ObjectMapper mapper = new ObjectMapper();
-		Branding branding = null;
-		if (connection != null) {
-			try {
-				branding = getBrandingForConnection(mapper, connection);
-			} catch (IOException ioe) {
-				log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
-						connection.getPort()));
-			}
-		}
-		if (branding == null) {
-			for (Connection conx : context.getConnectionService().getConnections()) {
-				try {
-					branding = getBrandingForConnection(mapper, conx);
-					break;
-				} catch (IOException ioe) {
-					log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
-							connection.getPort()));
-				}
-			}
-		}
-		return branding;
-	}
-
-	protected Branding getBrandingForConnection(ObjectMapper mapper, Connection connection)
-			throws UnknownHostException, IOException, JsonProcessingException, JsonMappingException {
-		NettyClientTransport transport = new NettyClientTransport(context.getBoss(), context.getWorker());
-		transport.connect(connection.getHostname(), connection.getPort(), "/");
-		String update = transport.get("brand/info");
-		Branding brandingObj = mapper.readValue(update, Branding.class);
-		brandingObj.setLogo("https://" + connection.getHostname() + ":" + connection.getPort() + connection.getPath()
-				+ "/api/brand/logo");
-		return brandingObj;
-	}
-
-	@Override
-	public UUID getUUID() {
+	public UUID getUUID(String owner) {
+		UUID deviceUUID;
+		String key = String.format("deviceUUID.%s", owner);
+		String deviceUUIDString = configurationRepository.getValue(key, "");
+		if (deviceUUIDString.equals("")) {
+			deviceUUID = UUID.randomUUID();
+			configurationRepository.setValue(key, deviceUUID.toString());
+		} else
+			deviceUUID = UUID.fromString(deviceUUIDString);
 		return deviceUUID;
 	}
 
 	@Override
-	public boolean isGUINeedsUpdating() throws RemoteException {
+	public boolean isGUINeedsUpdating() {
 		return guiNeedsSeparateUpdate;
 	}
 
 	@Override
-	public boolean isNeedsUpdating() throws RemoteException {
+	public boolean isNeedsUpdating() {
 		return needsUpdate;
 	}
 
 	@Override
-	public boolean isTrackServerVersion() throws RemoteException {
+	public boolean isTrackServerVersion() {
 		return "true".equalsIgnoreCase(System.getProperty("logonbox.vpn.updates.trackServerVersion", "true"));
 	}
 
+	@Override
 	public boolean isUpdating() {
 		return updating;
 	}
@@ -445,7 +531,46 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	@Override
-	public void registerGUI(GUICallback gui) throws RemoteException {
+	public String getValue(String name, String defaultValue) {
+		return configurationRepository.getValue(name, defaultValue);
+	}
+
+	@Override
+	public void setValue(String name, String value) {
+		configurationRepository.setValue(name, value);
+	}
+
+	@Override
+	public void registered(VPNFrontEnd frontEnd) {
+		log.info(String.format("Registered front-end %s as %s, %s, %s", frontEnd.getSource(), frontEnd.getUsername(),
+				frontEnd.isSupportsAuthorization() ? "supports auth" : "doesnt support auth",
+				frontEnd.isInteractive() ? "interactive" : "not interactive"));
+
+		/*
+		 * If this front end supports authorization, send it the signal to start
+		 * authorizing
+		 */
+		if (frontEnd.isSupportsAuthorization()) {
+			getTimer().schedule(() -> {
+				try {
+					for (ConnectionStatus conx : getStatus(frontEnd.getUsername())) {
+						if (conx.getStatus() == Type.AUTHORIZING) {
+
+							context.sendMessage(new VPNConnection.Authorize(
+									String.format("/com/logonbox/vpn/%d", conx.getConnection().getId()),
+									"/logonbox-vpn-client/"));
+
+							/* Done */
+							return;
+						}
+					}
+				} catch (Exception e) {
+					throw new IllegalStateException("Failed to get connections.", e);
+				}
+			}, 6, TimeUnit.SECONDS);
+
+		}
+
 		try {
 			/*
 			 * BPS - We need registration to wait until the client services are started up
@@ -458,51 +583,57 @@ public class ClientServiceImpl implements ClientService, Listener {
 		}
 
 		try {
-
-			if (gui.isInteractive()) {
-				GUIRegistry guiRegistry = context.getGuiRegistry();
-				guiRegistry.registerGUI(gui);
+			if (frontEnd.isInteractive()) {
 				if (guiNeedsSeparateUpdate) {
 					/* Do the separate GUI update */
 					appsToUpdate = 1;
-					ClientUpdater guiJob = new ClientUpdater(guiRegistry, guiRegistry.getGUI().getExtensionPlace(),
-							ExtensionTarget.CLIENT_GUI, context);
+					ClientUpdater guiJob = new ClientUpdater(frontEnd.getPlace(), ExtensionTarget.CLIENT_GUI, context);
 
 					try {
-						guiRegistry.onUpdateInit(appsToUpdate);
+						context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
 						try {
 							boolean atLeastOneUpdate = guiJob.update();
-
-							if(atLeastOneUpdate)
+							if (atLeastOneUpdate)
 								log.info("Update complete, at least one found so restarting.");
 							else
 								log.info("No updates available.");
-							guiRegistry.onUpdateDone(atLeastOneUpdate, null);
-
+							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", atLeastOneUpdate, null));
 						} catch (IOException e) {
 							log.error("Failed to update GUI.", e);
-							guiRegistry.onUpdateDone(false, e.getMessage());
+							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, e.getMessage()));
 						}
 					} catch (Exception re) {
 						log.error("GUI refused to update, ignoring.", re);
-						guiRegistry.onUpdateDone(false, null);
-					}
-
-				} else if (updating) {
-
-					/*
-					 * If we register while an update is taking place, try to make the client catch
-					 * up and show the update progress window
-					 */
-					guiRegistry.onUpdateInit(appsToUpdate);
-					guiRegistry.onUpdateStart(ExtensionPlace.getDefault().getApp(), serviceUpdateJob.getTotalSize());
-					guiRegistry.onUpdateProgress(ExtensionPlace.getDefault().getApp(), 0,
-							serviceUpdateJob.getTransfered(), serviceUpdateJob.getTotalSize());
-					if (serviceUpdateJob.getTransfered() >= serviceUpdateJob.getTotalSize()) {
-						guiRegistry.onUpdateComplete(ExtensionPlace.getDefault().getApp(),
-								serviceUpdateJob.getTransfered());
+						try {
+							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, null));
+						} catch (DBusException e) {
+							throw new IllegalStateException("Failed to send message.", e);
+						}
 					}
 				}
+//				else if (updating) {
+//					/*
+//					 * If we register while an update is taking place, try to make the client catch
+//					 * up and show the update progress window
+//					 */
+//					try {
+//						context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
+//
+//						context.sendMessage(new VPN.UpdateStart("/com/logonbox/vpn",
+//								ExtensionPlace.getDefault().getApp(), serviceUpdateJob.getTotalSize()));
+//
+//						context.sendMessage(
+//								new VPN.UpdateProgress("/com/logonbox/vpn", ExtensionPlace.getDefault().getApp(), 0,
+//										serviceUpdateJob.getTransfered(), serviceUpdateJob.getTotalSize()));
+//
+//						if (serviceUpdateJob.getTransfered() >= serviceUpdateJob.getTotalSize()) {
+//							context.sendMessage(new VPN.UpdateComplete("/com/logonbox/vpn",
+//									ExtensionPlace.getDefault().getApp(), serviceUpdateJob.getTransfered()));
+//						}
+//					} catch (DBusException e) {
+//						throw new IllegalStateException("Failed to send event.", e);
+//					}
+//				}
 			}
 		} finally {
 			startupLock.release();
@@ -510,31 +641,62 @@ public class ClientServiceImpl implements ClientService, Listener {
 	}
 
 	@Override
-	public void requestAuthorize(Connection connection) throws RemoteException {
+	public void requestAuthorize(Connection connection) {
 		synchronized (activeSessions) {
 			/* Can request multiple times */
 			if (connectingSessions.containsKey(connection)) {
-				throw new RemoteException("Already connecting.");
+				throw new IllegalStateException("Already connecting.");
 			}
 			if (activeSessions.containsKey(connection)) {
-				throw new RemoteException("Already connected.");
+				throw new IllegalStateException("Already connected.");
 			}
 			if (connection.isAuthorized())
-				throw new RemoteException("Already authorized.");
+				throw new IllegalStateException("Already authorized.");
 
-			context.getGuiRegistry().showBrowser(connection, "/logonbox-vpn-client/");
-			authorizingClients.add(connection);
+			try {
+				context.sendMessage(new VPNConnection.Authorize(
+						String.format("/com/logonbox/vpn/%d", connection.getId()), "/logonbox-vpn-client/"));
+			} catch (DBusException e) {
+				throw new IllegalStateException("Failed to send message.", e);
+			}
+
+			/*
+			 * Setup a timeout so that clients don't get stuck authorizing if nobody is
+			 * there to authorize
+			 */
+			cancelAuthorize(connection);
+			authorizingClients.put(connection, timer.schedule(() -> {
+				disconnect(connection, "Authorization timeout.");
+			}, AUTHORIZE_TIMEOUT, TimeUnit.SECONDS));
 		}
 	}
 
 	@Override
-	public Connection save(Connection c) throws RemoteException {
+	public Connection save(Connection c) {
+
+		try {
+			context.sendMessage(new VPN.ConnectionUpdated("/com/logonbox/vpn", c.getId()));
+		} catch (DBusException e) {
+			log.error("Failed to signal connection updated.", e);
+		}
+		Connection newConnection = doSave(c);
+		try {
+			context.sendMessage(new VPN.ConnectionUpdating("/com/logonbox/vpn", newConnection.getId()));
+		} catch (DBusException e) {
+			log.error("Failed to signal connection updating.", e);
+		}
+
+		return newConnection;
+
+	}
+
+	Connection doSave(Connection c) {
 		// If a non-persistent connection is now being saved as a persistent
 		// one, then update our maps
-		Long oldId = c.getId();
-		Connection newConnection = context.getConnectionService().save(c);
+		boolean wasTransient = c.isTransient();
+		Connection newConnection = connectionRepository.save(c);
 
-		if (oldId == null && newConnection.getId() != null) {
+		if (wasTransient) {
 			log.info(String.format("Saving non-persistent connection, now has ID %d", newConnection.getId()));
 		}
 
@@ -542,29 +704,25 @@ public class ClientServiceImpl implements ClientService, Listener {
 			if (activeSessions.containsKey(c)) {
 				activeSessions.put(newConnection, activeSessions.remove(c));
 			}
-			if (authorizingClients.contains(c)) {
-				authorizingClients.remove(c);
-				authorizingClients.add(newConnection);
+			if (authorizingClients.containsKey(c)) {
+				authorizingClients.put(newConnection, authorizingClients.remove(c));
 			}
 			if (connectingSessions.containsKey(c)) {
 				connectingSessions.put(newConnection, connectingSessions.remove(c));
 			}
 		}
-		onSave(c, newConnection);
 		return newConnection;
-
 	}
 
-	@Override
-	public void scheduleConnect(Connection c) throws RemoteException {
+	public void scheduleConnect(Connection c) {
 		checkValidConnect(c);
 		if (log.isInfoEnabled()) {
 			log.info("Scheduling connect for connection id " + c.getId() + "/" + c.getHostname());
 		}
 
-		Integer reconnectSeconds = Integer.valueOf(configurationService.getValue("client.reconnectInSeconds", "5"));
+		Integer reconnectSeconds = Integer.valueOf(configurationRepository.getValue("client.reconnectInSeconds", "5"));
 
-		Connection connection = context.getConnectionService().getConnection(c.getId());
+		Connection connection = connectionRepository.getConnection(c.getId());
 		if (connection == null) {
 			log.warn("Ignoring a scheduled connection that no longer exists, probably deleted.");
 		} else {
@@ -576,9 +734,9 @@ public class ClientServiceImpl implements ClientService, Listener {
 
 	public void start() throws Exception {
 		boolean automaticUpdates = Boolean
-				.valueOf(context.getConfigurationService().getValue(ConfigurationService.AUTOMATIC_UPDATES, "true"));
+				.valueOf(configurationRepository.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"));
 
-		if (!isTrackServerVersion() || context.getConnectionService().getConnections().size() > 0) {
+		if (!isTrackServerVersion() || connectionRepository.getConnections(null).size() > 0) {
 			/*
 			 * Do updates if we are not tracking the server version or if there are some
 			 * connections we can get LogonBox VPN server version from
@@ -607,7 +765,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 			log.warn(String.format("Not starting %d connections until update is done.", toStart.size()));
 		}
 		for (VPNSession session : toStart) {
-			activeSessions.put(getContext().getConnectionService().getConnection(session.getConnection()), session);
+			activeSessions.put(session.getConnection(), session);
 		}
 
 	}
@@ -616,16 +774,9 @@ public class ClientServiceImpl implements ClientService, Listener {
 
 		try {
 
-			String deviceUUIDString = context.getConfigurationService().getValue("deviceUUID", "");
-			if (deviceUUIDString.equals("")) {
-				deviceUUID = UUID.randomUUID();
-				context.getConfigurationService().setValue("deviceUUID", deviceUUID.toString());
-			} else
-				deviceUUID = UUID.fromString(deviceUUIDString);
-
 			int connected = 0;
-			for (Connection c : context.getConnectionService().getConnections()) {
-				if (c.isConnectAtStartup() && getStatus(c) == Type.DISCONNECTED) {
+			for (Connection c : connectionRepository.getConnections(null)) {
+				if (c.isConnectAtStartup() && getStatusType(c) == Type.DISCONNECTED) {
 					try {
 						connect(c);
 						connected++;
@@ -638,7 +789,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 			timer.scheduleAtFixedRate(() -> checkConnectionsAlive(), POLL_RATE, POLL_RATE, TimeUnit.SECONDS);
 
 			return connected > 0;
-		} catch (RemoteException e) {
+		} catch (Exception e) {
 			log.error("Failed to start service", e);
 			return false;
 		} finally {
@@ -646,7 +797,12 @@ public class ClientServiceImpl implements ClientService, Listener {
 		}
 	}
 
-	public void stopService() throws RemoteException {
+	@Override
+	public ScheduledExecutorService getTimer() {
+		return timer;
+	}
+
+	public void stopService() {
 
 		synchronized (activeSessions) {
 			activeSessions.clear();
@@ -654,24 +810,17 @@ public class ClientServiceImpl implements ClientService, Listener {
 			authorizingClients.clear();
 		}
 		timer.shutdown();
-
 	}
 
 	@Override
-	public void unregisterGUI(GUICallback gui, boolean callback) throws RemoteException {
-		if (gui.isInteractive()) {
-			context.getGuiRegistry().unregisterGUI(gui, callback);
-		}
-	}
-
-	public void update() throws RemoteException {
+	public void update() {
 		if (!isNeedsUpdating()) {
-			throw new RemoteException("An update is not required.");
+			throw new IllegalStateException("An update is not required.");
 		}
 		update(false);
 	}
 
-	public void update(boolean checkOnly) throws RemoteException {
+	public void update(boolean checkOnly) {
 		appsToUpdate = 0;
 		needsUpdate = false;
 		int updates = 0;
@@ -684,7 +833,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 			} else {
 				log.info("Updating");
 				guiNeedsSeparateUpdate = true;
-				GUIRegistry guiRegistry = context.getGuiRegistry();
+				List<ClientUpdater> updaters = new ArrayList<>();
 
 				/*
 				 * For the client service, we use the local 'extension place'
@@ -692,7 +841,7 @@ public class ClientServiceImpl implements ClientService, Listener {
 				appsToUpdate = 1;
 				ExtensionPlace defaultExt = ExtensionPlace.getDefault();
 				defaultExt.setDownloadAllExtensions(true);
-				serviceUpdateJob = new ClientUpdater(guiRegistry, defaultExt, ExtensionTarget.CLIENT_SERVICE, context);
+				updaters.add(new ClientUpdater(defaultExt, ExtensionTarget.CLIENT_SERVICE, context));
 
 				/*
 				 * For the GUI, we get the extension place remotely, as the GUI itself is best
@@ -702,26 +851,23 @@ public class ClientServiceImpl implements ClientService, Listener {
 				 * is available. If this happens we may need to update the GUI as well when it
 				 * eventually
 				 */
-				ClientUpdater guiJob = null;
-				if (guiRegistry.hasGUI()) {
-					appsToUpdate++;
-					guiNeedsSeparateUpdate = false;
-					guiJob = new ClientUpdater(guiRegistry, guiRegistry.getGUI().getExtensionPlace(),
-							ExtensionTarget.CLIENT_GUI, context);
+				for (VPNFrontEnd fe : context.getFrontEnds()) {
+					if (!fe.isUpdated()) {
+						guiNeedsSeparateUpdate = false;
+						appsToUpdate++;
+						updaters.add(new ClientUpdater(fe.getPlace(), ExtensionTarget.CLIENT_GUI, context));
+					}
 				}
 
 				try {
-					if (!checkOnly)
-						guiRegistry.onUpdateInit(appsToUpdate);
-
-					if ((checkOnly && serviceUpdateJob.checkForUpdates())
-							|| (!checkOnly && serviceUpdateJob.update())) {
-						updates++;
+					if (!checkOnly) {
+						context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
 					}
 
-					if ((checkOnly && guiJob != null && guiJob.checkForUpdates())
-							|| (!checkOnly && guiJob != null && guiJob.update())) {
-						updates++;
+					for (ClientUpdater update : updaters) {
+						if ((checkOnly && update.checkForUpdates()) || (!checkOnly && update.update())) {
+							updates++;
+						}
 					}
 
 					if (!checkOnly) {
@@ -731,34 +877,50 @@ public class ClientServiceImpl implements ClientService, Listener {
 							 * If when we started the update, the GUI wasn't attached, but it is now, then
 							 * instead of restarting immediately, try to update any client extensions too
 							 */
-							if (guiNeedsSeparateUpdate && guiRegistry.hasGUI()) {
-								guiNeedsSeparateUpdate = false;
-								appsToUpdate = 1;
-								guiJob = new ClientUpdater(guiRegistry, guiRegistry.getGUI().getExtensionPlace(),
-										ExtensionTarget.CLIENT_GUI, context);
-								guiRegistry.onUpdateInit(appsToUpdate);
-								boolean atLeastOneUpdate = guiJob.update();
-								guiRegistry.onUpdateDone(atLeastOneUpdate, null);
-								if(atLeastOneUpdate) {
+							if (guiNeedsSeparateUpdate && !context.getFrontEnds().isEmpty()) {
+								appsToUpdate = 0;
+								for (VPNFrontEnd fe : context.getFrontEnds()) {
+									if (!fe.isUpdated()) {
+										guiNeedsSeparateUpdate = false;
+										appsToUpdate++;
+										updaters.add(
+												new ClientUpdater(fe.getPlace(), ExtensionTarget.CLIENT_GUI, context));
+									}
+								}
+								if (appsToUpdate == 0) {
+									/* Still nothing else to update, we are done */
+									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, null));
 									log.info("Update complete, restarting.");
-									context.getRestartCallback().run();
+									System.exit(99);
+								} else {
+									context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
+									int updated = 0;
+									for (ClientUpdater update : updaters) {
+										if (update.update())
+											updated++;
+									}
+									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", updated > 0, null));
+									if (updated > 0) {
+										log.info("Update complete, restarting.");
+										System.exit(99);
+									}
 								}
 							} else {
-								guiRegistry.onUpdateDone(true, null);
+								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, null));
 								log.info("Update complete, restarting.");
-								context.getRestartCallback().run();
+								System.exit(99);
 							}
 						} else {
-							guiRegistry.onUpdateDone(false, "Nothing to update.");
+							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, "Nothing to update."));
 						}
 					}
 
-				} catch (IOException e) {
+				} catch (IOException | DBusException e) {
 					log.error("Failed to execute update job.", e);
 					return;
 				}
 			}
-		} catch (RemoteException re) {
+		} catch (Exception re) {
 			log.error("Failed to get GUI extension information. Update aborted.", re);
 		} finally {
 			updating = false;
@@ -767,30 +929,15 @@ public class ClientServiceImpl implements ClientService, Listener {
 		needsUpdate = updates > 0;
 	}
 
-	protected void beforeDisconnectClient(Connection c) throws IOException {
-		synchronized (activeSessions) {
-			VPNSession wireguardSession = activeSessions.get(c);
-			if (wireguardSession != null)
-				wireguardSession.close();
-		}
-
-	}
-
-	protected VPNSession createJob(Connection c) throws RemoteException {
-		return new VPNSession(c.getId(), getContext());
-	}
-
-	protected void disconnectClient(Connection c) throws IOException {
-	}
-
-	protected void onSave(Connection oldConnection, Connection newConnection) {
+	protected VPNSession createJob(Connection c) {
+		return new VPNSession(c, getContext());
 	}
 
 	private void addConnections(List<ConnectionStatus> ret, Collection<Connection> connections,
 			List<Connection> added) {
 		for (Connection c : connections) {
 			if (!added.contains(c)) {
-				ret.add(new ConnectionStatusImpl(c, getStatus(c)));
+				ret.add(new ConnectionStatusImpl(c, getStatusType(c)));
 				added.add(c);
 			}
 		}
@@ -822,46 +969,58 @@ public class ClientServiceImpl implements ClientService, Listener {
 		}
 	}
 
-	private void checkValidConnect(Connection c) throws RemoteException {
+	private void checkValidConnect(Connection c) {
 		synchronized (activeSessions) {
 			if (connectingSessions.containsKey(c)) {
-				throw new RemoteException("Already connecting.");
+				throw new IllegalStateException("Already connecting.");
 			}
 			if (activeSessions.containsKey(c)) {
-				throw new RemoteException("Already connected.");
+				throw new IllegalStateException("Already connected.");
 			}
-			if (authorizingClients.contains(c)) {
-				throw new RemoteException("Currently authorizing.");
+			if (authorizingClients.containsKey(c)) {
+				throw new IllegalStateException("Currently authorizing.");
 			}
-			if (!c.isAuthorized())
-				throw new RemoteException("Not authorized.");
 		}
 	}
 
 	private void doConnect(VPNSession job) {
 		try {
 
-			Connection connection = getConnectionService().getConnection(job.getConnection());
+			Connection connection = job.getConnection();
 			connectingSessions.put(connection, job);
 
 			if (log.isInfoEnabled()) {
 				log.info("Connecting to " + connection);
 			}
 			try {
+
+				/* Fire events */
+				context.sendMessage(
+						new VPNConnection.Connecting(String.format("/com/logonbox/vpn/%d", connection.getId())));
+
 				job.open();
 				if (log.isInfoEnabled()) {
-					log.info("Connected to " + connection);
+					log.info("Ready to " + connection);
 				}
-				getGuiRegistry().transportConnected(connection);
-				getGuiRegistry().ready(connection);
-				finishedConnecting(connection, job);
+
+				synchronized (activeSessions) {
+					connectingSessions.remove(connection);
+					activeSessions.put(connection, job);
+
+					/* Fire Events */
+					try {
+						context.sendMessage(
+								new VPNConnection.Connected(String.format("/com/logonbox/vpn/%d", connection.getId())));
+					} catch (DBusException e) {
+						throw new IllegalStateException("Failed to send event.", e);
+					}
+				}
+
 			} catch (Exception e) {
-				if (log.isErrorEnabled()) {
-					log.error("Failed to connect " + connection, e);
-				}
 
 				failedToConnect(connection, e);
 				if (e instanceof ReauthorizeException) {
+					log.info(String.format("Requesting reauthorization for %s", connection.getUri(true)));
 					try {
 						/*
 						 * The connection did not get it's first handshake in a timely manner. We don't
@@ -880,15 +1039,22 @@ public class ClientServiceImpl implements ClientService, Listener {
 							log.error("Failed to request authorization.", e1);
 						}
 					}
+				} else {
+					if (log.isErrorEnabled()) {
+						log.error("Failed to connect " + connection, e);
+					}
 				}
-				getGuiRegistry().failedToConnect(connection, e.getMessage());
+
+				context.sendMessage(new VPNConnection.Failed(String.format("/com/logonbox/vpn/%d", connection.getId()),
+						e.getMessage()));
+
 				if (!(e instanceof UserCancelledException)) {
 					if (connection.isStayConnected()) {
-						try {
-							scheduleConnect(connection);
-							return;
-						} catch (RemoteException e1) {
+						if (log.isInfoEnabled()) {
+							log.info("Stay connected is set, so scheduling new connection to " + connection);
 						}
+						scheduleConnect(connection);
+						return;
 					}
 				}
 			}
@@ -898,5 +1064,33 @@ public class ClientServiceImpl implements ClientService, Listener {
 				log.error("Failed to get connection.", e);
 			}
 		}
+	}
+
+	@Override
+	public Connection create(Connection connection) {
+		try {
+			context.sendMessage(new VPN.ConnectionAdding("/com/logonbox/vpn"));
+		} catch (DBusException e) {
+			throw new IllegalStateException("Failed to create.", e);
+		}
+
+		generateKeys(connection);
+		Connection newConnection = doSave(connection);
+		try {
+			context.getConnection().exportObject(String.format("/com/logonbox/vpn/%d", connection.getId()),
+					new VPNConnectionImpl(context, connection));
+			context.sendMessage(new VPN.ConnectionAdded("/com/logonbox/vpn", connection.getId()));
+		} catch (DBusException e) {
+			throw new IllegalStateException("Failed to create.", e);
+		}
+		return newConnection;
+	}
+
+	private void generateKeys(Connection connection) {
+		log.info("Generating private key");
+		KeyPair key = Keys.genkey();
+		connection.setUserPrivateKey(key.getBase64PrivateKey());
+		connection.setUserPublicKey(key.getBase64PublicKey());
+		log.info(String.format("Public key is %s", connection.getUserPublicKey()));
 	}
 }

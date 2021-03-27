@@ -25,8 +25,6 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
-import com.logonbox.vpn.client.wireguard.IpUtil;
-import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
 import com.sshtools.forker.client.OSCommand;
 
@@ -50,6 +48,18 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	protected LinuxIP add(String name, String type) throws IOException {
 		OSCommand.adminCommand("ip", "link", "add", "dev", name, "type", type);
 		return find(name, ips(false));
+	}
+
+	@Override
+	protected String getDefaultGateway() throws IOException {
+		for(String line : OSCommand.adminCommandAndIterateOutput("ip", "route")) {
+			if(line.startsWith("default via")) {
+				String[] args = line.split("\\s+");
+				if(args.length > 2)
+					return args[2];
+			}
+		}
+		throw new IOException("Could not get default gateway.");
 	}
 	
 	@Override
@@ -94,30 +104,6 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 			}
 		}
 		return l;
-	}
-
-	public static void main(String[] args) throws Exception {
-		LinuxPlatformServiceImpl link = new LinuxPlatformServiceImpl();
-		LinuxIP ip = link.add("wg0", "wireguard");
-		System.out.println("Added:" + link);
-		try {
-			ip.addAddress("192.168.92.1/24");
-			System.out.println("    " + link);
-			try {
-				ip.addAddress("192.168.92.2/24");
-				System.out.println("    " + link);
-				ip.removeAddress("192.168.92.2/24");
-			} finally {
-				ip.removeAddress("192.168.92.1/24");
-			}
-		} finally {
-			ip.delete();
-		}
-
-		System.out.println("Ips: " + IpUtil.optimizeIps("10.0.0.0/16", "10.0.0.2/32", "192.168.10.0/24",
-				"192.168.2.0/24", "192.168.91.0/24"));
-		System.out.println("Ips: " + IpUtil.optimizeIps("10.0.1.6", "192.168.2.1", "10.0.0.0/16"));
-		System.out.println("Ips: " + IpUtil.optimizeIps("192.168.2.1", "10.0.0.0/16", "10.0.1.6"));
 	}
 
 	protected boolean exists(String name, Iterable<LinuxIP> links) {
@@ -184,7 +170,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	}
 
 	@Override
-	public LinuxIP connect(VPNSession session, Connection configuration) throws IOException {
+	protected LinuxIP onConnect(VPNSession session, Connection configuration) throws IOException {
 		LinuxIP ip = null;
 
 		/*
@@ -255,6 +241,9 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		ip.setMtu(configuration.getMtu());
 		log.info(String.format("Bringing up %s", ip.getName()));		
 		ip.up();
+		
+		/* DNS */
+		dns(configuration, ip);
 
 		/* Set the routes */
 		log.info(String.format("Setting routes for %s", ip.getName()));

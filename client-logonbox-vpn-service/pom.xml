@@ -21,11 +21,17 @@
 			<groupId>com.hypersocket</groupId>
 			<artifactId>client-logonbox-vpn-common</artifactId>
 			<version>${project.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.github.hypfvieh</groupId>
+					<artifactId>dbus-java</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
-			<groupId>com.hypersocket</groupId>
-			<artifactId>client-netty</artifactId>
-			<version>${project.version}</version>
+			<groupId>info.picocli</groupId>
+			<artifactId>picocli</artifactId>
+			<version>4.6.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.javassist</groupId>
@@ -48,14 +54,9 @@
 			<version>10.15.2.0</version>
 		</dependency>
 		<dependency>
-			<groupId>org.hibernate.common</groupId>
-			<artifactId>hibernate-commons-annotations</artifactId>
-			<version>5.1.2.Final</version>
-		</dependency>
-		<dependency>
-			<groupId>javax.persistence</groupId>
-			<artifactId>javax.persistence-api</artifactId>
-			<version>2.2</version>
+			<groupId>org.hibernate</groupId>
+			<artifactId>hibernate-entitymanager</artifactId>
+			<version>5.4.30.Final</version>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
@@ -87,15 +88,16 @@
 			<artifactId>forker-client</artifactId>
 			<version>1.7-SNAPSHOT</version>
 		</dependency>
-		<!-- <dependency>
-			<groupId>com.sshtools</groupId>
-			<artifactId>forker-wrapped</artifactId>
-			<version>1.7-SNAPSHOT</version>
-		</dependency> -->
 		<dependency>
 			<groupId>com.sshtools</groupId>
 			<artifactId>forker-services</artifactId>
 			<version>1.7-SNAPSHOT</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.github.hypfvieh</groupId>
+					<artifactId>dbus-java</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>

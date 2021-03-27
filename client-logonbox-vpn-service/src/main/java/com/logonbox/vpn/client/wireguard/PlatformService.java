@@ -11,16 +11,6 @@ import com.logonbox.vpn.common.client.Connection;
 public interface PlatformService<I extends VirtualInetAddress> {
 
 	/**
-	 * Process any command line arguments for this platform.
-	 * 
-	 * @param args arguments
-	 * @return error code or {@link Integer.MIN_VALUE} to ignore.
-	 */
-	default int processCLI(String[] args) {
-		return Integer.MIN_VALUE;
-	}
-
-	/**
 	 * Get a list of the common names of any 3rd party or distribution packages that
 	 * are needed on this platform.
 	 * 

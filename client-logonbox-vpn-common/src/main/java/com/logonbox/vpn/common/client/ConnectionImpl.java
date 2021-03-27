@@ -13,7 +13,6 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.Lob;
 import javax.persistence.Table;
 
 import org.apache.commons.lang3.StringUtils;
@@ -52,15 +51,22 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Column(nullable = false)
 	private int mtu;
 
-	@Lob
+    @Column(columnDefinition="varchar(10240)")
 	private String dns;
 
 	@Column
 	private int peristentKeepalive;
 
-	@Lob
+	@Column(columnDefinition = "boolean default false")
+	private boolean shared;
+
+    @Column(columnDefinition="varchar(10240)")
+	private String owner;
+
+    @Column(columnDefinition="varchar(10240)")
 	private String allowedIps;
-	@Column(unique = true)
+	
+	@Column
 	private String name;
 
 	@Column(nullable = false)
@@ -72,15 +78,90 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Column(nullable = false)
 	private String path = "/app";
 
-	@Column
+	@Column(columnDefinition = "boolean default false")
 	private boolean stayConnected;
 
-	@Column
+	@Column(columnDefinition = "boolean default false")
 	private boolean connectAtStartup;
+
+	@Column(columnDefinition = "boolean default false")
+	private boolean routeAll;
+
+    @Column(columnDefinition="varchar(10240)")
+	private String preUp;
+
+    @Column(columnDefinition="varchar(10240)")
+	private String postUp;
+
+    @Column(columnDefinition="varchar(10240)")
+	private String preDown;
+
+    @Column(columnDefinition="varchar(10240)")
+	private String postDown;
+
+	@Override
+	public boolean isRouteAll() {
+		return routeAll;
+	}
+
+	@Override
+	public void setRouteAll(boolean routeAll) {
+		this.routeAll = routeAll;
+	}
+
+	@Override
+	public String getPreUp() {
+		return preUp;
+	}
+
+	@Override
+	public void setPreUp(String preUp) {
+		this.preUp = preUp;
+	}
+
+	@Override
+	public String getPostUp() {
+		return postUp;
+	}
+
+	@Override
+	public void setPostUp(String postUp) {
+		this.postUp = postUp;
+	}
+
+	@Override
+	public String getPreDown() {
+		return preDown;
+	}
+
+	@Override
+	public void setPreDown(String preDown) {
+		this.preDown = preDown;
+	}
+
+	@Override
+	public String getPostDown() {
+		return postDown;
+	}
+
+	@Override
+	public void setPostDown(String postDown) {
+		this.postDown = postDown;
+	}
 
 	@Override
 	public Long getId() {
 		return id;
+	}
+
+	@Override
+	public String getOwner() {
+		return owner;
+	}
+
+	@Override
+	public void setOwner(String owner) {
+		this.owner = owner;
 	}
 
 	@Override
@@ -141,6 +222,16 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Override
 	public void setPort(Integer port) {
 		this.port = port;
+	}
+
+	@Override
+	public boolean isShared() {
+		return shared;
+	}
+
+	@Override
+	public void setShared(boolean publicToAll) {
+		this.shared = publicToAll;
 	}
 
 	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {

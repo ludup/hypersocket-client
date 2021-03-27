@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.wireguard.AbstractVirtualInetAddress;
 import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
+import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.services.Service;
 import com.sshtools.forker.services.Services;
 
@@ -129,6 +130,25 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	@Override
 	public String getDisplayName() {
 		return displayName;
+	}
+
+	@Override
+	public void dns(String[] dns) throws IOException {
+		if(dns != null && dns.length > 2) {
+			LOG.warn("Windows only supports a maximum of 2 DNS servers. %d were supplied, the last %d will be ignored.", dns.length, dns.length - 2);
+		}
+		if(dns != null && dns.length > 1) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", dns[0], "secondary");	
+		} 
+		else if(dns != null && dns.length < 2) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", "none", "secondary");	
+		}
+		if(dns != null && dns.length > 0) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", dns[0], "primary");	
+		} 
+		else if(dns != null && dns.length < 1) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", "none", "primary");	
+		}
 	}
 
 }

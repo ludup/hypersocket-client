@@ -1,5 +1,6 @@
 package com.logonbox.vpn.client.gui.jfx;
 
+import java.awt.SplashScreen;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -38,8 +39,9 @@ import org.slf4j.LoggerFactory;
 import com.goxr3plus.fxborderlessscene.borderless.BorderlessScene;
 import com.logonbox.vpn.client.gui.jfx.MiniHttpServer.DynamicContent;
 import com.logonbox.vpn.client.gui.jfx.MiniHttpServer.DynamicContentFactory;
-import com.logonbox.vpn.common.client.Branding;
-import com.logonbox.vpn.common.client.BrandingInfo;
+import com.logonbox.vpn.common.client.AbstractDBusClient;
+import com.logonbox.vpn.common.client.api.Branding;
+import com.logonbox.vpn.common.client.api.BrandingInfo;
 
 import javafx.application.Application;
 import javafx.application.ConditionalFeature;
@@ -55,6 +57,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.image.Image;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.paint.Color;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -71,7 +74,7 @@ public class Client extends Application implements X509TrustManager {
 	 * doesn't always work (not sure why!)
 	 * 
 	 * NOTE: This is now OFF by default as we are using Java 11. When we switch back
-	 * to Java 15 or higher this may need to be revisted unless the underlying back
+	 * to Java 15 or higher this may need to be revisited unless the underlying bug
 	 * has been fixed.
 	 */
 	static final boolean useLocalHTTPService = System.getProperty("logonbox.vpn.useLocalHTTPService", "false")
@@ -79,9 +82,6 @@ public class Client extends Application implements X509TrustManager {
 
 	/* Security can be turned off for this, useful for debugging */
 	static final boolean secureLocalHTTPService = System.getProperty("logonbox.vpn.secureLocalHTTPService", "true")
-			.equals("true");
-
-	static final boolean generateKeysClientSide = System.getProperty("logonbox.vpn.generateKeyClientSide", "true")
 			.equals("true");
 
 	static final boolean allowBranding = System.getProperty("logonbox.vpn.allowBranding", "true")
@@ -98,7 +98,6 @@ public class Client extends Application implements X509TrustManager {
 	static ResourceBundle BUNDLE = ResourceBundle.getBundle(Client.class.getName());
 	static UUID localWebServerCookie = UUID.randomUUID();
 
-	private Bridge bridge;
 	private ExecutorService opQueue = Executors.newSingleThreadExecutor();
 	private boolean waitingForExitChoice;
 	private Stage primaryStage;
@@ -123,6 +122,10 @@ public class Client extends Application implements X509TrustManager {
 		instance = this;
 		PropertyConfigurator.configureAndWatch(
 				System.getProperty("hypersocket.logConfiguration", "conf" + File.separator + "log4j.properties"));
+	}
+	
+	public AbstractDBusClient getDBus() {
+		return Main.getInstance();
 	}
 
 	public <C extends AbstractController> C openScene(Class<C> controller) throws IOException {
@@ -214,9 +217,6 @@ public class Client extends Application implements X509TrustManager {
 			miniHttp.start();
 		}
 
-		// Bridges to the common client network code
-		bridge = new Bridge();
-
 		// Setup the window
 		if (Platform.isSupported(ConditionalFeature.TRANSPARENT_WINDOW)) {
 			primaryStage.initStyle(StageStyle.TRANSPARENT);
@@ -282,10 +282,13 @@ public class Client extends Application implements X509TrustManager {
 			we.consume();
 		});
 
-		bridge.start();
-
 		if (!Main.getInstance().isNoSystemTray())
 			tray = new DorkBoxTray(this);
+		
+        final SplashScreen splash = SplashScreen.getSplashScreen();
+        if (splash != null) {
+        	splash.close();
+        }
 	}
 
 	public Stage getStage() {
@@ -293,15 +296,18 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	public void confirmExit() {
-
-		/*
-		 * LDP - I don't want to be prompted to disconnect if I have set the connection
-		 * to stay connected.
-		 */
-		int active = bridge.getActiveButNonPersistentConnections();
-
+		int active = 0;
+		try {
+			active = getDBus().getVPN().getActiveButNonPersistentConnections();
+		}
+		catch(Exception e) {
+			exitApp();
+		}
+		
 		if (active > 0) {
 			Alert alert = new Alert(AlertType.CONFIRMATION);
+			alert.initModality(Modality.APPLICATION_MODAL);
+			alert.initOwner(getStage());
 			alert.setTitle(BUNDLE.getString("exit.confirm.title"));
 			alert.setHeaderText(BUNDLE.getString("exit.confirm.header"));
 			alert.setContentText(BUNDLE.getString("exit.confirm.content"));
@@ -316,13 +322,10 @@ public class Client extends Application implements X509TrustManager {
 				Optional<ButtonType> result = alert.showAndWait();
 
 				if (result.get() == disconnect) {
-					new Thread() {
-						@Override
-						public void run() {
-							bridge.disconnectAll();
-							exitApp();
-						}
-					}.start();
+					opQueue.execute(() -> {
+						getDBus().getVPN().disconnectAll();
+						exitApp();
+					});
 				} else if (result.get() == stayConnected) {
 					exitApp();
 				}
@@ -358,9 +361,9 @@ public class Client extends Application implements X509TrustManager {
 		return opQueue;
 	}
 
-	public Bridge getBridge() {
-		return bridge;
-	}
+//	public Bridge getBridge() {
+//		return bridge;
+//	}
 
 	public void clearLoadQueue() {
 		opQueue.shutdownNow();
@@ -446,7 +449,7 @@ public class Client extends Application implements X509TrustManager {
 			tmpFile = new File(new File(System.getProperty("java.io.tmpdir")),
 					System.getProperty("user.name") + "-lbvpn-jfx.css");
 		else
-			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")), "lbvpn-jfx.css");
+			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")).getParentFile(), "lbvpn-jfx.css");
 		return tmpFile;
 	}
 
@@ -456,7 +459,7 @@ public class Client extends Application implements X509TrustManager {
 			tmpFile = new File(new File(System.getProperty("java.io.tmpdir")),
 					System.getProperty("user.name") + "-lbvpn-web.css");
 		else
-			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")), "lbvpn-web.css");
+			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")).getParentFile(), "lbvpn-web.css");
 		return tmpFile;
 	}
 
@@ -517,7 +520,8 @@ public class Client extends Application implements X509TrustManager {
 		/* Create new JavaFX custom styles */
 		writeJavaFXCSS(branding);
 		File tmpFile = getCustomJavaFXCSSFile();
-		log.info(String.format("Using custom JavaFX stylesheet %s", tmpFile));
+		if(log.isDebugEnabled())
+			log.debug(String.format("Using custom JavaFX stylesheet %s", tmpFile));
 		ss.add(0, toUri(tmpFile).toExternalForm());
 
 		node.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
@@ -528,15 +532,17 @@ public class Client extends Application implements X509TrustManager {
 
 	void writeLocalWebCSS(Branding branding) {
 		File tmpFile = getCustomLocalWebCSSFile();
+		tmpFile.getParentFile().mkdirs();
 		String url = toUri(tmpFile).toExternalForm();
-		log.info(String.format("Writing local web style sheet to %s", url));
+		if(log.isDebugEnabled())
+			log.debug(String.format("Writing local web style sheet to %s", url));
 		String cbg = branding == null ? BrandingInfo.DEFAULT_BACKGROUND : branding.getResource().getBackground();
 		String cfg = branding == null ? BrandingInfo.DEFAULT_FOREGROUND : branding.getResource().getForeground();
 		String cac = toHex(Color.valueOf(cbg).deriveColor(0, 1, 0.85, 1));
 		String cac2 = toHex(Color.valueOf(cbg).deriveColor(0, 1, 1.15, 1));
 		try (PrintWriter output = new PrintWriter(new FileWriter(tmpFile))) {
 			try (InputStream input = UI.class.getResource("local.css").openStream()) {
-				for (String line : IOUtils.readLines(input)) {
+				for (String line : IOUtils.readLines(input, "UTF-8")) {
 					line = line.replace("${lbvpnBackground}", cbg);
 					line = line.replace("${lbvpnForeground}", cfg);
 					line = line.replace("${lbvpnAccent}", cac);
@@ -553,7 +559,8 @@ public class Client extends Application implements X509TrustManager {
 		try {
 			File tmpFile = getCustomJavaFXCSSFile();
 			String url = toUri(tmpFile).toExternalForm();
-			log.info(String.format("Writing JavafX style sheet to %s", url));
+			if(log.isDebugEnabled())
+				log.debug(String.format("Writing JavafX style sheet to %s", url));
 			PrintWriter pw = new PrintWriter(new FileOutputStream(tmpFile));
 			try {
 				pw.println(getCustomJavaFXCSSResource(branding));

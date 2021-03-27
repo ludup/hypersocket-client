@@ -1,8 +1,14 @@
 package com.logonbox.vpn.common.client;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 
 public interface Connection {
+
+	default boolean isTransient() {
+		return getId() == null || getId() < 0;
+	}
 
 	void setPort(Integer port);
 
@@ -25,13 +31,27 @@ public interface Connection {
 	String getHostname();
 
 	String getName();
-	
+
 	default String getDisplayName() {
-		String un = getUsernameHint();
-		if(un == null || un.length() == 0)
-			return getName();
+		String dn = getName();
+		if (dn == null || dn.length() == 0) {
+			return getDefaultDisplayName();
+		}
 		else
-			return un + "@" + getName();
+			return dn;
+	}
+
+	default String getDefaultDisplayName() {
+		String uri = getUsernameHint();
+		if(uri == null)
+			uri = "";
+		else if(!uri.equals(""))
+			uri += "@";
+		uri += getHostname();
+		if (getPort() != 443) {
+			uri += ":" + getPort();
+		}
+		return uri;
 	}
 
 	void setName(String name);
@@ -89,6 +109,45 @@ public interface Connection {
 	boolean isAuthorized();
 
 	void deauthorize();
+
+	boolean isShared();
+
+	void setShared(boolean shared);
+	
+	String getOwner();
+
+	void setOwner(String owner);
+	
+	String getPreUp();
+	
+	String getPostUp();
+	
+	String getPreDown();
+	
+	String getPostDown();
+	
+	boolean isRouteAll();
+
+	default void updateFromUri(String uri) {
+		try {
+			URI uriObj = Util.getUri(uri);
+			setHostname(uriObj.getHost());
+			setPort(uriObj.getPort() >= 0 ? uriObj.getPort() : 443);
+			setPath(uriObj.getPath());
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException("Invalid URI.", e);
+		}
+	}
+
+	void setRouteAll(boolean routeAll);
+
+	void setPreUp(String preUp);
+
+	void setPostUp(String postUp);
+
+	void setPreDown(String preDown);
+
+	void setPostDown(String postDown);
 
 
 }

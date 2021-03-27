@@ -1,12 +1,13 @@
 package com.logonbox.vpn.client;
 
-import java.util.concurrent.ExecutorService;
+import java.util.Collection;
+
+import org.freedesktop.dbus.connections.impl.DBusConnection;
+import org.freedesktop.dbus.messages.Message;
 
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.common.client.ClientService;
-import com.logonbox.vpn.common.client.ConfigurationService;
-import com.logonbox.vpn.common.client.GUIRegistry;
-import com.logonbox.vpn.common.client.ConnectionService;
+import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 
 public interface LocalContext {
 
@@ -14,15 +15,19 @@ public interface LocalContext {
 	
 	ClientService getClientService();
 
-	ExecutorService getWorker();
-
-	ExecutorService getBoss();
-
-	GUIRegistry getGuiRegistry();
-
-	Runnable getRestartCallback();
+	void sendMessage(Message message);
 	
-	ConnectionService getConnectionService();
+	VPNFrontEnd registerFrontEnd(String source);
+	
+	VPNFrontEnd getFrontEnd(String source);
 
-	ConfigurationService getConfigurationService();
+	boolean hasFrontEnd(String source);
+
+	void deregisterFrontEnd(String source);
+	
+	boolean isRegistrationRequired();
+
+	DBusConnection getConnection();
+
+	Collection<VPNFrontEnd> getFrontEnds();
 }

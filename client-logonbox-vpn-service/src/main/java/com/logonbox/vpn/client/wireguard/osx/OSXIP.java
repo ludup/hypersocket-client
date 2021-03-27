@@ -79,4 +79,9 @@ public class OSXIP implements VirtualInetAddress {
 		throw new UnsupportedOperationException("TODO");
 	}
 
+	@Override
+	public void dns(String[] dns) throws IOException {
+		throw new UnsupportedOperationException("TODO");
+	}
+
 }
