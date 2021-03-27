@@ -97,6 +97,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private static final int SPLASH_HEIGHT = 360;
 	private static final int SPLASH_WIDTH = 480;
 
+	private static final String DEFAULT_LOCALHOST_ADDR = "http://localhost:59999/";
+
 	/**
 	 * This object is exposed to the local HTML/Javascript that runs in the browse.
 	 */
