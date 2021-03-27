@@ -266,14 +266,6 @@
 
 	<repositories>
 		<repository>
-			<id>sonatype-oss-snapshots</id>
-			<releases>
-				<enabled>false</enabled>
-			</releases>
-			<snapshots />
-			<url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-		</repository>
-		<repository>
 			<id>opensource-snapshots</id>
 			<url>http://artifactory.javassh.com/opensource-snapshots</url>
 			<snapshots />
@@ -288,15 +280,6 @@
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
-		</repository>
-		<repository>
-			<id>ext-snapshots-local</id>
-			<name>ext-snapshots-local</name>
-			<url>http://artifactory.javassh.com/ext-snapshots-local</url>
-			<snapshots/>
-			<releases>
-				<enabled>false</enabled>
-			</releases>
 		</repository>
 	</repositories>
 
