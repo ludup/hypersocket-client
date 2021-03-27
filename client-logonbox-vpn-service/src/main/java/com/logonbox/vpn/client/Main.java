@@ -1,135 +1,103 @@
 package com.logonbox.vpn.client;
 
-import java.beans.Introspector;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.SocketException;
-import java.net.URL;
-import java.rmi.AccessException;
-import java.rmi.NoSuchObjectException;
-import java.rmi.Remote;
-import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.rmi.server.RMIClientSocketFactory;
-import java.rmi.server.RMIServerSocketFactory;
-import java.rmi.server.RMISocketFactory;
-import java.rmi.server.UnicastRemoteObject;
+import java.io.PrintWriter;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Callable;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
+import org.freedesktop.dbus.bin.EmbeddedDBusDaemon;
+import org.freedesktop.dbus.connections.BusAddress;
+import org.freedesktop.dbus.connections.impl.DBusConnection;
+import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
+import org.freedesktop.dbus.connections.impl.DirectConnection;
+import org.freedesktop.dbus.connections.transports.TransportFactory;
+import org.freedesktop.dbus.exceptions.DBusException;
+import org.freedesktop.dbus.messages.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.logonbox.vpn.client.dbus.VPNConnectionImpl;
+import com.logonbox.vpn.client.dbus.VPNImpl;
 import com.logonbox.vpn.client.service.ClientServiceImpl;
-import com.logonbox.vpn.client.service.ConfigurationServiceImpl;
-import com.logonbox.vpn.client.service.GUIRegistryImpl;
-import com.logonbox.vpn.client.service.vpn.ConnectionServiceImpl;
+import com.logonbox.vpn.client.service.ConfigurationRepositoryImpl;
+import com.logonbox.vpn.client.service.vpn.ConnectionRepositoryImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.client.wireguard.linux.LinuxPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.osx.OSXPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.windows.WindowsPlatformServiceImpl;
 import com.logonbox.vpn.common.client.ClientService;
-import com.logonbox.vpn.common.client.ConfigurationService;
+import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.Connection;
-import com.logonbox.vpn.common.client.ConnectionService;
-import com.logonbox.vpn.common.client.GUIRegistry;
-import com.logonbox.vpn.common.client.LocalRMIClientSocketFactory;
-import com.logonbox.vpn.common.client.LocalRMIServerSocketFactory;
+import com.logonbox.vpn.common.client.ConnectionRepository;
+import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
+import com.sshtools.forker.common.OS;
 
-public class Main implements LocalContext {
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
-	static class DefaultRestartCallback implements Runnable {
+@Command(name = "logonbox-vpn-server", mixinStandardHelpOptions = true, description = "Command line interface to the LogonBox VPN service.")
+public class Main implements Callable<Integer>, LocalContext {
 
-		@Override
-		public void run() {
+	final static int DEFAULT_TIMEOUT = 10000;
 
-			if (log.isInfoEnabled()) {
-				log.info("Shutting down with forker restart code.");
-			}
+	static Logger log = LoggerFactory.getLogger(Main.class);
 
-			System.exit(90);
-		}
+	public static void main(String[] args) throws Exception {
+		Main cli = new Main();
+		int ret = new CommandLine(cli).execute(args);
+		if (ret > 0)
+			System.exit(ret);
 
-	}
-	
-	static class DefaultShutdownCallback implements Runnable {
-
-		@Override
-		public void run() {
-
-			if (log.isInfoEnabled()) {
-				log.info("Shutting down using default shutdown mechanism");
-			}
-
-			System.exit(0);
-		}
-
+		/* If ret = 0, we just wait for threads to die naturally */
 	}
 
 	protected static Main instance;
-	static Logger log = LoggerFactory.getLogger(Main.class);
-	
+
 	public static Main getInstance() {
 		return instance;
 	}
-	
-	/**
-	 * Entry point
-	 *  
-	 * @param args arguments
-	 * @throws Exception on any error
-	 */
-	public static void main(String[] args) throws Exception {
-		instance = new Main(new DefaultRestartCallback(), new DefaultShutdownCallback(), args);
-		instance.run();
-	}
-	
+
 	public static int randInt(int min, int max) {
 		Random rand = new Random();
 		int randomNum = rand.nextInt((max - min) + 1) + min;
 		return randomNum;
 	}
-	
-	public static void runApplication(Runnable restartCallback, Runnable shutdownCallback, String[] args)
-			throws IOException {
-		new Main(restartCallback, shutdownCallback, args).run();
-	}
-	
-	private String[] args;
-	private ExecutorService bossExecutor;
+
 	private ClientServiceImpl clientService;
-	private ConfigurationServiceImpl configurationService;
-	private ConnectionService connectionService;
-	private GUIRegistry guiRegistry;
 	private PlatformService<?> platform;
-	private int port;
-	private Properties properties = new Properties();
-	private Registry registry;
-	private Runnable restartCallback;
-	private Runnable shutdownCallback;
-	private ExecutorService workerExecutor;
-	private RMIServerSocketFactory serverSocketFactory;
-	private RMIClientSocketFactory clientSocketFactory;
+	private DBusConnection conn;
+	private Map<String, VPNFrontEnd> frontEnds = Collections.synchronizedMap(new HashMap<>());
+	private EmbeddedDBusDaemon daemon;
 
-	public Main(Runnable restartCallback, Runnable shutdownCallback, String[] args) {
-		this.restartCallback = restartCallback;
-		this.shutdownCallback = shutdownCallback;
-		this.args = args;
-		this.guiRegistry = new GUIRegistryImpl();
+	@Option(names = { "-a", "--address" }, description = "Address of Bus.")
+	private String address;
 
-		bossExecutor = Executors.newCachedThreadPool();
-		workerExecutor = Executors.newCachedThreadPool();
-		
+	@Option(names = { "-e",
+			"--embedded-bus" }, description = "Force use of embedded DBus service. Usually it is enabled by default for anything other than Linux.")
+	private boolean embeddedBus;
+
+	@Option(names = { "-R",
+			"--no-registration-required" }, description = "Enable this to allow unregistered DBus clients to control the VPN. Not recommended for security reasons, anyone would be able to control anyone else's VPN connections.")
+	private boolean noRegistrationRequired;
+
+	@Option(names = { "-t",
+			"--tcp-bus" }, description = "Force use of TCP DBus service. Usually it is enabled by default for anything other than Linux.")
+	private boolean tcpBus;
+
+	public Main() throws Exception {
+
 		if (SystemUtils.IS_OS_LINUX) {
 			platform = new LinuxPlatformServiceImpl();
 		} else if (SystemUtils.IS_OS_WINDOWS) {
@@ -139,33 +107,15 @@ public class Main implements LocalContext {
 		} else
 			throw new UnsupportedOperationException(
 					String.format("%s not currently supported.", System.getProperty("os.name")));
-
-		serverSocketFactory = new LocalRMIServerSocketFactory();
-		clientSocketFactory = new LocalRMIClientSocketFactory();
 	}
 
 	@Override
-	public ExecutorService getBoss() {
-		return bossExecutor;
+	public DBusConnection getConnection() {
+		return conn;
 	}
 
 	public ClientService getClientService() {
 		return clientService;
-	}
-
-	@Override
-	public ConfigurationService getConfigurationService() {
-		return configurationService;
-	}
-
-	@Override
-	public ConnectionService getConnectionService() {
-		return connectionService;
-	}
-
-	@Override
-	public GUIRegistry getGuiRegistry() {
-		return guiRegistry;
 	}
 
 	@Override
@@ -174,252 +124,216 @@ public class Main implements LocalContext {
 	}
 
 	@Override
-	public Runnable getRestartCallback() {
-		return restartCallback;
-	}
-
-	@Override
-	public ExecutorService getWorker() {
-		return workerExecutor;
-	}
-
-	public void restart() {
-		close();
-		restartCallback.run();
-	}
-
-	/**
-	 */
-	public void run() {
-		
-		int ret = platform.processCLI(args);
-		if(ret != Integer.MIN_VALUE) {
-			System.exit(ret);
-		}
+	public Integer call() throws Exception {
 
 		File logs = new File("logs");
 		logs.mkdirs();
 
 		String logConfigPath = System.getProperty("hypersocket.logConfiguration", "");
-		if(logConfigPath.equals("")) {
+		if (logConfigPath.equals("")) {
 			/* Load default */
 			PropertyConfigurator.configure(Main.class.getResource("/default-log4j-service.properties"));
-		}
-		else {
+		} else {
 			File logConfigFile = new File(logConfigPath);
-			if(logConfigFile.exists())
+			if (logConfigFile.exists())
 				PropertyConfigurator.configureAndWatch(logConfigPath);
 			else
 				PropertyConfigurator.configure(Main.class.getResource("/default-log4j-service.properties"));
 		}
 
-		System.setProperty("java.rmi.server.hostname", "localhost");
+		try {
 
-		if (System.getSecurityManager() == null) {
-			System.setSecurityManager(new SecurityManager());
-		}
-
-		while (true) {
-			try {
-				if (!buildServices()) {
-					System.exit(3);
-				}
-
-				if (!publishDefaultServices()) {
-					System.exit(1);
-				}
-
-				if (!clientService.startSavedConnections()) {
-					log.warn("Not all connections started.");
-				}
-
-				poll();
-			} catch (Exception e) {
-				log.error("Failed to start", e);
-				try {
-					Thread.sleep(2500L);
-				} catch (InterruptedException e1) {
-				}
+			if (!buildServices()) {
+				System.exit(3);
 			}
+
+			if (!configureDBus()) {
+				System.exit(3);
+			}
+
+			if (!startServices()) {
+				System.exit(3);
+			}
+
+			if (!publishDefaultServices()) {
+				System.exit(1);
+			}
+
+			if (!clientService.startSavedConnections()) {
+				log.warn("Not all connections started.");
+			}
+
+		} catch (Exception e) {
+			log.error("Failed to start", e);
+			try {
+				Thread.sleep(2500L);
+			} catch (InterruptedException e1) {
+			}
+			return 1;
 		}
+
+		return 0;
 	}
 
 	public void shutdown() {
-		close();
-		shutdownCallback.run();
+		shutdownEmbeddeDaemon();
+		System.exit(0);
 	}
 
-	protected void close() {
-		bossExecutor.shutdown();
-		workerExecutor.shutdown();
+	@Override
+	public boolean hasFrontEnd(String source) {
+		return frontEnds.containsKey(source);
 	}
 
-	protected Registry getRegistry() {
-		return registry;
+	@Override
+	public VPNFrontEnd getFrontEnd(String source) {
+		return frontEnds.get(source);
 	}
 
-	protected <T extends Remote> void publishService(Class<T> type, T obj) throws Exception {
-
-		String name = Introspector.decapitalize(type.getSimpleName());
-
-		if (log.isInfoEnabled()) {
-			log.info(String.format("Publishing service %s (%s)", name, type.getName()));
-		}
-
-		Remote stub = UnicastRemoteObject.exportObject(obj, port, clientSocketFactory, serverSocketFactory);
-		registry.rebind(name, stub);
-
-		if (log.isInfoEnabled()) {
-			log.info(String.format("Published service %s (%s)", name, type.getName()));
-		}
-
-	}
-
-	protected void publishServices() throws Exception {
-		publishService(ClientService.class, getClientService());
-	}
-
-	protected void unpublishServices() {
-		try {
-			getRegistry().unbind("connectionService");
-		} catch (Exception e) {
+	@Override
+	public void deregisterFrontEnd(String source) {
+		synchronized (frontEnds) {
+			VPNFrontEnd fe = frontEnds.remove(source);
+			if (fe == null) {
+				throw new IllegalArgumentException(String.format("Front end '%s' not registered.", source));
+			}
+			else
+				log.info(String.format("De-registered front-end %s.", source));
 		}
 	}
 
-	boolean buildServices() throws RemoteException {
-		port = -1;
-
-		File rmiPropertiesFile;
-		String rmiPath = System.getProperty("hypersocket.rmi");
-
-		if (log.isInfoEnabled()) {
-			log.info("RMI PATH: " + rmiPath);
+	@Override
+	public VPNFrontEnd registerFrontEnd(String source) {
+		synchronized (frontEnds) {
+			VPNFrontEnd fe = frontEnds.get(source);
+			if (fe != null) {
+				throw new IllegalArgumentException(String.format("Front end '%s' already registered.", source));
+			}
+			fe = new VPNFrontEnd(source);
+			frontEnds.put(source, fe);
+			return fe;
 		}
-		if (rmiPath != null) {
-			rmiPropertiesFile = new File(rmiPath);
-		} else if (Boolean.getBoolean("hypersocket.development")) {
-			rmiPropertiesFile = new File(System.getProperty("user.home") + File.separator + ".logonbox" + File.separator
-					+ "conf" + File.separator + "rmi.properties");
-		} else {
-			rmiPropertiesFile = new File("conf" + File.separator + "rmi.properties");
-		}
-		if (log.isInfoEnabled()) {
-			log.info("Writing RMI info to " + rmiPropertiesFile);
-			String username = System.getProperty("user.name");
-			log.info("Running as " + username);
-		}
+	}
 
-		rmiPropertiesFile.getParentFile().mkdirs();
+	@Override
+	public void sendMessage(Message message) {
+		conn.sendMessage(message);
+	}
 
+	private void shutdownEmbeddeDaemon() {
+		if (daemon != null) {
+			try {
+				daemon.close();
+			} catch (IOException e) {
+				log.error("Failed to shutdown DBus service.", e);
+			} finally {
+				daemon = null;
+			}
+		}
+	}
+
+	private boolean configureDBus() throws Exception {
 		/*
-		 * Get the existing port number, if any. If it is still active, and appears to
-		 * be an RMI server, then fail as this means there is already a client running.
+		 * Workaround for windows. It's unlikely there will be a 'machine id' available,
+		 * so create one if it appears that this will cause an issue. <p> Better fixes
+		 * are going to require patching java DBC or extracting when DBusConnection does
+		 * (fortunately this is only called in a few places)
 		 */
-		if (rmiPropertiesFile.exists()) {
-			try {
-				InputStream in = new FileInputStream(rmiPropertiesFile);
-				try {
-					properties.load(in);
-				} finally {
-					in.close();
-				}
-			} catch (IOException ioe) {
-				throw new RemoteException("Failed to read existing " + rmiPropertiesFile + ".");
+		try {
+			DBusConnection.getDbusMachineId();
+		} catch (Exception e) {
+			File etc = new File(File.separator + "etc");
+			if (!etc.exists()) {
+				etc.mkdirs();
 			}
-
-			port = Integer.parseInt(properties.getProperty("port", "50000"));
-
-			try {
-				ServerSocket ss = new ServerSocket(port, 1, InetAddress.getByName("127.0.0.1"));
-				ss.close();
-				// The port is free, we will try to use it again first
-			} catch (SocketException se) {
-				boolean isExistingClient = false;
-				// Already running, see if it is RMI
-				try {
-					@SuppressWarnings("unused")
-					Registry r = LocateRegistry.getRegistry("127.0.0.1", port, RMISocketFactory.getDefaultSocketFactory());
-					isExistingClient = true;
-				} catch (RemoteException re) {
-					/*
-					 * Port is in use, but not an RMI server, so consider it unusable and choose
-					 * another random port
-					 */
+			File machineId = new File(etc, "machine-id");
+			if (machineId.exists())
+				throw e;
+			else {
+				Random randomService = new Random();
+				StringBuilder sb = new StringBuilder();
+				while (sb.length() < 32) {
+					sb.append(Integer.toHexString(randomService.nextInt()));
 				}
-
-				if (isExistingClient) {
-					// It does appear to RMI registry, so we'll assume it's an existing running
-					// client
-					log.error("The VPN client is already running on port " + port);
-					return false;
+				sb.setLength(32);
+				try (PrintWriter w = new PrintWriter(new FileWriter(machineId), true)) {
+					w.println(sb.toString());
+				} catch (IOException ioe) {
+					throw new RuntimeException(String.format("Failed to create machine ID file %s.", machineId), ioe);
 				}
-			} catch (IOException ioe) {
-				/*
-				 * Some other error, let the attempt to create the registry fail if there really
-				 * is a problem
-				 */
 			}
 		}
 
-		if (port == -1) {
-			port = randInt(49152, 65535);
-		}
+		File dbusPropertiesFile = getDBusPropertiesFile();
 
-		int attempts = 100;
-		while (attempts > 0) {
-			try {
-				if (log.isInfoEnabled()) {
-					log.info("Trying RMI server on port " + port);
+		if (SystemUtils.IS_OS_LINUX && !embeddedBus) {
+			if (address != null) {
+				log.info(String.format("Connected to DBus @%s", address));
+				conn = DBusConnection.getConnection(address, true, true);
+				log.info(String.format("Ready to DBus @%s", address));
+			} else if (OS.isAdministrator()) {
+				log.info("Connected to System DBus");
+				conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
+				log.info("Ready to System DBus");
+				address = conn.getAddress().getRawAddress();
+			} else {
+				log.info("Not administrator, connecting to Session DBus");
+				conn = DBusConnection.getConnection(DBusBusType.SESSION);
+				log.info("Ready to Session DBus");
+				address = conn.getAddress().getRawAddress();
+			}
+		} else {
+			if (address == null) {
+				if (SystemUtils.IS_OS_UNIX && !tcpBus) {
+					address = DirectConnection.createDynamicSession();
+				} else {
+					address = DirectConnection.createDynamicTCPSession();
 				}
-				registry = LocateRegistry.createRegistry(port, clientSocketFactory, serverSocketFactory);
-				if (log.isInfoEnabled()) {
-					log.info("RMI server started on port " + port);
-				}
-				properties.put("port", String.valueOf(port));
-				FileOutputStream out = new FileOutputStream(rmiPropertiesFile);
+			}
+
+			BusAddress busAddress = new BusAddress(address);
+			if (!busAddress.hasGuid()) {
+				address += ",guid=" + TransportFactory.genGUID();
+				busAddress = new BusAddress(address);
+			}
+
+			log.info(String.format("Starting embedded bus on address %s", busAddress.getRawAddress()));
+			daemon = new EmbeddedDBusDaemon();
+			daemon.setAddress(busAddress);
+			daemon.startInBackground();
+			log.info(String.format("Started embedded bus on address %s", busAddress.getRawAddress()));
+
+			log.info("Connecting to embedded DBus");
+			for (int i = 0; i < 6; i++) {
 				try {
-					properties.store(out, "LogonBox VPN Client Service");
-				} finally {
-					out.close();
+					conn = DBusConnection.getConnection(busAddress.getRawAddress());
+					log.info("Connected to embedded DBus");
+					break;
+				} catch (DBusException dbe) {
+					if (i > 4)
+						throw dbe;
+					Thread.sleep(500);
 				}
-				break;
-			} catch (Exception e) {
-				attempts--;
-				port = randInt(49152, 65535);
-				continue;
 			}
 		}
+		log.info(String.format("Requesting name from Bus %s", address));
 
-		if (registry == null) {
-			throw new RemoteException("Failed to startup after 100 attempts");
+		Properties properties = new Properties();
+		properties.put("address", address);
+		try (FileOutputStream out = new FileOutputStream(dbusPropertiesFile)) {
+			properties.store(out, "LogonBox VPN Client Service");
 		}
-
-		if (log.isInfoEnabled()) {
-			log.info("Creating ConnectionService");
-		}
-		
-		connectionService = new ConnectionServiceImpl(this);
-
-		if (log.isInfoEnabled()) {
-			log.info("Creating ConfigurationService");
-		}
-
-		configurationService = new ConfigurationServiceImpl(this);
-
-		if (log.isInfoEnabled()) {
-			log.info("Creating ClientService");
-		}
-
-		buildDefaultConnections();
-
-		clientService = new ClientServiceImpl(this);
 
 		try {
-			connectionService.start();
+			conn.requestBusName("com.logonbox.vpn");
 		} catch (Exception e) {
-			throw new IllegalStateException("Failed to start peer configuration service.", e);
+			log.error("Failed to connect to DBus. No remote state monitoring or management.", e);
+			return false;
 		}
+		return true;
+	}
 
+	private boolean startServices() {
 		try {
 			clientService.start();
 		} catch (Exception e) {
@@ -427,57 +341,77 @@ public class Main implements LocalContext {
 		}
 
 		return true;
+	}
+
+	private boolean buildServices() throws Exception {
+
+		if (log.isInfoEnabled()) {
+			log.info("Creating Connection Repository");
+		}
+
+		ConnectionRepository connectionRepository = new ConnectionRepositoryImpl();
+
+		if (log.isInfoEnabled()) {
+			log.info("Creating Configuration Repository");
+		}
+
+		ConfigurationRepository configurationRepository = new ConfigurationRepositoryImpl(this);
+
+		if (log.isInfoEnabled()) {
+			log.info("Creating Client Service");
+		}
+		clientService = new ClientServiceImpl(this, connectionRepository, configurationRepository);
+
+		return true;
 
 	}
 
-	void poll() {
+	private File getDBusPropertiesFile() {
+		return getPropertiesFile("dbus");
+	}
+
+	private File getPropertiesFile(String type) {
+		File file;
+		String path = System.getProperty("hypersocket." + type);
+
+		if (log.isInfoEnabled()) {
+			log.info(String.format("%s Path: %s", type.toUpperCase(), path));
+		}
+		if (path != null) {
+			file = new File(path);
+		} else if (Boolean.getBoolean("hypersocket.development")) {
+			file = new File(System.getProperty("user.home") + File.separator + ".logonbox-vpn-client" + File.separator
+					+ "conf" + File.separator + type + ".properties");
+		} else {
+			file = new File("conf" + File.separator + type + ".properties");
+		}
+		if (log.isInfoEnabled()) {
+			log.info(String.format("Writing %s info to %s", type.toUpperCase(), file));
+			String username = System.getProperty("user.name");
+			log.info("Running as " + username);
+		}
+
+		file.getParentFile().mkdirs();
+		return file;
+	}
+
+	private boolean publishDefaultServices() {
 
 		try {
-			while (true) {
-				try {
-					Thread.sleep(2500L);
-				} catch (InterruptedException e) {
-
-				}
-
-				registry.list();
-
+			/* DBus */
+			if (log.isInfoEnabled()) {
+				log.info(String.format("Exporting VPN service to DBus"));
 			}
-		} catch (AccessException e) {
-			log.error("RMI server seems to have failed", e);
-		} catch (RemoteException e) {
-			log.error("RMI server seems to have failed", e);
-		}
+			conn.exportObject("/com/logonbox/vpn", new VPNImpl(this));
+			if (log.isInfoEnabled()) {
+				log.info(String.format("Exported VPN service to DBus"));
+			}
+			for (ConnectionStatus connectionStatus : clientService.getStatus(null)) {
+				Connection connection = connectionStatus.getConnection();
+				conn.exportObject(String.format("/com/logonbox/vpn/%d", connection.getId()),
+						new VPNConnectionImpl(this, connection));
+			}
 
-		try {
-			registry.unbind("clientService");
-		} catch (Exception e) {
-		}
-
-		try {
-			registry.unbind("configurationService");
-		} catch (Exception e) {
-		}
-
-		try {
-			registry.unbind("connectionService");
-		} catch (Exception e) {
-		}
-
-		unpublishServices();
-
-		try {
-			UnicastRemoteObject.unexportObject(registry, true);
-		} catch (NoSuchObjectException e) {
-		}
-	}
-
-	boolean publishDefaultServices() {
-
-		try {
-			publishService(ConnectionService.class, connectionService);
-			publishService(ConfigurationService.class, configurationService);
-			publishServices();
 			return true;
 		} catch (Exception e) {
 			log.error("Failed to publish service", e);
@@ -485,44 +419,14 @@ public class Main implements LocalContext {
 		}
 	}
 
-
-	private void buildDefaultConnections() {
-
-		for (String arg : args) {
-
-			if (arg.startsWith("url=")) {
-				try {
-					URL url = new URL(arg.substring(4));
-
-					Connection con = connectionService.getConnection(url.getHost());
-					if (con == null) {
-						con = connectionService.createNew();
-						String name = url.getHost();
-						if (url.getPort() > 0 && url.getPort() != 443)
-							name += ":" + url.getPort();
-						con.setName(name);
-						con.setStayConnected(true);
-
-						con.setConnectAtStartup(false);
-						con.setHostname(url.getHost());
-						con.setPort(url.getPort() <= 0 ? 443 : url.getPort());
-
-						String path = url.getPath();
-						if (path.equals("") || path.equals("/")) {
-							path = "/hypersocket";
-						} else if (path.indexOf('/', 1) > -1) {
-							path = path.substring(0, path.indexOf('/', 1));
-						}
-						con.setPath(path);
-
-						connectionService.save(con);
-					}
-				} catch (Exception e) {
-					log.error("Failed to process url app parameter", e);
-				}
-			}
-		}
+	@Override
+	public boolean isRegistrationRequired() {
+		return !noRegistrationRequired;
 	}
 
+	@Override
+	public Collection<VPNFrontEnd> getFrontEnds() {
+		return frontEnds.values();
+	}
 
 }

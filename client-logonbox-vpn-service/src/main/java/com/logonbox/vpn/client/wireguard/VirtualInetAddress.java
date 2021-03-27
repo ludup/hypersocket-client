@@ -57,5 +57,7 @@ public interface VirtualInetAddress {
 	void setTable(String table);
 
 	void up() throws IOException;
+	
+	void dns(String[] dns) throws IOException;
 
 }

@@ -49,22 +49,15 @@
 	</developers>
 
 	<properties>
-		<org.springframework.version>3.1.4.RELEASE</org.springframework.version>
-		<aspectj.version>1.6.12</aspectj.version>
-		<project.build.sourceEncoding>ISO-8859-1</project.build.sourceEncoding>
-		
-		<!-- NOTE: Make sure x-client-logonbox-vpn-gui-jfx/pom.xml is updated as well -->
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<javafx.version>11.0.2</javafx.version>
 	</properties>
 
 	<modules>
-		<module>client-core</module>
-		<module>client-logonbox-vpn-cli</module>
+		<module>client-logonbox-vpn-service</module>
 		<module>client-logonbox-vpn-common</module>
 		<module>client-logonbox-vpn-gui-jfx</module>
-		<module>client-logonbox-vpn-service</module>
-		<module>client-netty</module>
-		<module>credentials-wizard-jfx</module>
+		<module>client-logonbox-vpn-cli</module>
 	</modules>
 
 	<dependencies>

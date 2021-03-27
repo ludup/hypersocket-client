@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.net.NetworkInterface;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
@@ -18,6 +19,7 @@ import com.logonbox.vpn.client.service.ReauthorizeException;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.Keys;
 import com.sshtools.forker.client.OSCommand;
 
@@ -26,6 +28,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	protected static final int MAX_INTERFACES = Integer.parseInt(System.getProperty("logonbox.vpn.maxInterfaces", "250"));
 
 	final static Logger LOG = LoggerFactory.getLogger(AbstractPlatformServiceImpl.class);
+	
 	private String interfacePrefix;
 	
 	protected AbstractPlatformServiceImpl(String interfacePrefix) {
@@ -33,8 +36,17 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	}
 
 	@Override
-	public final String pubkey(String privateKey) {
-		return Keys.pubkey(privateKey).getBase64PublicKey();
+	public final I connect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
+		I vpn = onConnect(logonBoxVPNSession, configuration);
+		if(configuration.isRouteAll()) {
+			try {
+				addRouteAll(configuration);
+			}
+			catch(Exception e) { 
+				LOG.error("Failed to setup routing.", e);
+			}
+		}
+		return vpn;
 	}
 
 	@Override
@@ -44,8 +56,49 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 			session.getIp().delete();
 		}
 		finally {
+			if(session.getConnection().isRouteAll()) {
+				try {
+					removeRouteAll(session);
+				}
+				catch(Exception e) { 
+					LOG.error("Failed to tear down routing.", e);
+				}
+			}
 			onDisconnect();
 		}
+	}
+
+	@Override
+	public I getByPublicKey(String publicKey) {
+		try {
+			for (I ip : ips(true)) {
+				if (publicKey.equals(getPublicKey(ip.getName()))) {
+					return ip;
+				}
+			}
+		} catch (IOException ioe) {
+			throw new IllegalStateException("Failed to list interface names.", ioe);
+		}
+		return null;
+	}
+
+	@Override
+	public List<I> ips(boolean wireguardInterface) {
+		List<I> ips = new ArrayList<>();
+		try {
+			for (Enumeration<NetworkInterface> nifEn = NetworkInterface.getNetworkInterfaces(); nifEn
+					.hasMoreElements();) {
+				NetworkInterface nif = nifEn.nextElement();
+				if ((wireguardInterface && isWireGuardInterface(nif)) || (!wireguardInterface && isMatchesPrefix(nif))) {
+					I vaddr = createVirtualInetAddress(nif);
+					if (vaddr != null)
+						ips.add(vaddr);
+				}
+			}
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to get interfaces.", e);
+		}
+		return ips;
 	}
 
 	@Override
@@ -54,6 +107,11 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		return lastHandshake >= System.currentTimeMillis() - ( ClientService.HANDSHAKE_TIMEOUT * 1000);
 	}
 
+	@Override
+	public final String pubkey(String privateKey) {
+		return Keys.pubkey(privateKey).getBase64PublicKey();
+	}
+	
 	@Override
 	public final Collection<VPNSession> start(LocalContext ctx) {
 
@@ -78,16 +136,19 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 					String publicKey = getPublicKey(name);
 					if (publicKey != null) {
 						LOG.info(String.format("%s has public key of %s.", name, publicKey));
-						Connection peerConfig = ctx.getConnectionService().getConfigurationForPublicKey(publicKey);
-						if (peerConfig != null) {
+						try {
+							ConnectionStatus status = ctx.getClientService().getStatusForPublicKey(publicKey);
+							Connection connection = status.getConnection();
 							LOG.info(String.format(
 									"Existing wireguard session on %s for %s, adding back to internal map for %s:%s",
-									name, publicKey, peerConfig.getEndpointAddress(), peerConfig.getEndpointPort()));
-							sessions.add(new VPNSession(peerConfig.getId(), ctx, get(name)));
-						} else
+									name, publicKey, connection.getEndpointAddress(), connection.getEndpointPort()));
+							sessions.add(new VPNSession(connection, ctx, get(name)));
+						}
+						catch(Exception e) {
 							LOG.info(String.format(
 									"No known public key of %s on %s, so likely managed outside of LogonBox VPN.",
 									publicKey, name));
+						}
 					} else {
 						LOG.info(
 								String.format("%s has no public key, so it is a free wireguard interface.", name));
@@ -99,8 +160,29 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		}
 		return sessions;
 	}
+	
+	protected void addRouteAll(Connection connection) throws IOException {
+		LOG.info("Routing traffic all through VPN");
+		String gw = getDefaultGateway();
+		LOG.info(String.join(" ", Arrays.asList("route", "add", connection.getEndpointAddress(), "gw", gw)));
+		OSCommand.admin("route", "add", connection.getEndpointAddress(), "gw", gw);
+	}
 
 	protected abstract I createVirtualInetAddress(NetworkInterface nif) throws IOException;
+
+	protected void dns(Connection configuration, VirtualInetAddress ip) throws IOException {
+		if(configuration.getDns().isEmpty()) {
+			if(configuration.isRouteAll())
+				LOG.warn("No DNS servers configured for this connection and all traffic is being routed through the VPN. DNS is unlikely to work.");
+			else  
+				LOG.info("No DNS servers configured for this connection.");
+		}
+		else {
+			LOG.info(String.format("Configuring DNS servers for %s as %s", configuration.getDns(), ip.getName()));
+		}
+		ip.dns(configuration.getDns().toArray(new String[0]));
+		
+	}
 
 	protected final boolean exists(String name, boolean wireguardOnly) {
 		return exists(name, ips(wireguardOnly));
@@ -126,12 +208,22 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		return find(name, ips(false));
 	}
 
+	protected abstract String getDefaultGateway() throws IOException;
+
 	protected String getInterfacePrefix() {
 		return System.getProperty("logonbox.vpn.interfacePrefix", interfacePrefix);
 	}
 
-	protected String getWGCommand() {
-		return "wg";
+	protected long getLatestHandshake(String iface, String publicKey) throws IOException {
+		for(String line : OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface, "latest-handshakes")) {
+			String[] args = line.trim().split("\\s+");
+			if(args.length == 2) {
+				if(args[0].equals(publicKey)) {
+					return Long.parseLong(args[1]) * 1000;
+				}
+			}
+		}
+		return 0;
 	}
 
 	protected String getPublicKey(String interfaceName) throws IOException {
@@ -151,40 +243,31 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				throw ioe;
 		}
 	}
+	
+	protected String getWGCommand() {
+		return "wg";
+	}
 
-	@Override
-	public I getByPublicKey(String publicKey) {
-		try {
-			for (I ip : ips(true)) {
-				if (publicKey.equals(getPublicKey(ip.getName()))) {
-					return ip;
-				}
-			}
-		} catch (IOException ioe) {
-			throw new IllegalStateException("Failed to list interface names.", ioe);
-		}
-		return null;
+	protected boolean isMatchesPrefix(NetworkInterface nif) {
+		return nif.getName().startsWith(getInterfacePrefix());
 	}
 	
-	@Override
-	public List<I> ips(boolean wireguardInterface) {
-		List<I> ips = new ArrayList<>();
-		try {
-			for (Enumeration<NetworkInterface> nifEn = NetworkInterface.getNetworkInterfaces(); nifEn
-					.hasMoreElements();) {
-				NetworkInterface nif = nifEn.nextElement();
-				if ((wireguardInterface && isWireGuardInterface(nif)) || (!wireguardInterface && isMatchesPrefix(nif))) {
-					I vaddr = createVirtualInetAddress(nif);
-					if (vaddr != null)
-						ips.add(vaddr);
-				}
-			}
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to get interfaces.", e);
-		}
-		return ips;
+	protected boolean isWireGuardInterface(NetworkInterface nif) {
+		return isMatchesPrefix(nif);
 	}
 
+	protected abstract I onConnect(VPNSession logonBoxVPNSession, Connection configuration) throws IOException;
+
+	protected void onDisconnect() throws IOException {
+	}
+
+	protected void removeRouteAll(VPNSession session) throws IOException {
+		LOG.info("Removing routing of all track through VPN");
+		String gw = getDefaultGateway();
+		LOG.info(String.join(" ", Arrays.asList("route", "del", session.getConnection().getEndpointAddress(), "gw", gw)));
+		OSCommand.admin("route", "del", session.getConnection().getEndpointAddress(), "gw", gw);
+	}
+	
 	protected I waitForFirstHandshake(Connection configuration, I ip, long connectionStarted)
 			throws IOException {
 		for(int i = 0 ; i < ClientService.CONNECT_TIMEOUT ; i++) {
@@ -195,7 +278,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 			}
 			long lastHandshake = getLatestHandshake(ip.getName(), configuration.getPublicKey());
 			if(lastHandshake >= connectionStarted) {
-				/* Connected ! */
+				/* Ready ! */
 				return ip;
 			}
 		}
@@ -210,26 +293,6 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		throw new ReauthorizeException(String.format("No timeout received for %s within %d seconds.", ip.getName(), ClientService.CONNECT_TIMEOUT));
 	}
 	
-	protected long getLatestHandshake(String iface, String publicKey) throws IOException {
-		for(String line : OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface, "latest-handshakes")) {
-			String[] args = line.trim().split("\\s+");
-			if(args.length == 2) {
-				if(args[0].equals(publicKey)) {
-					return Long.parseLong(args[1]) * 1000;
-				}
-			}
-		}
-		return 0;
-	}
-
-	protected boolean isWireGuardInterface(NetworkInterface nif) {
-		return isMatchesPrefix(nif);
-	}
-
-	protected boolean isMatchesPrefix(NetworkInterface nif) {
-		return nif.getName().startsWith(getInterfacePrefix());
-	}
-
 	protected void write(Connection configuration, Writer writer) {
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println("[Interface]");
@@ -243,17 +306,19 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		if (configuration.getPersistentKeepalive() > 0)
 			pw.println(String.format("PersistentKeepalive = %d", configuration.getPersistentKeepalive()));
 		List<String> allowedIps = configuration.getAllowedIps();
-		if (!allowedIps.isEmpty())
-			pw.println(String.format("AllowedIPs = %s", String.join(", ", allowedIps)));
+		if(configuration.isRouteAll()) {
+			pw.println("AllowedIPs = 0.0.0.0/0");
+		}	
+		else {
+			if (!allowedIps.isEmpty())
+				pw.println(String.format("AllowedIPs = %s", String.join(", ", allowedIps)));
+		}
 		writePeer(configuration, writer);
 	}
 	
 	protected void writeInterface(Connection configuration, Writer writer) {
 	}
-	
+
 	protected void writePeer(Connection configuration, Writer writer) {
-	}
-	
-	protected void onDisconnect() throws IOException {
 	}
 }

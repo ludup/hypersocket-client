@@ -6,8 +6,8 @@ public class ConnectionStatusImpl implements ConnectionStatus, Serializable {
 
 	private static final long serialVersionUID = 296406363321007200L;
 
-	Type status;
-	Connection connection;
+	private Type status;
+	private Connection connection;
 	
 	public ConnectionStatusImpl(Connection connection, Type status) {
 		this.connection = connection;

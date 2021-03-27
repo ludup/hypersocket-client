@@ -15,12 +15,34 @@
 		<version>2.3.0-LOCAL</version>
 		<relativePath>..</relativePath>
 	</parent>
+	
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifestEntries>
+							<SplashScreen-Image>com/logonbox/vpn/client/gui/jfx/splash.png</SplashScreen-Image>
+						</manifestEntries>
+					</archive>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 
 	<dependencies>
 		<dependency>
 			<groupId>com.hypersocket</groupId>
 			<artifactId>client-logonbox-vpn-common</artifactId>
 			<version>${project.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>xml-apis</groupId>
+					<artifactId>xml-apis</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>com.google.code.jgntp</groupId>
@@ -75,7 +97,7 @@
 		<dependency>
 			<groupId>com.github.hypfvieh</groupId>
 			<artifactId>dbus-java</artifactId>
-			<version>3.2.4</version>
+			<version>3.3.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>log4j</groupId>
@@ -106,11 +128,6 @@
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-log4j12</artifactId>
 			<version>1.7.30</version>
-		</dependency>
-		<dependency>
-			<groupId>info.picocli</groupId>
-			<artifactId>picocli</artifactId>
-			<version>4.6.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.logonbox</groupId>

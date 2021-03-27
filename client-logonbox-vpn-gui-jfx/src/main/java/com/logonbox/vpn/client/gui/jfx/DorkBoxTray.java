@@ -8,33 +8,29 @@ import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.RenderingHints;
-//import java.awt.AlphaComposite;
-//import java.awt.Color;
-//import java.awt.Font;
-//import java.awt.Graphics2D;
-//import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 import javax.imageio.ImageIO;
 import javax.swing.JMenu;
 
+import org.freedesktop.dbus.connections.impl.DBusConnection;
+import org.freedesktop.dbus.exceptions.DBusException;
+import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.kordamp.ikonli.fontawesome.FontAwesome;
 import org.kordamp.ikonli.fontawesome.FontAwesomeIkonHandler;
 
-import com.logonbox.vpn.common.client.ConfigurationService;
-import com.logonbox.vpn.common.client.Connection;
-import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.AbstractDBusClient.BusLifecycleListener;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
+import com.logonbox.vpn.common.client.dbus.VPN;
+import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
 import dorkbox.systemTray.Entry;
 import dorkbox.systemTray.Menu;
@@ -43,99 +39,45 @@ import dorkbox.systemTray.Separator;
 import dorkbox.systemTray.SystemTray;
 import javafx.application.Platform;
 
-public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.jfx.Bridge.Listener, Tray {
+public class DorkBoxTray implements AutoCloseable, Tray, BusLifecycleListener {
 
 	private static final int DEFAULT_ICON_SIZE = 48;
 	private Client context;
-	private ScheduledExecutorService executor;
 	private Font font;
 	private List<Entry> menuEntries = new ArrayList<>();
 	private SystemTray systemTray;
 
 	public DorkBoxTray(Client context) throws Exception {
 		this.context = context;
-		executor = Executors.newScheduledThreadPool(1);
-		context.getBridge().addListener(this);
-		executor.execute(() -> adjustTray(false, Collections.emptyList()));
-	}
-
-	@Override
-	public void bridgeEstablished() {
-		reload();
-	}
-
-	@Override
-	public void bridgeLost() {
-		reload();
+		context.getOpQueue().execute(() -> adjustTray(false, Collections.emptyList()));
+		context.getDBus().addBusLifecycleListener(this);
+		Configuration.getDefault().trayModeProperty().addListener((e, o, n) -> {
+			reload();
+		});
 	}
 
 	@Override
 	public void close() throws Exception {
-		context.getBridge().removeListener(this);
+		context.getDBus().removeBusLifecycleListener(this);
 		if (systemTray != null) {
 			systemTray.shutdown();
 			systemTray = null;
 		}
-		executor.shutdown();
-	}
-
-	@Override
-	public void configurationUpdated(String name, String value) {
-		if (name.equals(ConfigurationService.TRAY_MODE)) {
-			reload();
-		}
-	}
-
-	@Override
-	public void connectionAdded(Connection connection) {
-		reload();
-	}
-
-	@Override
-	public void connectionRemoved(Connection connection) {
-		reload();
-	}
-
-	@Override
-	public void connectionUpdated(Connection connection) {
-		reload();
-	}
-
-	@Override
-	public void disconnected(Connection connection, Exception e) {
-		reload();
 	}
 
 	public boolean isActive() {
 		return systemTray != null;
 	}
 
-	@Override
-	public void started(Connection connection) {
-		reload();
-	}
-
-	protected String getTrayIconMode() {
-		if (!context.getBridge().isConnected())
-			return ConfigurationService.TRAY_MODE_AUTO;
-		try {
-			String icon = context.getBridge().getConfigurationService().getValue(ConfigurationService.TRAY_MODE,
-					ConfigurationService.TRAY_MODE_AUTO);
-			return icon;
-		} catch (RemoteException re) {
-			return ConfigurationService.TRAY_MODE_AUTO;
-		}
-	}
-
 	protected void reload() {
-		executor.execute(() -> {
+		context.getOpQueue().execute(() -> {
 			try {
-				List<ConnectionStatus> conx = context.getBridge().getClientService().getStatus();
-				boolean connected = context.getBridge().isConnected();
+				List<VPNConnection> conx = context.getDBus().getVPNConnections();
+				boolean connected = context.getDBus().isBusAvailable();
 				rebuildMenu(connected, conx);
 				setImage(connected, conx);
-			} catch (RemoteException re) {
-				executor.execute(() -> {
+			} catch (Exception re) {
+				context.getOpQueue().execute(() -> {
 					rebuildMenu(false, Collections.emptyList());
 					setImage(false, Collections.emptyList());
 				});
@@ -143,8 +85,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		});
 	}
 
-	Menu addDevice(ConnectionStatus statusObj, Menu toMenu, List<ConnectionStatus> devs) throws IOException {
-		Connection device = statusObj.getConnection();
+	Menu addDevice(VPNConnection device, Menu toMenu, List<VPNConnection> devs) throws IOException {
 		Menu menu = null;
 		if (toMenu == null) {
 			if (menu == null)
@@ -153,16 +94,16 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 			menu = toMenu;
 
 		/* Open */
-		Type status = context.getBridge().getClientService().getStatus(device);
+		Type status = Type.valueOf(device.getStatus());
 		if (status == Type.CONNECTED) {
 			var disconnectDev = new MenuItem(bundle.getString("disconnect"), (e) -> Platform.runLater(() -> {
-				UI.getInstance().disconnect(device);
+				context.getOpQueue().execute(() -> device.disconnect(""));
 			}));
 			menu.add(disconnectDev);
 			menuEntries.add(disconnectDev);
 		} else if (devs.size() > 0 && status == Type.DISCONNECTED) {
 			var openDev = new MenuItem(bundle.getString("connect"), (e) -> Platform.runLater(() -> {
-				UI.getInstance().connect(device);
+				context.getOpQueue().execute(() -> device.connect());
 			}));
 			menu.add(openDev);
 			menuEntries.add(openDev);
@@ -171,9 +112,9 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		return menu;
 	}
 
-	void adjustTray(boolean connected, List<ConnectionStatus> devs) {
-		String icon = getTrayIconMode();
-		if (systemTray == null && !Objects.equals(icon, ConfigurationService.TRAY_MODE_OFF)) {
+	void adjustTray(boolean connected, List<VPNConnection> devs) {
+		String icon = Configuration.getDefault().trayModeProperty().get();
+		if (systemTray == null && !Objects.equals(icon, Configuration.TRAY_MODE_OFF)) {
 			systemTray = SystemTray.get();
 			if (systemTray == null) {
 				throw new RuntimeException("Unable to load SystemTray!");
@@ -189,7 +130,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 
 			rebuildMenu(connected, devs);
 
-		} else if (systemTray != null && ConfigurationService.TRAY_MODE_OFF.equals(icon)) {
+		} else if (systemTray != null && Configuration.TRAY_MODE_OFF.equals(icon)) {
 			systemTray.setEnabled(false);
 		} else if (systemTray != null) {
 			systemTray.setEnabled(true);
@@ -229,11 +170,11 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		if (opac != 100) {
 			graphics.setComposite(makeComposite((float) opac / 100.0f));
 		}
-		String icon = getTrayIconMode();
+		String icon = Configuration.getDefault().trayModeProperty().get();
 		if (col == null) {
-			if (ConfigurationService.TRAY_MODE_LIGHT.equals(icon)) {
+			if (Configuration.TRAY_MODE_LIGHT.equals(icon)) {
 				graphics.setColor(Color.WHITE);
-			} else if (ConfigurationService.TRAY_MODE_DARK.equals(icon)) {
+			} else if (Configuration.TRAY_MODE_DARK.equals(icon)) {
 				graphics.setColor(Color.BLACK);
 			}
 		} else {
@@ -275,18 +216,19 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		return true;
 	}
 
-	private Image overlay(URL resource, int sz, List<ConnectionStatus> devs) {
+	private Image overlay(URL resource, int sz, List<VPNConnection> devs) {
 		try {
 			int connecting = 0;
 			int connected = 0;
 			int authorizing = 0;
 			int total = 0;
-			for (ConnectionStatus s : devs) {
-				if (s.getStatus() == Type.CONNECTED)
+			for (VPNConnection s : devs) {
+				Type status = Type.valueOf(s.getStatus());
+				if (status == Type.CONNECTED)
 					connected++;
-				else if (s.getStatus() == Type.AUTHORIZING)
+				else if (status == Type.AUTHORIZING)
 					authorizing++;
-				else if (s.getStatus() == Type.CONNECTING)
+				else if (status == Type.CONNECTING)
 					connecting++;
 				total++;
 			}
@@ -318,7 +260,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		}
 	}
 
-	private void rebuildMenu(boolean connected, List<ConnectionStatus> devs) {
+	private void rebuildMenu(boolean connected, List<VPNConnection> devs) {
 		clearMenus();
 		if (systemTray != null) {
 			var menu = systemTray.getMenu();
@@ -336,7 +278,7 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 						addDevice(devs.get(0), menu, devs);
 						devices = true;
 					} else {
-						for (ConnectionStatus dev : devs) {
+						for (VPNConnection dev : devs) {
 							var devmenu = addDevice(dev, null, devs);
 							systemTray.getMenu().add(devmenu);
 							menuEntries.add(devmenu);
@@ -364,15 +306,15 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		}
 	}
 
-	private void setImage(boolean connected, List<ConnectionStatus> devs) {
-		if (context.getBridge().isConnected()) {
-			String icon = getTrayIconMode();
-			if (ConfigurationService.TRAY_MODE_LIGHT.equals(icon)) {
+	private void setImage(boolean connected, List<VPNConnection> devs) {
+		if (context.getDBus().isBusAvailable()) {
+			String icon = Configuration.getDefault().trayModeProperty().get();
+			if (Configuration.TRAY_MODE_LIGHT.equals(icon)) {
 				systemTray.setImage(overlay(DorkBoxTray.class.getResource("light-logonbox-icon64x64.png"), 48, devs));
-			} else if (ConfigurationService.TRAY_MODE_DARK.equals(icon)) {
+			} else if (Configuration.TRAY_MODE_DARK.equals(icon)) {
 				systemTray.setImage(
 						overlay(DorkBoxTray.class.getResource("dark-logonbox-icon64x64.png"), DEFAULT_ICON_SIZE, devs));
-			} else if (ConfigurationService.TRAY_MODE_COLOR.equals(icon)) {
+			} else if (Configuration.TRAY_MODE_COLOR.equals(icon)) {
 				systemTray.setImage(overlay(DorkBoxTray.class.getResource("logonbox-icon64x64.png"), 48, devs));
 			} else {
 				if (isDark())
@@ -385,6 +327,68 @@ public class DorkBoxTray implements AutoCloseable, com.logonbox.vpn.client.gui.j
 		} else {
 			systemTray.setImage(createAwesomeIcon(FontAwesome.EXCLAMATION_CIRCLE, 48, 100, Color.RED, 0));
 		}
+	}
+
+	@Override
+	public void busInitializer(DBusConnection connection) {
+
+		try {
+			connection.addSigHandler(VPN.ConnectionAdded.class, new DBusSigHandler<VPN.ConnectionAdded>() {
+				@Override
+				public void handle(VPN.ConnectionAdded sig) {
+					reload();
+				}
+			});
+			connection.addSigHandler(VPN.ConnectionRemoved.class, new DBusSigHandler<VPN.ConnectionRemoved>() {
+				@Override
+				public void handle(VPN.ConnectionRemoved sig) {
+					reload();
+				}
+			});
+			connection.addSigHandler(VPN.ConnectionUpdated.class, new DBusSigHandler<VPN.ConnectionUpdated>() {
+				@Override
+				public void handle(VPN.ConnectionUpdated sig) {
+					reload();
+				}
+			});
+
+			connection.addSigHandler(VPNConnection.Connecting.class, new DBusSigHandler<VPNConnection.Connecting>() {
+				@Override
+				public void handle(VPNConnection.Connecting sig) {
+					reload();
+				}
+			});
+			connection.addSigHandler(VPNConnection.Connected.class, new DBusSigHandler<VPNConnection.Connected>() {
+				@Override
+				public void handle(VPNConnection.Connected sig) {
+					reload();
+				}
+			});
+			connection.addSigHandler(VPNConnection.Disconnected.class,
+					new DBusSigHandler<VPNConnection.Disconnected>() {
+						@Override
+						public void handle(VPNConnection.Disconnected sig) {
+							reload();
+						}
+					});
+			connection.addSigHandler(VPNConnection.Disconnecting.class,
+					new DBusSigHandler<VPNConnection.Disconnecting>() {
+						@Override
+						public void handle(VPNConnection.Disconnecting sig) {
+							reload();
+						}
+					});
+
+			reload();
+		} catch (DBusException dbe) {
+			throw new IllegalStateException("Failed to configure.", dbe);
+		}
+
+	}
+
+	@Override
+	public void busGone() {
+		reload();
 	}
 
 }

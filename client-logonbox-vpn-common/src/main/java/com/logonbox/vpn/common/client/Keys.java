@@ -1,8 +1,7 @@
 package com.logonbox.vpn.common.client;
 
 import java.security.SecureRandom;
-
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 
 public class Keys {
 
@@ -23,7 +22,7 @@ public class Keys {
 		}
 		
 		public String getBase64PublicKey() {
-			return Base64.encodeBase64String(publicKey);
+			return Base64.getEncoder().encodeToString(publicKey);
 		}
 
 		public byte[] getPrivateKey() {
@@ -31,7 +30,7 @@ public class Keys {
 		}
 
 		public String getBase64PrivateKey() {
-			return Base64.encodeBase64String(privateKey);
+			return Base64.getEncoder().encodeToString(privateKey);
 		}
 
 	}
@@ -48,7 +47,7 @@ public class Keys {
 	}
 
 	public static KeyPair pubkey(String base64PrivateKey) {
-		return pubkey(Base64.decodeBase64(base64PrivateKey));
+		return pubkey(Base64.getDecoder().decode(base64PrivateKey));
 	}
 
 	public static KeyPair pubkey(byte[] privateKey) {

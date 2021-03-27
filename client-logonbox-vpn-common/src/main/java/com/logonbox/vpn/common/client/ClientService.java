@@ -1,66 +1,78 @@
 package com.logonbox.vpn.common.client;
 
-import java.rmi.Remote;
-import java.rmi.RemoteException;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 
 import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.extensions.JsonExtensionUpdate;
+import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 
-public interface ClientService extends Remote {
+public interface ClientService  {
 	
 	int CONNECT_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.connectTimeout", "12"));
 	int HANDSHAKE_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.handshakeTimeout", "180"));
 	int SERVICE_WAIT_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.serviceWaitTimeout", "2"));
 
-	default String[] getMissingPackages() throws RemoteException {
+	default String[] getMissingPackages() {
 		return new String[0];
 	}
 	
-	boolean isNeedsUpdating() throws RemoteException;
+	String getDeviceName() ;
 	
-	boolean isGUINeedsUpdating() throws RemoteException;
+	boolean isNeedsUpdating() ;
 	
-	boolean isUpdating() throws RemoteException;
-
-	void registerGUI(GUICallback gui) throws RemoteException;
+	boolean isGUINeedsUpdating() ;
 	
-	UUID getUUID() throws RemoteException;
-
-	void unregisterGUI(GUICallback gui, boolean callback) throws RemoteException;
+	boolean isUpdating() ;
 	
-	Connection save(Connection c) throws RemoteException;
+	UUID getUUID(String owner) ;
 	
-	void connect(Connection c) throws RemoteException;
+	Connection save(Connection c) ;
 	
-	void disconnect(Connection c, String reason) throws RemoteException;
-
-	List<ConnectionStatus> getStatus() throws RemoteException;
-
-	void ping() throws RemoteException;
+	void connect(Connection c) ;
 	
-	ConfigurationService getConfigurationService() throws RemoteException;
-
-	ConnectionStatus.Type getStatus(Connection con) throws RemoteException;
-
-	void scheduleConnect(Connection c) throws RemoteException;
-
-	ConnectionService getConnectionService() throws RemoteException;
-
-	JsonExtensionPhaseList getPhases() throws RemoteException;
-
-	void requestAuthorize(Connection connection) throws RemoteException;
-
-	void authorized(Connection connection) throws RemoteException;
+	Connection connect(String owner, String uri) ;
 	
-	boolean isTrackServerVersion() throws RemoteException;
+	void disconnect(Connection c, String reason) ;
 
-	JsonExtensionUpdate getUpdates() throws RemoteException;
+	List<ConnectionStatus> getStatus(String owner) ;
 
-	Branding getBranding(Connection connection) throws RemoteException;
+	void ping() ;
 
-	void update() throws RemoteException;
+	ConnectionStatus.Type getStatusType(Connection con) ;
 
-	void deauthorize(Connection connection) throws RemoteException;
+	ConnectionStatus getStatus(String owner, String uri) ;
+
+	ConnectionStatus getStatus(long id) ;
+
+	JsonExtensionPhaseList getPhases() ;
+
+	void requestAuthorize(Connection connection) ;
+
+	void authorized(Connection connection) ;
+	
+	boolean isTrackServerVersion() ;
+
+	JsonExtensionUpdate getUpdates() ;
+
+	void update() ;
+
+	void deauthorize(Connection connection) ;
+
+	boolean hasStatus(String owner, String uri) ;
+
+	ConnectionStatus getStatusForPublicKey(String publicKey) ;
+
+	void delete(Connection connection) ;
+
+	String getValue(String name, String defaultValue) ;
+	
+	void setValue(String name, String value) ;
+
+	Connection create(Connection connection);
+
+	ScheduledExecutorService getTimer();
+
+	void registered(VPNFrontEnd frontEnd); 
 }
