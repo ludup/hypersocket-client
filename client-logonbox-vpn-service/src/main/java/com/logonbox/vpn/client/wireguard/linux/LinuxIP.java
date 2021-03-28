@@ -16,12 +16,17 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.freedesktop.dbus.connections.impl.DBusConnection;
+import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
+import org.freedesktop.dbus.exceptions.DBusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.logonbox.vpn.client.dbus.Resolve1Manager;
 import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
 import com.logonbox.vpn.client.wireguard.IpUtil;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
@@ -90,6 +95,9 @@ public class LinuxIP implements VirtualInetAddress {
 			switch (method) {
 			case RESOLVCONF:
 				updateResolvConf(dns);
+				break;
+			case SYSTEMD:
+				updateSystemd(dns);
 				break;
 			case RAW:
 				updateResolvDotConf(dns);
@@ -350,6 +358,23 @@ public class LinuxIP implements VirtualInetAddress {
 			OSCommand.adminCommand("ip", "link", "set", "mtu", String.valueOf(tmtu), "up", "dev", getName());
 		}
 	}
+	
+	private int getIndexForName() throws IOException {
+		for(String line : OSCommand.runCommandAndCaptureOutput("ip", "addr")) {
+			line = line.trim();
+			String[] args = line.split(":");
+			if(args.length > 1) {
+				try {
+					int idx = Integer.parseInt(args[0].trim());
+					if(args[1].trim().equals(name))
+						return idx;
+				}
+				catch(Exception e) {
+				}
+			}
+		}
+		throw new IOException(String.format("Could not find interface index for %s", name));
+	}
 
 	private void addDefault(String route) {
 		throw new UnsupportedOperationException("Not yet implemented.");
@@ -390,6 +415,8 @@ public class LinuxIP implements VirtualInetAddress {
 					return DNSIntegrationMethod.RAW;
 				} else if (p.equals("/run/NetworkManager/resolv.conf")) {
 					return DNSIntegrationMethod.NETWORK_MANAGER;
+				} else if (p.equals("/run/systemd/resolve/stub-resolv.conf")) {
+					return DNSIntegrationMethod.SYSTEMD;
 				} else if (p.equals("/run/resolvconf/resolv.conf")) {
 					return DNSIntegrationMethod.RESOLVCONF;
 				}
@@ -402,19 +429,37 @@ public class LinuxIP implements VirtualInetAddress {
 
 	private void unsetDns() throws IOException {
 		try {
-			LOG.info(String.format("Insetting DNS for %s (iface prefix %s)", name, platform.resolvconfIfacePrefix()));
+			LOG.info(String.format("unsetting DNS for %s (iface prefix %s)", name, platform.resolvconfIfacePrefix()));
 			switch (calcDnsMethod()) {
 			case RESOLVCONF:
 				OSCommand.adminCommand("resolvconf", "-d", platform.resolvconfIfacePrefix() + name, "-f");
 				break;
+			case SYSTEMD:
+				updateSystemd(null);
+				break;
 			case RAW:
-				updateResolvDotConf(new String[0]);
+				updateResolvDotConf(null);
 				break;
 			default:
 				throw new UnsupportedOperationException();
 			}
 		} finally {
 			dnsSet = false;
+		}
+	}
+	
+	private void updateSystemd(String[] dns) throws IOException {
+		try(
+			DBusConnection conn = DBusConnection.getConnection(DBusBusType.SYSTEM)) {
+			Resolve1Manager mgr = conn.getRemoteObject("org.freedesktop.resolve1", "/org/freedesktop/resolve1", Resolve1Manager.class);
+			int index = getIndexForName(); // TODO
+			if(dns == null)
+				mgr.RevertLink(index);
+			else
+				mgr.SetLinkDNS(index, Arrays.asList(dns).stream().map((addr) -> new Resolve1Manager.SetLinkDNSStruct(addr)).collect(Collectors.toList()));
+			
+		} catch(DBusException dbe) {
+			throw new IOException("Failed to connect to system bus.", dbe);
 		}
 	}
 
@@ -491,7 +536,7 @@ public class LinuxIP implements VirtualInetAddress {
 				for (String l : headlines) {
 					pw.println(l);
 				}
-				if (dns.length > 0) {
+				if (dns != null && dns.length > 0) {
 					pw.println(START_HYPERSOCKET_WIREGUARD_RESOLVECONF);
 					for (String d : dns) {
 						if (!rowdns.contains(d))
