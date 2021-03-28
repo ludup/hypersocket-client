@@ -37,7 +37,8 @@
 	</div>
 	<script type="text/javascript">
 		$(function() {
-			$('#disconnect').off('click').on('click', function() {
+			$('#disconnect').off('click').on('click', function(event) {
+				event.preventDefault();
 				bridge.unjoin(null);
 			});
 		});

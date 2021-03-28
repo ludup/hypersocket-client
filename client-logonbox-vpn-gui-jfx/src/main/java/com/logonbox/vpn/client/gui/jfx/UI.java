@@ -257,6 +257,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private File logoFile;
 	private boolean adjustingSelection;
 	private String disconnectionReason;
+	private Runnable runOnNextLoad;
 
 	@FXML
 	protected ListView<VPNConnection> connections;
@@ -694,28 +695,30 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	protected void joinNetwork(VPNConnection connection) {
-		try {
+		context.getOpQueue().execute(() -> {
 			connection.connect();
-		} catch (Exception e) {
-			showError("Failed to join VPN.", e);
-		}
+		});
 	}
 
 	protected void addConnection(Boolean connectAtStartup, String unprocessedUri) {
-		try {
-			URI uriObj = Util.getUri(unprocessedUri);
-			context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup);
-		} catch (Exception e) {
-			showError("Failed to add connection.", e);
-		}
+		context.getOpQueue().execute(() -> {
+			try {
+				URI uriObj = Util.getUri(unprocessedUri);
+				context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup);
+			} catch (Exception e) {
+				showError("Failed to add connection.", e);
+			}
+		});
 	}
 
 	protected void authorize(VPNConnection n) {
-		try {
-			n.authorize();
-		} catch (Exception e) {
-			showError("Failed to join VPN.", e);
-		}
+		context.getOpQueue().execute(() -> {
+			try {
+				n.authorize();
+			} catch (Exception e) {
+				showError("Failed to join VPN.", e);
+			}
+		});
 	}
 
 	protected void configureWebEngine() {
@@ -730,7 +733,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			alert.showAndWait();
 		});
 		engine.setOnError((e) -> {
-			LOG.error("Error in webengine.", e);
+			LOG.error(String.format("Error in webengine. %s", e.getMessage()), e.getException());
 		});
 
 		engine.setOnStatusChanged((e) -> {
@@ -769,6 +772,16 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			if (newState == State.SUCCEEDED) {
 				processJavascript();
 				processDOM();
+				
+				if(runOnNextLoad != null) {
+					try {
+						runOnNextLoad.run();
+					}
+					finally {
+						runOnNextLoad = null;
+					}
+					
+				}
 			}
 		});
 		engine.getLoadWorker().exceptionProperty().addListener((o, old, value) -> {
@@ -1531,7 +1544,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 						if (connectIfDisconnected && status != Type.DISCONNECTED && !sel.isAuthorized()) {
 							log.info(String.format("Not authorized, requesting authorize"));
 							authorize(sel);
-						} else if (status == Type.CONNECTING) {
+						} else if (status == Type.CONNECTING || status == Type.AUTHORIZING) {
 							/* We have a connection, a peer configuration and are connected! */
 							log.info(String.format("Joining"));
 							setHtmlPage("joining.html", force);

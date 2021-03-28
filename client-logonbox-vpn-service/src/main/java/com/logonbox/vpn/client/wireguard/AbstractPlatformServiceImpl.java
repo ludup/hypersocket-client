@@ -262,7 +262,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	}
 
 	protected void removeRouteAll(VPNSession session) throws IOException {
-		LOG.info("Removing routing of all track through VPN");
+		LOG.info("Removing routing of all traffic through VPN");
 		String gw = getDefaultGateway();
 		LOG.info(String.join(" ", Arrays.asList("route", "del", session.getConnection().getEndpointAddress(), "gw", gw)));
 		OSCommand.admin("route", "del", session.getConnection().getEndpointAddress(), "gw", gw);
