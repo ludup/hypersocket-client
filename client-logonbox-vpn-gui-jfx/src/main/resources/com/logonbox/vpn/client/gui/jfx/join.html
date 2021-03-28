@@ -35,7 +35,8 @@
 
 	<script type="text/javascript">
 		$(function() {
-			$('#connect').off('click').on('click', function() {
+			$('#connect').off('click').on('click', function(event) {
+				event.preventDefault();
 				bridge.connect();
 			});
 		});

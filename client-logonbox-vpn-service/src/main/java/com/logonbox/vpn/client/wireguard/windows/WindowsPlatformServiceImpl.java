@@ -138,7 +138,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 	@Override
 	protected void removeRouteAll(VPNSession session) throws IOException {
-		LOG.info("Removing routing of all track through VPN");
+		LOG.info("Removing routing of all traffic through VPN");
 		OSCommand.admin("route", "delete", session.getConnection().getEndpointAddress(), getDefaultGateway());
 	}
 

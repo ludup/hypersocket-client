@@ -26,7 +26,15 @@
 			<groupId>com.github.hypfvieh</groupId>
 			<artifactId>dbus-java</artifactId>
 			<version>3.3.1-SNAPSHOT</version>
-		</dependency>
+		</dependency>  
+		
+		<!-- Temporary -->
+		<dependency>
+            <groupId>com.github.jnr</groupId>
+            <artifactId>jnr-unixsocket</artifactId>
+            <version>0.38.6</version>
+        </dependency>
+        
 		<dependency>
 			<groupId>com.github.hypfvieh</groupId>
 			<artifactId>dbus-java-utils</artifactId>
