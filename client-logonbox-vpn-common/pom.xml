@@ -56,4 +56,15 @@
 			<version>4.6.1</version>
 		</dependency>
 	</dependencies>
+	<repositories>
+		<repository>
+			<id>ext-snapshots-local</id>
+			<name>ext-snapshots-local</name>
+			<url>http://artifactory.javassh.com/ext-snapshots-local</url>
+			<snapshots />
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+		</repository>
+	</repositories>
 </project>
