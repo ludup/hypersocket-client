@@ -67,7 +67,7 @@ public class DOMProcessor {
 		replacements.put("address", connection == null ? "" : connection.getAddress());
 		replacements.put("usernameHint", connection == null ? "" : connection.getUsernameHint());
 		replacements.put("connectAtStartup", connection == null ? "false" : String.valueOf(connection.isConnectAtStartup()));
-		replacements.put("clientVersion",  HypersocketVersion.getVersion());
+		replacements.put("clientVersion",  HypersocketVersion.getVersion("client-logonbox-vpn-gui-jfx"));
 		replacements.put("brand", MessageFormat.format(resources.getString("brand"),
 			(branding == null || branding.getResource() == null
 						|| StringUtils.isBlank(branding.getResource().getName()) ? "LogonBox"
