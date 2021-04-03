@@ -164,7 +164,7 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 		String currentDomains = Advapi32Util.registryGetStringValue
                 (WinReg.HKEY_LOCAL_MACHINE,
                         "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList");
-		Set<String> currentDomainList = StringUtils.isBlank(currentDomains) ? Collections.emptySet() : new LinkedHashSet<>(Arrays.asList(currentDomains));
+		Set<String> currentDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
 		for(String dnsName : dnsNames) {
 			if(!currentDomainList.contains(dnsName)) {
 				currentDomainList.add(dnsName);
