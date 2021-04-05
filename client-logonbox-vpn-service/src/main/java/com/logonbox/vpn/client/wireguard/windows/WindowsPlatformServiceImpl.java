@@ -300,9 +300,6 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 				throw ioe;
 			}
 		}
-		
-		/* DNS */
-		dns(configuration, ip);
 
 		/*
 		 * TODO the pipe is not yet working, falling back to using wg.exe for now
@@ -315,7 +312,12 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		 * connection. We don't know WHY, just it has failed
 		 */
 		LOG.info(String.format("Waiting for handshake for %d seconds. Hand shake should be after %d", ClientService.CONNECT_TIMEOUT, connectionStarted));
-		return waitForFirstHandshake(configuration, ip, connectionStarted);
+		ip = waitForFirstHandshake(configuration, ip, connectionStarted);
+		
+		/* DNS */
+		dns(configuration, ip);
+		
+		return ip;
 
 	}
 

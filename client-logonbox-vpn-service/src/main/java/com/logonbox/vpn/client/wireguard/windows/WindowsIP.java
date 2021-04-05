@@ -32,7 +32,8 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	private WindowsPlatformServiceImpl platform;
 	private Object lock = new Object();
 	private String displayName;
-
+	private Set<String> domainsAdded = new LinkedHashSet<String>();
+	
 	public WindowsIP(String name, String displayName, WindowsPlatformServiceImpl platform) {
 		this.platform = platform;
 		this.name = name;
@@ -53,6 +54,22 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	public void down() throws IOException {
 		synchronized (lock) {
 			try {
+
+				String currentDomains = Advapi32Util.registryGetStringValue
+		                (WinReg.HKEY_LOCAL_MACHINE,
+		                        "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList");
+				Set<String> currentDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
+				for(String dnsName : domainsAdded) {
+					LOG.info(String.format("Removing domain %s from search", dnsName));
+					currentDomainList.remove(dnsName);
+				}
+				String newDomains = String.join(",", currentDomainList);
+				if(!Objects.equals(currentDomains, newDomains)) {
+					LOG.info(String.format("Final domain search %s", newDomains));
+					Advapi32Util.registrySetStringValue
+		            (WinReg.HKEY_LOCAL_MACHINE,
+		                    "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList", newDomains);
+				}
 				Services.get().stopService(getService());
 			} catch (IOException ioe) {
 				throw ioe;
@@ -164,14 +181,18 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 		String currentDomains = Advapi32Util.registryGetStringValue
                 (WinReg.HKEY_LOCAL_MACHINE,
                         "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList");
-		Set<String> currentDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
+		Set<String> newDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
 		for(String dnsName : dnsNames) {
-			if(!currentDomainList.contains(dnsName)) {
-				currentDomainList.add(dnsName);
+			if(!newDomainList.contains(dnsName)) {
+				LOG.info(String.format("Adding domain %s to search", dnsName));
+				newDomainList.add(dnsName);
 			}
 		}
-		String newDomains = String.join(",", currentDomainList);
+		String newDomains = String.join(",", newDomainList);
 		if(!Objects.equals(currentDomains, newDomains)) {
+			domainsAdded.clear();
+			domainsAdded.addAll(newDomainList);
+			LOG.info(String.format("Final domain search %s", newDomains));
 			Advapi32Util.registrySetStringValue
             (WinReg.HKEY_LOCAL_MACHINE,
                     "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList", newDomains);

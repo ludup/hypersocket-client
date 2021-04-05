@@ -178,7 +178,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				LOG.info("No DNS servers configured for this connection.");
 		}
 		else {
-			LOG.info(String.format("Configuring DNS servers for %s as %s", configuration.getDns(), ip.getName()));
+			LOG.info(String.format("Configuring DNS servers for %s as %s", ip.getName(), configuration.getDns()));
 		}
 		ip.dns(configuration.getDns().toArray(new String[0]));
 		
