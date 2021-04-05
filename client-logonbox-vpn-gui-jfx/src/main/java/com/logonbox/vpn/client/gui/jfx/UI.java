@@ -35,7 +35,6 @@ import javax.imageio.ImageIO;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
-import org.controlsfx.control.action.Action;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
@@ -333,7 +332,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 	}
 
-	public void notify(String msg, ToastType toastType, Action... actions) {
+	public void notify(String msg, ToastType toastType) {
 		Toast.toast(toastType, resources.getString("appName"), msg);
 	}
 
