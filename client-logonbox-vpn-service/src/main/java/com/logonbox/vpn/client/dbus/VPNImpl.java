@@ -81,7 +81,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public String getVersion() {
 		assertRegistered();
-		return HypersocketVersion.getVersion("com.logonbox/client-logonbox-vpn-service");
+		return HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-service");
 	}
 
 	@Override
