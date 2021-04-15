@@ -52,14 +52,18 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 
 	@Override
 	protected String getDefaultGateway() throws IOException {
+		String gw = null;
 		for(String line : OSCommand.adminCommandAndIterateOutput("ip", "route")) {
-			if(line.startsWith("default via")) {
+			if(gw == null && line.startsWith("default via")) {
 				String[] args = line.split("\\s+");
 				if(args.length > 2)
-					return args[2];
+					gw = args[2];
 			}
 		}
-		throw new IOException("Could not get default gateway.");
+		if(gw == null)
+			throw new IOException("Could not get default gateway.");
+		else
+			return gw;
 	}
 	
 	@Override
@@ -242,6 +246,12 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		log.info(String.format("Bringing up %s", ip.getName()));		
 		ip.up();
 		
+		/* Wait for the first handshake. As soon as we have it, we are 'connected'.
+		 * If we don't get a handshake in that time, then consider this a failed connection.
+		 * We don't know WHY, just it has failed  */
+		log.info(String.format("Waiting for first handshake on %s", ip.getName()));
+		LinuxIP ok = waitForFirstHandshake(configuration, ip, connectionStarted);
+		
 		/* DNS */
 		dns(configuration, ip);
 
@@ -249,11 +259,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		log.info(String.format("Setting routes for %s", ip.getName()));
 		setRoutes(session, ip);
 		
-		/* Wait for the first handshake. As soon as we have it, we are 'connected'.
-		 * If we don't get a handshake in that time, then consider this a failed connection.
-		 * We don't know WHY, just it has failed  */
-		log.info(String.format("Waiting for first handshake on %s", ip.getName()));
-		return waitForFirstHandshake(configuration, ip, connectionStarted);
+		return ok;
 	}
 
 	void setRoutes(VPNSession session, LinuxIP ip) throws IOException {

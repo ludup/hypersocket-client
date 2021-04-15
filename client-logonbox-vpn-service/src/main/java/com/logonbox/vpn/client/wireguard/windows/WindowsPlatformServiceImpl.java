@@ -144,18 +144,24 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 	@Override
 	protected String getDefaultGateway() throws IOException {
+		String gw = null;
 		for(String line : OSCommand.adminCommandAndIterateOutput("ipconfig")) {
-			line = line.trim();
-			if(line.startsWith("Default Gateway ")) {
-				int idx = line.indexOf(":");
-				if(idx != -1) {
-					line = line.substring(idx + 1).trim();
-					if(!line.equals("0.0.0.0"))
-						return line;
+			if(gw == null) {
+				line = line.trim();
+				if(line.startsWith("Default Gateway ")) {
+					int idx = line.indexOf(":");
+					if(idx != -1) {
+						line = line.substring(idx + 1).trim();
+						if(!line.equals("0.0.0.0"))
+							gw = line;
+					}
 				}
 			}
 		}
-		throw new IOException("Could not get default gateway.");
+		if(gw == null)
+			throw new IOException("Could not get default gateway.");
+		else
+			return gw;
 	}
 	
 	@Override

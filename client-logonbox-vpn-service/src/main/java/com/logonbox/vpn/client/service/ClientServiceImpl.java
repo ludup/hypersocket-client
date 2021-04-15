@@ -599,7 +599,10 @@ public class ClientServiceImpl implements ClientService {
 								log.info("No updates available.");
 							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", atLeastOneUpdate, null));
 						} catch (IOException e) {
-							log.error("Failed to update GUI.", e);
+							if(log.isDebugEnabled())
+								log.error("Failed to update GUI.", e);
+							else
+								log.error(String.format("Failed to update GUI. %s", e.getMessage()));
 							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, e.getMessage()));
 						}
 					} catch (Exception re) {
@@ -916,12 +919,22 @@ public class ClientServiceImpl implements ClientService {
 					}
 
 				} catch (IOException | DBusException e) {
-					log.error("Failed to execute update job.", e);
+					if (log.isDebugEnabled()) {
+						log.error("Failed to execute update job.", e);
+					}
+					else {
+						log.warn(String.format("Failed to execute update job. %s", e.getMessage()));
+					}
 					return;
 				}
 			}
 		} catch (Exception re) {
-			log.error("Failed to get GUI extension information. Update aborted.", re);
+			if (log.isDebugEnabled()) {
+				log.error("Failed to get GUI extension information. Update aborted.", re);
+			}
+			else {
+				log.error(String.format("Failed to get GUI extension information. Update aborted. %s", re.getMessage()));
+			}
 		} finally {
 			updating = false;
 		}
