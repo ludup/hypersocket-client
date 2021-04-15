@@ -12,6 +12,7 @@
 <body> 
 	<script src="jquery-3.5.1.min.js"></script>
 	<script src="bootstrap-5.0.0-beta3-dist/js/bootstrap.bundle.min.js"></script>
+	<script src="web.js"></script>
 	<div class="full-container">
 		<div id="main" class="container clear-top">
 			<div class="container">
@@ -36,6 +37,7 @@
 	<script type="text/javascript">
 		$(function() {
 			$('#connect').off('click').on('click', function(event) {
+				$('#connect').buttonLoader('start');
 				event.preventDefault();
 				bridge.connect();
 			});

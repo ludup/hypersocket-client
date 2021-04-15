@@ -1,24 +1,23 @@
 /* Stylesheet for static styles used by local HTML pages */
-
 .full-container {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    -moz-transform: translateX(-50%) translateY(-50%);
-    -webkit-transform: translateX(-50%) translateY(-50%);
-    transform: translateX(-50%) translateY(-50%);
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	-moz-transform: translateX(-50%) translateY(-50%);
+	-webkit-transform: translateX(-50%) translateY(-50%);
+	transform: translateX(-50%) translateY(-50%);
 }
 
 #header img {
-    height: 35px;
+	height: 35px;
 }
 
 .navbar-brand {
-  padding: 7px 10px; 
-} 
+	padding: 7px 10px;
+}
 
 .btn-primary:disabled {
-    background: #bbb;
+	background: #bbb;
 }
 
 .btn-disabled {
@@ -30,3 +29,25 @@
 	color: white;
 }
 
+.spinner {
+	display: inline-block;
+	opacity: 0;
+	width: 0;
+	-webkit-transition: opacity 0.25s, width 0.25s;
+	-moz-transition: opacity 0.25s, width 0.25s;
+	-o-transition: opacity 0.25s, width 0.25s;
+	transition: opacity 0.25s, width 0.25s;
+}
+
+.has-spinner.active {
+	cursor: progress;
+}
+
+.has-spinner.active .spinner {
+	opacity: 1;
+	width: auto;
+}
+
+.has-spinner.btn.active .spinner {
+	min-width: 20px;
+}
