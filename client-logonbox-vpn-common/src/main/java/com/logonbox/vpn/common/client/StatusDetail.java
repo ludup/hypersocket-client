@@ -10,16 +10,6 @@ public interface StatusDetail {
 		}
 
 		@Override
-		public long getTxBps() {
-			return 0;
-		}
-
-		@Override
-		public long getRxBps() {
-			return 0;
-		}
-
-		@Override
 		public long getTx() {
 			return 0;
 		}
@@ -34,10 +24,6 @@ public interface StatusDetail {
 	long getTx();
 
 	long getRx();
-
-	long getTxBps();
-
-	long getRxBps();
 
 	long getLastHandshake();
 }

@@ -77,10 +77,6 @@ public interface VPNConnection extends DBusInterface {
 	long getRx();
 	
 	long getTx();
-	
-	long getRxBps();
-	
-	long getTxBps();
 
 	void setConnectAtStartup(boolean connectAtStartup);
 

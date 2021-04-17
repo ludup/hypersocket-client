@@ -398,16 +398,4 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 		return ctx.getClientService().getStatus(connection.getId()).getDetail().getTx();
 	}
 
-	@Override
-	public long getRxBps() {
-		assertRegistered();
-		return ctx.getClientService().getStatus(connection.getId()).getDetail().getRxBps();
-	}
-
-	@Override
-	public long getTxBps() {
-		assertRegistered();
-		return ctx.getClientService().getStatus(connection.getId()).getDetail().getTxBps();
-	}
-
 }
