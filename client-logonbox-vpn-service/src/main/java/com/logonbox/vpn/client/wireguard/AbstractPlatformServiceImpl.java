@@ -264,7 +264,6 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				throw new IOException(String.format("Interrupted connecting to %s", ip.getName()));
 			}
 			long lastHandshake = getLatestHandshake(ip.getName(), configuration.getPublicKey());
-			System.out.println("Latest " + lastHandshake + " vs " + connectionStarted);
 			if(lastHandshake >= connectionStarted) {
 				/* Ready ! */
 				return ip;
