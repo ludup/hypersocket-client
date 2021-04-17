@@ -65,6 +65,39 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		else
 			return gw;
 	}
+
+
+	@Override
+	protected long getLatestHandshake(String iface, String publicKey) throws IOException {
+		for(String line : OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface, "latest-handshakes")) {
+			String[] args = line.trim().split("\\s+");
+			if(args.length == 2) {
+				if(args[0].equals(publicKey)) {
+					return Long.parseLong(args[1]) * 1000;
+				}
+			}
+		}
+		return 0;
+	}
+
+	@Override
+	protected String getPublicKey(String interfaceName) throws IOException {
+		try {
+			String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
+					.iterator().next().trim();
+			if (pk.equals("(none)") || pk.equals(""))
+				return null;
+			else
+				return pk;
+			
+		}
+		catch(IOException ioe) {
+			if(ioe.getMessage() != null && ioe.getMessage().indexOf("The system cannot find the file specified") != -1)
+				return null;
+			else
+				throw ioe;
+		}
+	}
 	
 	@Override
 	public List<LinuxIP> ips(boolean wireguardOnly) {

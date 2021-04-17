@@ -380,4 +380,34 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 		return connection.getPostDown();
 	}
 
+	@Override
+	public long getLastHandshake() {
+		assertRegistered();
+		return ctx.getClientService().getStatus(connection.getId()).getDetail().getLastHandshake();
+	}
+
+	@Override
+	public long getRx() {
+		assertRegistered();
+		return ctx.getClientService().getStatus(connection.getId()).getDetail().getRx();
+	}
+
+	@Override
+	public long getTx() {
+		assertRegistered();
+		return ctx.getClientService().getStatus(connection.getId()).getDetail().getTx();
+	}
+
+	@Override
+	public long getRxBps() {
+		assertRegistered();
+		return ctx.getClientService().getStatus(connection.getId()).getDetail().getRxBps();
+	}
+
+	@Override
+	public long getTxBps() {
+		assertRegistered();
+		return ctx.getClientService().getStatus(connection.getId()).getDetail().getTxBps();
+	}
+
 }

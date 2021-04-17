@@ -1,10 +1,13 @@
 package com.logonbox.vpn.client.gui.jfx;
 
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.text.DateFormat;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -22,6 +25,8 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import com.hypersocket.json.version.HypersocketVersion;
+import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.api.Branding;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
@@ -33,7 +38,7 @@ public class DOMProcessor {
 	private Set<Node> removeNodes = new HashSet<>();
 	private Element documentElement;
 	private ResourceBundle pageBundle;
-	private ResourceBundle bundle;
+	private ResourceBundle resources;
 	private Map<String, Collection<String>> collections;
 
 	public DOMProcessor(VPNConnection connection, Map<String, Collection<String>> collections, String lastErrorMessage, Throwable lastException, Branding branding, ResourceBundle pageBundle, ResourceBundle resources, Element documentElement, String disconnectionReason) {
@@ -76,11 +81,22 @@ public class DOMProcessor {
 		replacements.put("dns", connection == null ? "" : String.join(", ", connection.getDns()));
 		replacements.put("persistentKeepalive", connection == null ? "" : String.valueOf(connection.getPersistentKeepalive()));
 		replacements.put("disconnectionReason", disconnectionReason == null ? "" : disconnectionReason);
+		String statusType = connection == null ? "" : connection.getStatus();
+		replacements.put("status", statusType);
+		replacements.put("connected", String.valueOf(statusType.equals(ConnectionStatus.Type.CONNECTED.name())));
+		if(connection == null || !statusType.equals(ConnectionStatus.Type.CONNECTED.name())) {
+			replacements.put("lastHandshake",  "");			
+			replacements.put("usage",  "");
+		}
+		else {
+			replacements.put("lastHandshake",  DateFormat.getDateTimeInstance().format(new Date(connection.getLastHandshake())));			
+			replacements.put("usage",  MessageFormat.format(resources.getString("usageDetail"), Util.toHumanSize(connection.getRx()), Util.toHumanSize(connection.getTx())));
+		}
 
 		this.documentElement = documentElement;
 		this.pageBundle = pageBundle;
-		this.bundle = resources;
-		this.collections = collections;
+		this.resources = resources;
+		this.collections = collections; 
 	}
 	
 	public void process() {
@@ -129,7 +145,7 @@ public class DOMProcessor {
 					try {
 						attrVal = pageBundle.getString(val);
 					} catch (MissingResourceException mre) {
-						attrVal = bundle.getString(val);
+						attrVal = resources.getString(val);
 					}
 					if (!args.isEmpty()) {
 						attrVal = MessageFormat.format(attrVal, args.toArray(new Object[0]));

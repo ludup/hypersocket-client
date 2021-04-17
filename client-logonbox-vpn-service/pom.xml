@@ -90,6 +90,11 @@
 		</dependency>
 		<dependency>
 			<groupId>com.sshtools</groupId>
+			<artifactId>forker-pipes</artifactId>
+			<version>1.7-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>com.sshtools</groupId>
 			<artifactId>forker-services</artifactId>
 			<version>1.7-SNAPSHOT</version>
 			<exclusions>

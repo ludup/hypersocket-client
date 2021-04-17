@@ -46,8 +46,8 @@ import com.logonbox.vpn.common.client.ConnectionRepository;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.Keys.KeyPair;
-import com.logonbox.vpn.common.client.ConnectionStatusImpl;
 import com.logonbox.vpn.common.client.Keys;
+import com.logonbox.vpn.common.client.StatusDetail;
 import com.logonbox.vpn.common.client.UserCancelledException;
 import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
@@ -460,6 +460,15 @@ public class ClientServiceImpl implements ClientService {
 			if (disconnectingClients.contains(c))
 				return Type.DISCONNECTING;
 			return Type.DISCONNECTED;
+		}
+	}
+
+	@Override
+	public String getActiveInterface(Connection c) {
+		synchronized (activeSessions) {
+			if (activeSessions.containsKey(c))
+				return activeSessions.get(c).getIp().getName();
+			return null;
 		}
 	}
 
@@ -950,7 +959,16 @@ public class ClientServiceImpl implements ClientService {
 			List<Connection> added) {
 		for (Connection c : connections) {
 			if (!added.contains(c)) {
-				ret.add(new ConnectionStatusImpl(c, getStatusType(c)));
+				StatusDetail status = StatusDetail.EMPTY;
+				VPNSession session = activeSessions.get(c);
+				if(session != null) { 
+					try {
+						status = getContext().getPlatformService().status(session.getIp().getName());
+					} catch (IOException e) {
+						throw new IllegalStateException(String.format("Failed to get status for an active connection %s on interface %s.", c.getDisplayName(), session.getIp().getName()), e);
+					}
+				}
+				ret.add(new ConnectionStatusImpl(c, status, getStatusType(c)));
 				added.add(c);
 			}
 		}

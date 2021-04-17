@@ -43,7 +43,6 @@ import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.api.Branding;
 import com.logonbox.vpn.common.client.api.BrandingInfo;
 
-import dorkbox.systemTray.SystemTray;
 import javafx.application.Application;
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;

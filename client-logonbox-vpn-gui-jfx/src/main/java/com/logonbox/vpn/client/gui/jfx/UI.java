@@ -16,12 +16,14 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.rmi.RemoteException;
+import java.text.DateFormat;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -217,6 +219,16 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 		public void openURL(String url) {
 			Client.get().getHostServices().showDocument(url);
+		}
+		
+		public String getLastHandshake() {
+			VPNConnection connection = getConnection();
+			return connection == null ? null : DateFormat.getDateTimeInstance().format(new Date(connection.getLastHandshake()));
+		}
+		
+		public String getUsage() {
+			VPNConnection connection = getConnection();
+			return connection == null ? null : MessageFormat.format(resources.getString("usageDetail"), Util.toHumanSize(connection.getRx()), Util.toHumanSize(connection.getTx()));
 		}
 	}
 
@@ -741,7 +753,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		});
 
 		engine.setOnStatusChanged((e) -> {
-			LOG.info(String.format("Status: %s", e));
+			LOG.debug(String.format("Status: %s", e));
 		});
 		engine.locationProperty().addListener((c, oldLoc, newLoc) -> {
 			if (newLoc != null) {
@@ -767,7 +779,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					}
 					if (!base.equals("") && !base.equals(htmlPage)) {
 						htmlPage = base;
-						log.info(String.format("Page changed by user to %s (likely back button)", htmlPage));
+						log.info(String.format("Page changed by user to %s (from browser view)", htmlPage));
 					}
 				}
 				setupPage();
@@ -1256,7 +1268,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		 * while.
 		 */
 
-		mode = context.getDBus().getVPN().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
+		mode = context.getDBus().isBusAvailable() && context.getDBus().getVPN().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
 		VPNConnection selectedConnection = getSelectedConnection();
 		if (Client.allowBranding) {
 			branding = getBranding(selectedConnection);
