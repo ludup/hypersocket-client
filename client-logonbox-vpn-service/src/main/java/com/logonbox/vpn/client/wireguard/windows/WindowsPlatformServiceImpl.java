@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -28,6 +29,7 @@ import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.windows.service.NetworkConfigurationService;
@@ -37,6 +39,8 @@ import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.client.impl.jna.win32.Kernel32;
 import com.sshtools.forker.common.XAdvapi32;
 import com.sshtools.forker.common.XWinsvc;
+import com.sshtools.forker.services.Service;
+import com.sshtools.forker.services.Service.Status;
 import com.sshtools.forker.services.Services;
 import com.sshtools.forker.services.impl.Win32ServiceService;
 import com.sun.jna.Native;
@@ -86,7 +90,6 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		return PREFS;
 	}
 
-	private WindowsWireGuardNamedPipe pipe;
 	private File wgFile;
 
 	public WindowsPlatformServiceImpl() {
@@ -129,7 +132,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 		return new ArrayList<WindowsIP>(ips);
 	}
-
+	
 	@Override
 	protected void addRouteAll(Connection connection) throws IOException {
 		LOG.info("Routing traffic all through VPN");
@@ -144,18 +147,24 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 	@Override
 	protected String getDefaultGateway() throws IOException {
+		String gw = null;
 		for(String line : OSCommand.adminCommandAndIterateOutput("ipconfig")) {
-			line = line.trim();
-			if(line.startsWith("Default Gateway ")) {
-				int idx = line.indexOf(":");
-				if(idx != -1) {
-					line = line.substring(idx + 1).trim();
-					if(!line.equals("0.0.0.0"))
-						return line;
+			if(gw == null) {
+				line = line.trim();
+				if(line.startsWith("Default Gateway ")) {
+					int idx = line.indexOf(":");
+					if(idx != -1) {
+						line = line.substring(idx + 1).trim();
+						if(!line.equals("0.0.0.0"))
+							gw = line;
+					}
 				}
 			}
 		}
-		throw new IOException("Could not get default gateway.");
+		if(gw == null)
+			throw new IOException("Could not get default gateway.");
+		else
+			return gw;
 	}
 	
 	@Override
@@ -300,14 +309,6 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 				throw ioe;
 			}
 		}
-		
-		/* DNS */
-		dns(configuration, ip);
-
-		/*
-		 * TODO the pipe is not yet working, falling back to using wg.exe for now
-		 */
-		//pipe = new WindowsWireGuardNamedPipe(ip.getName());
 
 		/*
 		 * Wait for the first handshake. As soon as we have it, we are 'connected'. If
@@ -315,14 +316,39 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		 * connection. We don't know WHY, just it has failed
 		 */
 		LOG.info(String.format("Waiting for handshake for %d seconds. Hand shake should be after %d", ClientService.CONNECT_TIMEOUT, connectionStarted));
-		return waitForFirstHandshake(configuration, ip, connectionStarted);
+		ip = waitForFirstHandshake(configuration, ip, connectionStarted);
+		
+		/* DNS */
+		dns(configuration, ip);
 
+		return ip;
+
+	}
+	
+	@Override
+	protected Collection<VPNSession> onStart(LocalContext ctx, List<VPNSession> sessions) {
+		/* Check for an remove any wireguard interface services that are stopped (they should
+		 * either be running or not exist */
+		try {
+			for(Service service : Services.get().getServices()) {
+				if(service.getNativeName().startsWith(TUNNEL_SERVICE_NAME_PREFIX) && ( service.getStatus() == Status.STOPPED || service.getStatus() == Status.PAUSED || service.getStatus() == Status.UNKNOWN)) {
+					try {
+						uninstall(service.getNativeName());
+					}
+					catch(Exception e) {
+						LOG.error(String.format("Failed to uninstall dead service %s", service.getNativeName()), e);
+					}
+				}
+			}
+		}
+		catch(Exception e) {
+			LOG.error("Failed to remove dead services.", e);
+		}
+		return sessions;
 	}
 
 	@Override
 	protected void onDisconnect() throws IOException {
-		if (pipe != null)
-			pipe.close();
 	}
 
 	@Override

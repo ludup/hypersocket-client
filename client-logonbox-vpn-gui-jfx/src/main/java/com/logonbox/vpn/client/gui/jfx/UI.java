@@ -11,16 +11,19 @@ import java.io.OutputStream;
 import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.rmi.RemoteException;
+import java.text.DateFormat;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,7 +38,6 @@ import javax.imageio.ImageIO;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
-import org.controlsfx.control.action.Action;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
@@ -104,9 +106,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	 */
 	public class ServerBridge {
 
-		public void addConnection(JSObject o) {
+		public void addConnection(JSObject o) throws URISyntaxException {
 			Boolean connectAtStartup = (Boolean) o.getMember("connectAtStartup");
 			String server = (String) o.getMember("serverUrl");
+			if(StringUtils.isBlank(server))
+				throw new IllegalArgumentException(bundle.getString("error.invalidUri"));
 			UI.this.addConnection(connectAtStartup, server);
 		}
 
@@ -119,7 +123,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				LOG.debug(String.format("Connect user: %s, Config: %s", usernameHint, configIniFile));
 			UI.this.configure(usernameHint, configIniFile, UI.this.connections.getSelectionModel().getSelectedItem());
 		}
-		
+
 		public void reset() {
 			UI.this.selectPageForState(false, true);
 		}
@@ -139,7 +143,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		public VPNConnection getConnection() {
 			return UI.this.getSelectedConnection();
 		}
-		
+
 		public String getOS() {
 			if (SystemUtils.IS_OS_WINDOWS) {
 				return "windows";
@@ -212,9 +216,19 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		public void update() {
 			UI.this.update();
 		}
-		
+
 		public void openURL(String url) {
 			Client.get().getHostServices().showDocument(url);
+		}
+		
+		public String getLastHandshake() {
+			VPNConnection connection = getConnection();
+			return connection == null ? null : DateFormat.getDateTimeInstance().format(new Date(connection.getLastHandshake()));
+		}
+		
+		public String getUsage() {
+			VPNConnection connection = getConnection();
+			return connection == null ? null : MessageFormat.format(resources.getString("usageDetail"), Util.toHumanSize(connection.getRx()), Util.toHumanSize(connection.getTx()));
 		}
 	}
 
@@ -258,6 +272,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private boolean adjustingSelection;
 	private String disconnectionReason;
 	private Runnable runOnNextLoad;
+	private ServerBridge bridge;
 
 	@FXML
 	protected ListView<VPNConnection> connections;
@@ -333,7 +348,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 	}
 
-	public void notify(String msg, ToastType toastType, Action... actions) {
+	public void notify(String msg, ToastType toastType) {
 		Toast.toast(toastType, resources.getString("appName"), msg);
 	}
 
@@ -390,8 +405,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 								adjustingSelection = true;
 								try {
 									rebuildConnections(selectedConnection);
-								}
-								finally {
+								} finally {
 									adjustingSelection = false;
 								}
 								VPNConnection newSelectedConnection = getSelectedConnection();
@@ -700,10 +714,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		});
 	}
 
-	protected void addConnection(Boolean connectAtStartup, String unprocessedUri) {
+	protected void addConnection(Boolean connectAtStartup, String unprocessedUri) throws URISyntaxException {
+		URI uriObj = Util.getUri(unprocessedUri);
 		context.getOpQueue().execute(() -> {
 			try {
-				URI uriObj = Util.getUri(unprocessedUri);
 				context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup);
 			} catch (Exception e) {
 				showError("Failed to add connection.", e);
@@ -723,7 +737,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	protected void configureWebEngine() {
 		WebEngine engine = webView.getEngine();
-		engine.setUserAgent("LogonBox VPN Client " + HypersocketVersion.getVersion());
+
+		engine.setUserAgent(
+				"LogonBox VPN Client " + HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-gui-jfx"));
 		engine.setOnAlert((e) -> {
 			Alert alert = new Alert(AlertType.ERROR);
 			alert.initModality(Modality.APPLICATION_MODAL);
@@ -737,6 +753,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		});
 
 		engine.setOnStatusChanged((e) -> {
+			LOG.debug(String.format("Status: %s", e));
 		});
 		engine.locationProperty().addListener((c, oldLoc, newLoc) -> {
 			if (newLoc != null) {
@@ -757,12 +774,12 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					if (base.equals(""))
 						base = "index.html";
 					idx = base.indexOf('#');
-					if(idx != -1) {
+					if (idx != -1) {
 						base = base.substring(0, idx);
 					}
 					if (!base.equals("") && !base.equals(htmlPage)) {
 						htmlPage = base;
-						log.info(String.format("Page changed by user to %s (likely back button)", htmlPage));
+						log.info(String.format("Page changed by user to %s (from browser view)", htmlPage));
 					}
 				}
 				setupPage();
@@ -770,17 +787,14 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		});
 		engine.getLoadWorker().stateProperty().addListener((ov, oldState, newState) -> {
 			if (newState == State.SUCCEEDED) {
-				processJavascript();
 				processDOM();
-				
-				if(runOnNextLoad != null) {
+				processJavascript();
+				if (runOnNextLoad != null) {
 					try {
 						runOnNextLoad.run();
-					}
-					finally {
+					} finally {
 						runOnNextLoad = null;
 					}
-					
 				}
 			}
 		});
@@ -871,6 +885,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	@Override
 	protected void onConfigure() {
 		super.onConfigure();
+		
+		bridge = new ServerBridge();
 
 		minimize.setVisible(!Main.getInstance().isNoMinimize());
 		minimize.setManaged(minimize.isVisible());
@@ -910,7 +926,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			}
 		});
 		connections.getSelectionModel().selectedItemProperty().addListener((e, o, n) -> {
-			if(!adjustingSelection) {
+			if (!adjustingSelection) {
 				context.getOpQueue().execute(() -> {
 					reloadState(() -> {
 						maybeRunLater(() -> {
@@ -973,6 +989,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		sidebar.managedProperty().bind(sidebar.visibleProperty());
 
 		/* Initial page */
+		setHtmlPage("index.html");
 		try {
 			context.getDBus().addBusLifecycleListener(this);
 			context.getDBus().getVPN().ping();
@@ -1103,8 +1120,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private void processJavascript() {
 		if (log.isDebugEnabled())
 			log.debug("Processing page content");
-		JSObject jsobj = (JSObject) webView.getEngine().executeScript("window");
-		jsobj.setMember("bridge", new ServerBridge());
+		WebEngine engine = webView.getEngine();
+		JSObject jsobj = (JSObject) engine.executeScript("window");
+		jsobj.setMember("bridge", bridge);
 		if ("options.html".equals(htmlPage)) {
 			for (Map.Entry<String, Object> beanEn : beansForOptions().entrySet()) {
 				log.info(String.format(" Setting %s to %s", beanEn.getKey(), beanEn.getValue()));
@@ -1113,15 +1131,15 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 		jsobj.setMember("connection", getSelectedConnection());
 		jsobj.setMember("pageBundle", pageBundle);
-		webView.getEngine()
+		engine
 				.executeScript("console.log = function(message)\n" + "{\n" + "    bridge.log(message);\n" + "};");
 
 	}
 
 	private void processDOM() {
-		DOMProcessor processor = new DOMProcessor(getSelectedConnection(), collections, 
-				lastErrorMessage, lastException, branding, 
-				pageBundle, resources, webView.getEngine().getDocument().getDocumentElement(), disconnectionReason);
+		DOMProcessor processor = new DOMProcessor(getSelectedConnection(), collections, lastErrorMessage, lastException,
+				branding, pageBundle, resources, webView.getEngine().getDocument().getDocumentElement(),
+				disconnectionReason);
 		processor.process();
 		collections.clear();
 		lastException = null;
@@ -1186,10 +1204,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			config.setPostUp(interfaceSection.containsKey("PostUp") ? interfaceSection.get("PostUp") : "");
 			config.setPreDown(interfaceSection.containsKey("PreDown") ? interfaceSection.get("PreDown") : "");
 			config.setPostDown(interfaceSection.containsKey("PostDown") ? interfaceSection.get("PostDown") : "");
-			
+
 			/* Custom LogonBox */
 			Section logonBoxSection = ini.get("LogonBox");
-			if(logonBoxSection != null) {
+			if (logonBoxSection != null) {
 				config.setRouteAll("true".equals(logonBoxSection.get("RouteAll")));
 			}
 
@@ -1250,7 +1268,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		 * while.
 		 */
 
-		mode = context.getDBus().getVPN().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
+		mode = context.getDBus().isBusAvailable() && context.getDBus().getVPN().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
 		VPNConnection selectedConnection = getSelectedConnection();
 		if (Client.allowBranding) {
 			branding = getBranding(selectedConnection);
@@ -1267,17 +1285,17 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			if (log.isDebugEnabled())
 				log.debug("Adding custom branding");
 			String logo = branding.getLogo();
-			
+
 			/* Create branded splash */
 			BufferedImage bim = null;
 			Graphics2D graphics = null;
-			if(branding.getResource() != null && StringUtils.isNotBlank(branding.getResource().getBackground())) {
+			if (branding.getResource() != null && StringUtils.isNotBlank(branding.getResource().getBackground())) {
 				bim = new BufferedImage(SPLASH_WIDTH, SPLASH_HEIGHT, BufferedImage.TYPE_INT_ARGB);
-				graphics = (Graphics2D)bim.getGraphics();
+				graphics = (Graphics2D) bim.getGraphics();
 				graphics.setColor(java.awt.Color.decode(branding.getResource().getBackground()));
 				graphics.fillRect(0, 0, SPLASH_WIDTH, SPLASH_HEIGHT);
 			}
-			
+
 			/* Create logo file */
 			if (StringUtils.isNotBlank(logo)) {
 				File newLogoFile = getCustomLogoFile(selectedConnection);
@@ -1295,14 +1313,17 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					}
 					logoFile = newLogoFile;
 					branding.setLogo(logoFile.toURI().toString());
-					
+
 					/* Draw the logo on the custom splash */
-					if(graphics != null) {
+					if (graphics != null) {
 						log.info(String.format("Drawing logo on splash"));
 						BufferedImage logoImage = ImageIO.read(logoFile);
-						graphics.drawImage(logoImage, ( SPLASH_WIDTH - logoImage.getWidth() ) / 2, ( SPLASH_HEIGHT - logoImage.getHeight() ) / 2, null);
+						if (logoImage == null)
+							throw new Exception(String.format("Failed to load image from %s", logoFile));
+						graphics.drawImage(logoImage, (SPLASH_WIDTH - logoImage.getWidth()) / 2,
+								(SPLASH_HEIGHT - logoImage.getHeight()) / 2, null);
 					}
-					
+
 				} catch (Exception e) {
 					log.error(String.format("Failed to cache logo"), e);
 					branding.setLogo(null);
@@ -1311,9 +1332,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				logoFile.delete();
 				logoFile = null;
 			}
-			
+
 			/* Write the splash */
-			if(graphics != null) {
+			if (graphics != null) {
 				try {
 					ImageIO.write(bim, "png", splashFile);
 					log.info(String.format("Custom splash written to %s", splashFile));

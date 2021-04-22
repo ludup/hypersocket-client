@@ -46,6 +46,10 @@ public class DorkBoxTray implements AutoCloseable, Tray, BusLifecycleListener {
 	private Font font;
 	private List<Entry> menuEntries = new ArrayList<>();
 	private SystemTray systemTray;
+	
+	static {
+		SystemTray.getVersion();
+	}
 
 	public DorkBoxTray(Client context) throws Exception {
 		this.context = context;

@@ -11,6 +11,7 @@
 <body>
 	<script src="jquery-3.5.1.min.js"></script>
 	<script src="bootstrap-5.0.0-beta3-dist/js/bootstrap.bundle.min.js"></script>
+	<script src="web.js"></script>
 	<div id="wrap">
 		<div id="main" class="container clear-top mt-3">
 			<small style="float:right;"><a href="about.html" data-i18n="about">About</a></small>
@@ -46,7 +47,7 @@
 				</div>
 
 
-				<button type="submit" class="btn btn-primary" data-i18n="save">Save</button>
+				<button id="save" type="submit" class="btn btn-primary" data-i18n="save">Save</button>
 			</form>
 		</div>
 	</div>
@@ -60,6 +61,7 @@
 		}
 		$('#automaticUpdates').prop('checked', automaticUpdates);
 		$("#optionsForm").submit(function(event) {
+			$('#save').buttonLoader('start');
 			bridge.saveOptions({
 				'trayMode': 		$('#trayMode').val(),
 				'phase': 			$('#phase').val(),

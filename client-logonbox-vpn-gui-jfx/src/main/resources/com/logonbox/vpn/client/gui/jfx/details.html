@@ -50,6 +50,18 @@
 							<div class="col-md-6"  data-conditional="address">
 								<span data-content="address">1.2.3.4</span>
 							</div>
+							<div class="col-md-6 mt-3" data-conditional="lastHandshake">
+								<strong><label data-i18n="lastHandshake">Last Handshake</label></strong>
+							</div>
+							<div class="col-md-6"  data-conditional="lastHandshake">
+								<span data-content="lastHandshake" id="lastHandshake">1m</span>
+							</div>
+							<div id="usageContainer" class="col-md-6 mt-3" data-conditional="usage">
+								<strong><label data-i18n="usage">Usage</label></strong>
+							</div>
+							<div class="col-md-6"  data-conditional="usage">
+								<span data-content="usage" id="usage">1mb downloaded, 2mb uploaded</span>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -114,6 +126,12 @@
 				bridge.openURL($(this).attr('href'));
 				e.preventDefault();
 			});
+			if($('#usageContainer').length) {
+				window.setInterval(function() {
+					$('#usage').html(bridge.getUsage());
+					$('#lastHandshake').html(bridge.getLastHandshake());
+				}, 1000);
+			}
 		});
 	</script>
 </body>

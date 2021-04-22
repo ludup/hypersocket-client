@@ -88,6 +88,10 @@ public class Main implements Callable<Integer>, LocalContext {
 			"--embedded-bus" }, description = "Force use of embedded DBus service. Usually it is enabled by default for anything other than Linux.")
 	private boolean embeddedBus;
 
+	@Option(names = { "-sb",
+			"--session-bus" }, description = "Force use of session DBus service. Usually it is automatically detected.")
+	private boolean sessionBus;
+
 	@Option(names = { "-R",
 			"--no-registration-required" }, description = "Enable this to allow unregistered DBus clients to control the VPN. Not recommended for security reasons, anyone would be able to control anyone else's VPN connections.")
 	private boolean noRegistrationRequired;
@@ -272,10 +276,18 @@ public class Main implements Callable<Integer>, LocalContext {
 				conn = DBusConnection.getConnection(address, true, true);
 				log.info(String.format("Ready to DBus @%s", address));
 			} else if (OS.isAdministrator()) {
-				log.info("Connected to System DBus");
-				conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
-				log.info("Ready to System DBus");
-				address = conn.getAddress().getRawAddress();
+				if(sessionBus) {
+					log.info("Per configuration, connecting to Session DBus");
+					conn = DBusConnection.getConnection(DBusBusType.SESSION);
+					log.info("Ready to Session DBus");
+					address = conn.getAddress().getRawAddress();
+				}
+				else {
+					log.info("Connected to System DBus");
+					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
+					log.info("Ready to System DBus");
+					address = conn.getAddress().getRawAddress();
+				}
 			} else {
 				log.info("Not administrator, connecting to Session DBus");
 				conn = DBusConnection.getConnection(DBusBusType.SESSION);

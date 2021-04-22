@@ -6,7 +6,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Util {
+	public static byte[] decodeHexString(String hexString) {
+		if (hexString.length() % 2 == 1) {
+			throw new IllegalArgumentException("Invalid hexadecimal String supplied.");
+		}
 
+		byte[] bytes = new byte[hexString.length() / 2];
+		for (int i = 0; i < hexString.length(); i += 2) {
+			bytes[i / 2] = hexToByte(hexString.substring(i, i + 2));
+		}
+		return bytes;
+	}
+
+	public static byte hexToByte(String hexString) {
+		int firstDigit = toDigit(hexString.charAt(0));
+		int secondDigit = toDigit(hexString.charAt(1));
+		return (byte) ((firstDigit << 4) + secondDigit);
+	}
+
+	private static int toDigit(char hexChar) {
+		int digit = Character.digit(hexChar, 16);
+		if (digit == -1) {
+			throw new IllegalArgumentException("Invalid Hexadecimal Character: " + hexChar);
+		}
+		return digit;
+	}
 
 	/**
 	 * Parse a space separated string into a list, treating portions quotes with
@@ -45,18 +69,17 @@ public class Util {
 			args.add(word.toString());
 		return args;
 	}
-	
+
 	public static String getUri(Connection connection) {
 		if (connection == null) {
 			return "";
 		}
 		return connection.getUri(false);
 	}
-	
+
 	public static void prepareConnectionWithURI(URI uriObj, Connection connection) {
 		if (!uriObj.getScheme().equals("https")) {
-			throw new IllegalArgumentException(
-					"Only HTTPS is supported.");
+			throw new IllegalArgumentException("Only HTTPS is supported.");
 		}
 
 		connection.setHostname(uriObj.getHost());
@@ -78,5 +101,19 @@ public class Util {
 		if ("".equals(uri.getPath()))
 			uri = uri.resolve("/app");
 		return uri;
+	}
+
+	public static String toHumanSize(long l) {
+		if(l < 1024) {
+			return String.format("%dB", l);
+		}
+		else if(l < 1048576)
+			return String.format("%dKiB", l / 1024);
+		else if(l < 1073741824)
+			return String.format("%dMiB", l / 1024 / 1024);
+		else if(l < 1073741824 * 1024)
+			return String.format("%dGiB", l / 1024 / 1024 / 1024);
+		else 
+			return String.format("%dTiB", l / 1024 / 1024 / 1024 / 1024);
 	}
 }

@@ -46,8 +46,8 @@ import com.logonbox.vpn.common.client.ConnectionRepository;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.Keys.KeyPair;
-import com.logonbox.vpn.common.client.ConnectionStatusImpl;
 import com.logonbox.vpn.common.client.Keys;
+import com.logonbox.vpn.common.client.StatusDetail;
 import com.logonbox.vpn.common.client.UserCancelledException;
 import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
@@ -464,6 +464,15 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
+	public String getActiveInterface(Connection c) {
+		synchronized (activeSessions) {
+			if (activeSessions.containsKey(c))
+				return activeSessions.get(c).getIp().getName();
+			return null;
+		}
+	}
+
+	@Override
 	public JsonExtensionUpdate getUpdates() {
 		ObjectMapper mapper = new ObjectMapper();
 		/* Find the server with the highest version */
@@ -599,7 +608,10 @@ public class ClientServiceImpl implements ClientService {
 								log.info("No updates available.");
 							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", atLeastOneUpdate, null));
 						} catch (IOException e) {
-							log.error("Failed to update GUI.", e);
+							if(log.isDebugEnabled())
+								log.error("Failed to update GUI.", e);
+							else
+								log.error(String.format("Failed to update GUI. %s", e.getMessage()));
 							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, e.getMessage()));
 						}
 					} catch (Exception re) {
@@ -916,12 +928,22 @@ public class ClientServiceImpl implements ClientService {
 					}
 
 				} catch (IOException | DBusException e) {
-					log.error("Failed to execute update job.", e);
+					if (log.isDebugEnabled()) {
+						log.error("Failed to execute update job.", e);
+					}
+					else {
+						log.warn(String.format("Failed to execute update job. %s", e.getMessage()));
+					}
 					return;
 				}
 			}
 		} catch (Exception re) {
-			log.error("Failed to get GUI extension information. Update aborted.", re);
+			if (log.isDebugEnabled()) {
+				log.error("Failed to get GUI extension information. Update aborted.", re);
+			}
+			else {
+				log.error(String.format("Failed to get GUI extension information. Update aborted. %s", re.getMessage()));
+			}
 		} finally {
 			updating = false;
 		}
@@ -937,7 +959,16 @@ public class ClientServiceImpl implements ClientService {
 			List<Connection> added) {
 		for (Connection c : connections) {
 			if (!added.contains(c)) {
-				ret.add(new ConnectionStatusImpl(c, getStatusType(c)));
+				StatusDetail status = StatusDetail.EMPTY;
+				VPNSession session = activeSessions.get(c);
+				if(session != null) { 
+					try {
+						status = getContext().getPlatformService().status(session.getIp().getName());
+					} catch (IOException e) {
+						throw new IllegalStateException(String.format("Failed to get status for an active connection %s on interface %s.", c.getDisplayName(), session.getIp().getName()), e);
+					}
+				}
+				ret.add(new ConnectionStatusImpl(c, status, getStatusType(c)));
 				added.add(c);
 			}
 		}

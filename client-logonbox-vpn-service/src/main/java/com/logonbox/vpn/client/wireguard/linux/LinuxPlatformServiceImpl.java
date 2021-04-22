@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.StatusDetail;
 import com.sshtools.forker.client.OSCommand;
 
 public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxIP> {
@@ -40,7 +42,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	}
 
 	static Object lock = new Object();
-	
+
 	public LinuxPlatformServiceImpl() {
 		super(INTERFACE_PREFIX);
 	}
@@ -52,19 +54,57 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 
 	@Override
 	protected String getDefaultGateway() throws IOException {
-		for(String line : OSCommand.adminCommandAndIterateOutput("ip", "route")) {
-			if(line.startsWith("default via")) {
+		String gw = null;
+		for (String line : OSCommand.adminCommandAndIterateOutput("ip", "route")) {
+			if (gw == null && line.startsWith("default via")) {
 				String[] args = line.split("\\s+");
-				if(args.length > 2)
-					return args[2];
+				if (args.length > 2)
+					gw = args[2];
 			}
 		}
-		throw new IOException("Could not get default gateway.");
+		if (gw == null)
+			throw new IOException("Could not get default gateway.");
+		else
+			return gw;
 	}
-	
+
+	@Override
+	protected long getLatestHandshake(String iface, String publicKey) throws IOException {
+		for (String line : OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface, "latest-handshakes")) {
+			String[] args = line.trim().split("\\s+");
+			if (args.length == 2) {
+				if (args[0].equals(publicKey)) {
+					return Long.parseLong(args[1]) * 1000;
+				}
+			}
+		}
+		return 0;
+	}
+
+	@Override
+	protected String getPublicKey(String interfaceName) throws IOException {
+		try {
+			String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
+					.iterator().next().trim();
+			if (pk.equals("(none)") || pk.equals(""))
+				return null;
+			else
+				return pk;
+
+		} catch (IOException ioe) {
+			if (ioe.getMessage() != null && ioe.getMessage().indexOf("The system cannot find the file specified") != -1)
+				return null;
+			else
+				throw ioe;
+		}
+	}
+
 	@Override
 	public List<LinuxIP> ips(boolean wireguardOnly) {
-		/* TODO: Check if this is still needed, the pure Java version looks like it might be OK */
+		/*
+		 * TODO: Check if this is still needed, the pure Java version looks like it
+		 * might be OK
+		 */
 		List<LinuxIP> l = new ArrayList<>();
 		LinuxIP lastLink = null;
 		try {
@@ -73,17 +113,17 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 				if (!r.startsWith(" ")) {
 					String[] a = r.split(":");
 					String name = a[1].trim();
-					if(!wireguardOnly || (wireguardOnly && name.startsWith(getInterfacePrefix()))) {
+					if (!wireguardOnly || (wireguardOnly && name.startsWith(getInterfacePrefix()))) {
 						l.add(lastLink = new LinuxIP(name, this));
 						state = IpAddressState.MAC;
 					}
-				} else if(lastLink != null) {
+				} else if (lastLink != null) {
 					r = r.trim();
 					if (state == IpAddressState.MAC) {
 						String[] a = r.split("\\s+");
 						if (a.length > 1) {
 							String mac = lastLink.getMac();
-							if(mac != null && !mac.equals(a[1]))
+							if (mac != null && !mac.equals(a[1]))
 								throw new IllegalStateException("Unexpected MAC.");
 						}
 						state = IpAddressState.IP;
@@ -149,6 +189,33 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		} else {
 			return new String[0];
 		}
+	}
+
+	@Override
+	public StatusDetail status(String iface) throws IOException {
+		Collection<String> hs = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface,
+				"latest-handshakes");
+		long lastHandshake = hs.isEmpty() ? 0 : Long.parseLong(hs.iterator().next().split("\\s+")[1]) * 1000;
+		hs = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface, "transfer");
+		long rx = hs.isEmpty() ? 0 : Long.parseLong(hs.iterator().next().split("\\s+")[1]);
+		long tx = hs.isEmpty() ? 0 : Long.parseLong(hs.iterator().next().split("\\s+")[2]);
+		return new StatusDetail() {
+
+			@Override
+			public long getTx() {
+				return tx;
+			}
+
+			@Override
+			public long getRx() {
+				return rx;
+			}
+
+			@Override
+			public long getLastHandshake() {
+				return lastHandshake;
+			}
+		};
 	}
 
 	boolean doesCommandExist(String command) {
@@ -231,29 +298,33 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 			Files.delete(tempFile);
 		}
 
-		
-		/* About to start connection. The "last handshake" should be this value
-		 * or later if we get a valid connection 
+		/*
+		 * About to start connection. The "last handshake" should be this value or later
+		 * if we get a valid connection
 		 */
-		long connectionStarted = ( (System.currentTimeMillis() / 1000l ) -1 ) * 1000l;
+		long connectionStarted = ((System.currentTimeMillis() / 1000l) - 1) * 1000l;
 
 		/* Bring up the interface (will set the given MTU) */
 		ip.setMtu(configuration.getMtu());
-		log.info(String.format("Bringing up %s", ip.getName()));		
+		log.info(String.format("Bringing up %s", ip.getName()));
 		ip.up();
-		
+
+		/*
+		 * Wait for the first handshake. As soon as we have it, we are 'connected'. If
+		 * we don't get a handshake in that time, then consider this a failed
+		 * connection. We don't know WHY, just it has failed
+		 */
+		log.info(String.format("Waiting for first handshake on %s", ip.getName()));
+		LinuxIP ok = waitForFirstHandshake(configuration, ip, connectionStarted);
+
 		/* DNS */
 		dns(configuration, ip);
 
 		/* Set the routes */
 		log.info(String.format("Setting routes for %s", ip.getName()));
 		setRoutes(session, ip);
-		
-		/* Wait for the first handshake. As soon as we have it, we are 'connected'.
-		 * If we don't get a handshake in that time, then consider this a failed connection.
-		 * We don't know WHY, just it has failed  */
-		log.info(String.format("Waiting for first handshake on %s", ip.getName()));
-		return waitForFirstHandshake(configuration, ip, connectionStarted);
+
+		return ok;
 	}
 
 	void setRoutes(VPNSession session, LinuxIP ip) throws IOException {

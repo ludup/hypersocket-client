@@ -71,6 +71,12 @@ public interface VPNConnection extends DBusInterface {
 	boolean isShared();
 	
 	String getOwner();
+	
+	long getLastHandshake();
+	
+	long getRx();
+	
+	long getTx();
 
 	void setConnectAtStartup(boolean connectAtStartup);
 

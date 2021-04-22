@@ -10,6 +10,8 @@ public interface ConnectionStatus {
 		CONNECTED;	
 	}
 	
+	StatusDetail getDetail();
+	
 	Connection getConnection();
 	
 	Type getStatus();

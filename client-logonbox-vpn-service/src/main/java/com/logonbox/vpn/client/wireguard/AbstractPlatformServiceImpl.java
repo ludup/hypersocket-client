@@ -21,6 +21,7 @@ import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.Keys;
+import com.logonbox.vpn.common.client.StatusDetail;
 import com.sshtools.forker.client.OSCommand;
 
 public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> implements PlatformService<I> {
@@ -131,7 +132,6 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				/*
 				 * Interface exists, Find it's public key so we can match a peer configuration
 				 */
-				// wg show wg0 public-key
 				try {
 					String publicKey = getPublicKey(name);
 					if (publicKey != null) {
@@ -140,8 +140,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 							ConnectionStatus status = ctx.getClientService().getStatusForPublicKey(publicKey);
 							Connection connection = status.getConnection();
 							LOG.info(String.format(
-									"Existing wireguard session on %s for %s, adding back to internal map for %s:%s",
-									name, publicKey, connection.getEndpointAddress(), connection.getEndpointPort()));
+									"Existing wireguard session on %s for %s, adding back to internal list", name, publicKey));
 							sessions.add(new VPNSession(connection, ctx, get(name)));
 						}
 						catch(Exception e) {
@@ -158,9 +157,18 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				}
 			}
 		}
-		return sessions;
+		return onStart(ctx, sessions);
+	}
+
+	@Override
+	public StatusDetail status(String iface) throws IOException {
+		return new WireguardPipe(iface);
 	}
 	
+	protected Collection<VPNSession> onStart(LocalContext ctx, List<VPNSession> sessions) {
+		return sessions;
+	}
+
 	protected void addRouteAll(Connection connection) throws IOException {
 		LOG.info("Routing traffic all through VPN");
 		String gw = getDefaultGateway();
@@ -178,7 +186,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				LOG.info("No DNS servers configured for this connection.");
 		}
 		else {
-			LOG.info(String.format("Configuring DNS servers for %s as %s", configuration.getDns(), ip.getName()));
+			LOG.info(String.format("Configuring DNS servers for %s as %s", ip.getName(), configuration.getDns()));
 		}
 		ip.dns(configuration.getDns().toArray(new String[0]));
 		
@@ -214,34 +222,13 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		return System.getProperty("logonbox.vpn.interfacePrefix", interfacePrefix);
 	}
 
-	protected long getLatestHandshake(String iface, String publicKey) throws IOException {
-		for(String line : OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface, "latest-handshakes")) {
-			String[] args = line.trim().split("\\s+");
-			if(args.length == 2) {
-				if(args[0].equals(publicKey)) {
-					return Long.parseLong(args[1]) * 1000;
-				}
-			}
-		}
-		return 0;
+	protected String getPublicKey(String interfaceName) throws IOException {
+		return new WireguardPipe(interfaceName).getUserPublicKey();
 	}
 
-	protected String getPublicKey(String interfaceName) throws IOException {
-		try {
-			String pk = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", interfaceName, "public-key")
-					.iterator().next().trim();
-			if (pk.equals("(none)") || pk.equals(""))
-				return null;
-			else
-				return pk;
-			
-		}
-		catch(IOException ioe) {
-			if(ioe.getMessage() != null && ioe.getMessage().indexOf("The system cannot find the file specified") != -1)
-				return null;
-			else
-				throw ioe;
-		}
+	protected long getLatestHandshake(String iface, String publicKey) throws IOException {
+		WireguardPipe pipe = new WireguardPipe(iface);
+		return Objects.equals(publicKey, pipe.getPublicKey()) ? pipe.getLastHandshake() : 0;
 	}
 	
 	protected String getWGCommand() {

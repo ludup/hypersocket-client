@@ -15,6 +15,7 @@ import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -406,11 +407,15 @@ public class Client extends Application implements X509TrustManager {
 
 	@Override
 	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+		List<String> chainSubjectDN = new ArrayList<>();
 		for (X509Certificate c : chain) {
 			try {
+				if(log.isDebugEnabled())
+					log.debug(String.format("Validating: %s", c));
+				chainSubjectDN.add(c.getSubjectDN().toString());
 				c.checkValidity();
 			} catch (CertificateException ce) {
-				log.error("Certificate error.", ce);
+				log.error("Certificate error. " + String.join(" -> ", chainSubjectDN), ce);
 				throw ce;
 			}
 		}

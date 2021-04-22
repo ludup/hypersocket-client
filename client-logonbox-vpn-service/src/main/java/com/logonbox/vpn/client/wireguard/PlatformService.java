@@ -7,6 +7,7 @@ import java.util.List;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.StatusDetail;
 
 public interface PlatformService<I extends VirtualInetAddress> {
 
@@ -78,5 +79,14 @@ public interface PlatformService<I extends VirtualInetAddress> {
 	 * @return interfaces
 	 */
 	List<I> ips(boolean wireguardOnly);
+
+	/**
+	 * Get the detailed status of the named interface.
+	 * 
+	 * @param interfaceName interface name
+	 * @return detailed status
+	 * @throws IOException on error
+	 */
+	StatusDetail status(String interfaceName) throws IOException;
 
 }

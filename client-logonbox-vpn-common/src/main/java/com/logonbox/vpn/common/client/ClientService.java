@@ -74,5 +74,7 @@ public interface ClientService  {
 
 	ScheduledExecutorService getTimer();
 
-	void registered(VPNFrontEnd frontEnd); 
+	void registered(VPNFrontEnd frontEnd);
+
+	String getActiveInterface(Connection c);
 }

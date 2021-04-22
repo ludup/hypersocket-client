@@ -455,8 +455,10 @@ public class LinuxIP implements VirtualInetAddress {
 			int index = getIndexForName(); // TODO
 			if(dns == null)
 				mgr.RevertLink(index);
-			else
-				mgr.SetLinkDNS(index, Arrays.asList(dns).stream().map((addr) -> new Resolve1Manager.SetLinkDNSStruct(addr)).collect(Collectors.toList()));
+			else {
+				mgr.SetLinkDNS(index, Arrays.asList(IpUtil.filterAddresses(dns)).stream().map((addr) -> new Resolve1Manager.SetLinkDNSStruct(addr)).collect(Collectors.toList()));
+				mgr.SetLinkDomains(index, Arrays.asList(IpUtil.filterNames(dns)).stream().map((addr) -> new Resolve1Manager.SetLinkDomainsStruct(addr, true)).collect(Collectors.toList()));
+			}
 			
 		} catch(DBusException dbe) {
 			throw new IOException("Failed to connect to system bus.", dbe);

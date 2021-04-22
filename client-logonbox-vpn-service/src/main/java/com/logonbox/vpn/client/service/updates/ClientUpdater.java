@@ -105,7 +105,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 	@Override
 	public String getVersion() {
-		return HypersocketVersion.getVersion();
+		return HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-service");
 	}
 
 	@Override

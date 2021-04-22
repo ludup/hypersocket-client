@@ -101,7 +101,7 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 	@Override
 	public void about() throws IOException {
 		PrintWriter writer = getConsole().out();
-		writer.println(String.format("CLI Version: %s", HypersocketVersion.getVersion()));
+		writer.println(String.format("CLI Version: %s", HypersocketVersion.getVersion("com.logonbox/client-logonbox-vpn-cli")));
 		writer.println(String.format("Service Version: %s", getVPN().getVersion()));
 		writer.println(String.format("Device Name: %s", getVPN().getDeviceName()));
 		writer.println(String.format("Device UUID: %s", getVPN().getUUID()));
