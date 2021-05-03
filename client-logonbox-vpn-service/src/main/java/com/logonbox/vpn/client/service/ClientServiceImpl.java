@@ -484,7 +484,7 @@ public class ClientServiceImpl implements ClientService {
 				URLConnection urlConnection = url.openConnection();
 				try (InputStream in = urlConnection.getInputStream()) {
 					JsonExtensionUpdate extensionUpdate = mapper.readValue(in, JsonExtensionUpdate.class);
-					Version version = new Version(extensionUpdate.getResource().getLatestVersion());
+					Version version = new Version(extensionUpdate.getResource().getCurrentVersion());
 					if (highestVersion == null || version.compareTo(highestVersion) > 0) {
 						highestVersion = version;
 						highestVersionUpdate = extensionUpdate;
