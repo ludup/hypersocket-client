@@ -1055,9 +1055,18 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					 * URI does not work (resource also works, but we need a dynamic resource, and I
 					 * couldn't get a custom URL handler to work either).
 					 */
-					byte[] localCss = IOUtils.toByteArray(context.getCustomLocalWebCSSFile().toURI());
-					String datauri = "data:text/css;base64," + Base64.getEncoder().encodeToString(localCss);
-					webView.getEngine().setUserStyleSheetLocation(datauri);
+					File customLocalWebCSSFile = context.getCustomLocalWebCSSFile();
+					if(customLocalWebCSSFile.exists()) {
+						if(LOG.isDebugEnabled())
+							LOG.debug(String.format("Setting user stylesheet at %s", customLocalWebCSSFile));
+						byte[] localCss = IOUtils.toByteArray(customLocalWebCSSFile.toURI());
+						String datauri = "data:text/css;base64," + Base64.getEncoder().encodeToString(localCss);
+						webView.getEngine().setUserStyleSheetLocation(datauri);
+					}
+					else {
+						if(LOG.isDebugEnabled())
+							LOG.debug(String.format("No user stylesheet at %s", customLocalWebCSSFile));
+					}
 
 					setupPage();
 					String loc = htmlPage;

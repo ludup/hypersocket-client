@@ -1,7 +1,10 @@
 package com.logonbox.vpn.common.client;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -189,7 +192,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		ExtensionPlace place = ExtensionPlace.getDefault();
 		vpn.register(System.getProperty("user.name"), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
 				place.getUrls().stream().map(placeUrl -> placeUrl.toExternalForm()).collect(Collectors.toList())
-						.toArray(new String[0]), supportsAuthorization);
+						.toArray(new String[0]), supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()));
 		busAvailable = true;
 		log.info("Registered with DBus.");
 		pingTask = scheduler.scheduleAtFixedRate(() -> {
@@ -201,6 +204,14 @@ public abstract class AbstractDBusClient implements DBusClient {
 				}
 			}
 		}, 5, 5, TimeUnit.SECONDS);
+	}
+
+	private Map<String, String> toStringMap(Map<String, File> bootstrapArchives) {
+		Map<String, String> map = new HashMap<String, String>();
+		for(Map.Entry<String, File> en : bootstrapArchives.entrySet()) { 
+			map.put(en.getKey(), en.getValue().getAbsolutePath());
+		}
+		return map;
 	}
 
 	private void cancelPingTask() {

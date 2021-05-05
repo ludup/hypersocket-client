@@ -111,9 +111,19 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	protected Map<String, ExtensionVersion> onResolveExtensions(String version) throws IOException {
 		if (cctx.getClientService().isTrackServerVersion()) {
-			if (cctx.getClientService().getStatus(null).isEmpty())
-				return Collections.emptyMap();
+			if (cctx.getClientService().getStatus(null).isEmpty()) {
+				/* We don't have any servers configured, so just ping the 
+				 * update server with our current version
+				 */
+				return ExtensionHelper.resolveExtensions(true,
+						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
+						new String[] { "logonbox-vpn-client" }, HypersocketVersion.getVersion("com.hypersocket:client-logonbox-vpn-service"), HypersocketVersion.getSerial(),
+						"LogonBox VPN Client", "Public", extensionPlace, true, null, getUpdateTargets());
+			}
 			else {
+				/* We have the version of the server we are connecting to, check
+				 * if there are any updates for this version
+				 */
 				JsonExtensionUpdate v = cctx.getClientService().getUpdates();
 				return ExtensionHelper.resolveExtensions(true,
 						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
