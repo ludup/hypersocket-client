@@ -1,5 +1,6 @@
 package com.logonbox.vpn.client.service;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
@@ -554,6 +555,9 @@ public class ClientServiceImpl implements ClientService {
 		log.info(String.format("Registered front-end %s as %s, %s, %s", frontEnd.getSource(), frontEnd.getUsername(),
 				frontEnd.isSupportsAuthorization() ? "supports auth" : "doesnt support auth",
 				frontEnd.isInteractive() ? "interactive" : "not interactive"));
+		for(Map.Entry<String, File> en : frontEnd.getPlace().getBootstrapArchives().entrySet()) {
+			log.info(String.format("    Has extension: %s (%s)", en.getKey(), en.getValue()));
+		}
 
 		/*
 		 * If this front end supports authorization, send it the signal to start
@@ -594,32 +598,43 @@ public class ClientServiceImpl implements ClientService {
 		try {
 			if (frontEnd.isInteractive()) {
 				if (guiNeedsSeparateUpdate) {
-					/* Do the separate GUI update */
-					appsToUpdate = 1;
-					ClientUpdater guiJob = new ClientUpdater(frontEnd.getPlace(), ExtensionTarget.CLIENT_GUI, context);
-
-					try {
-						context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
+					/* If the client hasn't supplied the extensions it is using, then we can't
+					 * do any updates. It is probably running outside of Forker, so isn't supplied
+					 * the list
+					 */
+					if(frontEnd.getPlace().getBootstrapArchives().isEmpty()) {
+						log.warn(String.format("Front-end %s did not supply its list of extensions. Probably running in a development environment. Skipping updates.", frontEnd.getPlace().getApp()));
+						appsToUpdate = 0;
+					}
+					else {
+						
+						/* Do the separate GUI update */
+						appsToUpdate = 1;
+						ClientUpdater guiJob = new ClientUpdater(frontEnd.getPlace(), ExtensionTarget.CLIENT_GUI, context);
+	
 						try {
-							boolean atLeastOneUpdate = guiJob.update();
-							if (atLeastOneUpdate)
-								log.info("Update complete, at least one found so restarting.");
-							else
-								log.info("No updates available.");
-							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", atLeastOneUpdate, null));
-						} catch (IOException e) {
-							if(log.isDebugEnabled())
-								log.error("Failed to update GUI.", e);
-							else
-								log.error(String.format("Failed to update GUI. %s", e.getMessage()));
-							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, e.getMessage()));
-						}
-					} catch (Exception re) {
-						log.error("GUI refused to update, ignoring.", re);
-						try {
-							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, null));
-						} catch (DBusException e) {
-							throw new IllegalStateException("Failed to send message.", e);
+							context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
+							try {
+								boolean atLeastOneUpdate = guiJob.update();
+								if (atLeastOneUpdate)
+									log.info("Update complete, at least one found so restarting.");
+								else
+									log.info("No updates available.");
+								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", atLeastOneUpdate, null));
+							} catch (IOException e) {
+								if(log.isDebugEnabled())
+									log.error("Failed to update GUI.", e);
+								else
+									log.error(String.format("Failed to update GUI. %s", e.getMessage()));
+								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, e.getMessage()));
+							}
+						} catch (Exception re) {
+							log.error("GUI refused to update, ignoring.", re);
+							try {
+								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, null));
+							} catch (DBusException e) {
+								throw new IllegalStateException("Failed to send message.", e);
+							}
 						}
 					}
 				}
@@ -843,7 +858,10 @@ public class ClientServiceImpl implements ClientService {
 				log.info("No updates to do.");
 				guiNeedsSeparateUpdate = false;
 			} else {
-				log.info("Updating");
+				if(checkOnly)
+					log.info("Checking for updates");
+				else
+					log.info("Getting updates to apply");
 				guiNeedsSeparateUpdate = true;
 				List<ClientUpdater> updaters = new ArrayList<>();
 
@@ -879,11 +897,15 @@ public class ClientServiceImpl implements ClientService {
 					for (ClientUpdater update : updaters) {
 						if ((checkOnly && update.checkForUpdates()) || (!checkOnly && update.update())) {
 							updates++;
+							log.info(String.format("    %s (%s) - needs update", update.getExtensionPlace().getApp(),update.getExtensionPlace().getDir() ));
 						}
+						else
+							log.info(String.format("    %s (%s) - no updates", update.getExtensionPlace().getApp(),update.getExtensionPlace().getDir() ));
 					}
 
 					if (!checkOnly) {
 						if (updates > 0) {
+							log.info("Applying updates");
 
 							/*
 							 * If when we started the update, the GUI wasn't attached, but it is now, then

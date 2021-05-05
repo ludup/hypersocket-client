@@ -112,7 +112,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 
 	@Override
 	public void register(String username, boolean interactive, String id, String dirPath, String[] urls,
-			boolean supportsAuthorization) {
+			boolean supportsAuthorization, Map<String, String> archives) {
 		VPNFrontEnd frontEnd = ctx.registerFrontEnd(DBusConnection.getCallInfo().getSource());
 		frontEnd.setUsername(username);
 		frontEnd.setInteractive(interactive);
@@ -120,8 +120,10 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 
 		// TODO deregister when DBus goes
 
-		// TODO get the archives this side of connection?
 		Map<String, File> bootstrapArchives = new HashMap<>();
+		for(Map.Entry<String, String> en : archives.entrySet()) {
+			bootstrapArchives.put(en.getKey(), new File(en.getValue()));
+		}
 
 		// TODO authorize the user somehow. We need to prove the username being
 		// requested is actually

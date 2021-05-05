@@ -10,7 +10,7 @@ import org.freedesktop.dbus.messages.DBusSignal;
 @DBusInterfaceName("com.logonbox.vpn.VPN")
 public interface VPN extends DBusInterface {
 
-	void register(String username, boolean interactive, String app, String dirPath, String[] urls, boolean supportsAuthorization);
+	void register(String username, boolean interactive, String app, String dirPath, String[] urls, boolean supportsAuthorization, Map<String, String> archives);
 
 	String[] getMissingPackages();
 
