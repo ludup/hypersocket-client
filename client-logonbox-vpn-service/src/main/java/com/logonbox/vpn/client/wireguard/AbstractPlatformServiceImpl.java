@@ -1,5 +1,6 @@
 package com.logonbox.vpn.client.wireguard;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -223,7 +224,12 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	}
 
 	protected String getPublicKey(String interfaceName) throws IOException {
-		return new WireguardPipe(interfaceName).getUserPublicKey();
+		try {
+			return new WireguardPipe(interfaceName).getUserPublicKey();
+		}
+		catch(FileNotFoundException fnfe) {
+			return null;
+		}
 	}
 
 	protected long getLatestHandshake(String iface, String publicKey) throws IOException {
