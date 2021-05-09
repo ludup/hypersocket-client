@@ -51,7 +51,7 @@
                      </image>
                   </ImageView>
                </center>
-				</BorderPane>
+				</BorderPane> 
 			</top>
          <center>
             <StackPane BorderPane.alignment="CENTER">

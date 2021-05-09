@@ -51,6 +51,7 @@ import org.w3c.dom.Element;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ser.std.EnumSetSerializer;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.AbstractDBusClient.BusLifecycleListener;
@@ -380,6 +381,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	public void options() {
+		connections.getSelectionModel().clearSelection();
 		setHtmlPage("options.html");
 		sidebar.setVisible(false);
 	}
@@ -926,7 +928,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			}
 		});
 		connections.getSelectionModel().selectedItemProperty().addListener((e, o, n) -> {
-			if (!adjustingSelection) {
+			if (!adjustingSelection && n!= null) {
 				context.getOpQueue().execute(() -> {
 					reloadState(() -> {
 						maybeRunLater(() -> {
@@ -1013,6 +1015,17 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				context.getDBus().getVPN().setValue(ConfigurationRepository.PHASE, phase);
 			context.getDBus().getVPN().setValue(ConfigurationRepository.AUTOMATIC_UPDATES,
 					String.valueOf(automaticUpdates));
+			
+			if(connections.getSelectionModel().isEmpty()) {
+				adjustingSelection = true;
+				try {
+					connections.getSelectionModel().selectFirst();
+				}
+				finally {
+					adjustingSelection = false;
+				}
+			}
+			
 			selectPageForState(false, false);
 		} catch (Exception e) {
 			showError("Failed to save options.", e);
