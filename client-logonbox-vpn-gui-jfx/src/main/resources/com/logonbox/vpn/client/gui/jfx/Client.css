@@ -68,3 +68,6 @@ a {
     -fx-text-fill: -fx-lbvpn-background;
 }
 
+Hyperlink:focused {
+  -fx-border-color: transparent;
+}
