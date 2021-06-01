@@ -128,7 +128,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 				return ExtensionHelper.resolveExtensions(true,
 						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
 								+ "api/store/repos2",
-						new String[] { "logonbox-vpn-client" }, v.getResource().getLatestVersion(),
+						new String[] { "logonbox-vpn-client" }, v.getResource().getCurrentVersion(),
 						HypersocketVersion.getSerial(), "LogonBox VPN Client", v.getResource().getCustomer(),
 						extensionPlace, true, null, getUpdateTargets());
 			}

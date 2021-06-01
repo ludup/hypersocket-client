@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hypersocket.extensions.ExtensionPlace;
+import com.hypersocket.extensions.ExtensionTarget;
 import com.logonbox.vpn.common.client.dbus.DBusClient;
 import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
@@ -63,8 +64,10 @@ public abstract class AbstractDBusClient implements DBusClient {
 	private CommandSpec spec;
 	private ScheduledFuture<?> pingTask;
 	private boolean supportsAuthorization;
+	private ExtensionTarget target;
 
-	protected AbstractDBusClient() {
+	protected AbstractDBusClient(ExtensionTarget target) {
+		this.target = target;
 		scheduler = Executors.newScheduledThreadPool(1);
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
@@ -192,7 +195,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		ExtensionPlace place = ExtensionPlace.getDefault();
 		vpn.register(System.getProperty("user.name"), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
 				place.getUrls().stream().map(placeUrl -> placeUrl.toExternalForm()).collect(Collectors.toList())
-						.toArray(new String[0]), supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()));
+						.toArray(new String[0]), supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()), target.name());
 		busAvailable = true;
 		log.info("Registered with DBus.");
 		pingTask = scheduler.scheduleAtFixedRate(() -> {

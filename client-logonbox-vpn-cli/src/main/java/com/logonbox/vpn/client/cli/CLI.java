@@ -12,6 +12,7 @@ import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.cli.commands.About;
 import com.logonbox.vpn.client.cli.commands.Connect;
@@ -69,7 +70,7 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 	private boolean exitWhenDone;
 
 	public CLI() {
-		super();
+		super(ExtensionTarget.CLIENT_CLI);
 		try {
 			console = new NativeConsoleDevice();
 		} catch (IllegalArgumentException iae) {
