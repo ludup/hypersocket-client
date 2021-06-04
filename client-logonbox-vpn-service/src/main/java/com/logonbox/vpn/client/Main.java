@@ -5,13 +5,26 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.security.GeneralSecurityException;
+import java.security.Security;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.Callable;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
@@ -49,7 +62,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 @Command(name = "logonbox-vpn-server", mixinStandardHelpOptions = true, description = "Command line interface to the LogonBox VPN service.")
-public class Main implements Callable<Integer>, LocalContext {
+public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 	final static int DEFAULT_TIMEOUT = 10000;
 
@@ -65,10 +78,6 @@ public class Main implements Callable<Integer>, LocalContext {
 	}
 
 	protected static Main instance;
-
-	public static Main getInstance() {
-		return instance;
-	}
 
 	public static int randInt(int min, int max) {
 		Random rand = new Random();
@@ -100,9 +109,9 @@ public class Main implements Callable<Integer>, LocalContext {
 	@Option(names = { "-t",
 			"--tcp-bus" }, description = "Force use of TCP DBus service. Usually it is enabled by default for anything other than Linux.")
 	private boolean tcpBus;
-
+	
 	public Main() throws Exception {
-
+		instance = this;
 		if (SystemUtils.IS_OS_LINUX) {
 			platform = new LinuxPlatformServiceImpl();
 		} else if (SystemUtils.IS_OS_WINDOWS) {
@@ -112,6 +121,10 @@ public class Main implements Callable<Integer>, LocalContext {
 		} else
 			throw new UnsupportedOperationException(
 					String.format("%s not currently supported.", System.getProperty("os.name")));
+	}
+	
+	public static Main get() {
+		return instance;
 	}
 
 	@Override
@@ -375,6 +388,10 @@ public class Main implements Callable<Integer>, LocalContext {
 		}
 		clientService = new ClientServiceImpl(this, connectionRepository, configurationRepository);
 
+		if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
+			installAllTrustingCertificateVerifier();
+		}
+
 		return true;
 
 	}
@@ -441,5 +458,58 @@ public class Main implements Callable<Integer>, LocalContext {
 	public Collection<VPNFrontEnd> getFrontEnds() {
 		return frontEnds.values();
 	}
+	
+	@Override
+	public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+		throw new UnsupportedOperationException();
+	}
 
+	@Override
+	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+		List<String> chainSubjectDN = new ArrayList<>();
+		for (X509Certificate c : chain) {
+			try {
+				if(log.isDebugEnabled())
+					log.debug(String.format("Validating: %s", c));
+				chainSubjectDN.add(c.getSubjectDN().toString());
+				c.checkValidity();
+			} catch (CertificateException ce) {
+				log.error("Certificate error. " + String.join(" -> ", chainSubjectDN), ce);
+				throw ce;
+			}
+		}
+	}
+
+	@Override
+	public X509Certificate[] getAcceptedIssuers() {
+		X509Certificate[] NO_CERTS = new X509Certificate[0];
+		return NO_CERTS;
+	}
+
+	protected void installAllTrustingCertificateVerifier() {
+		
+		log.warn("NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
+
+		Security.insertProviderAt(new ServiceTrustProvider(), 1);
+		Security.setProperty("ssl.TrustManagerFactory.algorithm", ServiceTrustProvider.TRUST_PROVIDER_ALG);
+
+		try {
+			SSLContext sc = SSLContext.getInstance("SSL");
+			sc.init(null, new TrustManager[] { this }, new java.security.SecureRandom());
+			HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+		} catch (GeneralSecurityException e) {
+		}
+
+		// Create all-trusting host name verifier
+		HostnameVerifier allHostsValid = new HostnameVerifier() {
+			@Override
+			public boolean verify(String hostname, SSLSession session) {
+				log.debug(String.format("Verify hostname %s: %s", hostname, session));
+				return true;
+			}
+		};
+
+		// Install the all-trusting host verifier
+		HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+	}
 }
