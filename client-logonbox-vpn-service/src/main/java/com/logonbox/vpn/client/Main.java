@@ -40,10 +40,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hypersocket.extensions.ExtensionTarget;
+import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.dbus.VPNConnectionImpl;
 import com.logonbox.vpn.client.dbus.VPNImpl;
 import com.logonbox.vpn.client.service.ClientServiceImpl;
 import com.logonbox.vpn.client.service.ConfigurationRepositoryImpl;
+import com.logonbox.vpn.client.service.updates.ClientUpdater;
 import com.logonbox.vpn.client.service.vpn.ConnectionRepositoryImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.client.wireguard.linux.LinuxPlatformServiceImpl;
@@ -160,6 +162,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		}
 
 		try {
+			log.info(String.format("LogonBox VPN Client, version %s", HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS)));
 
 			if (!buildServices()) {
 				System.exit(3);
