@@ -475,10 +475,12 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public JsonExtensionUpdate getUpdates() {
+		log.info("Finding highest version from all connections.");
 		ObjectMapper mapper = new ObjectMapper();
 		/* Find the server with the highest version */
 		Version highestVersion = null;
 		JsonExtensionUpdate highestVersionUpdate = null;
+		Connection highestVersionConnection = null;
 		for (Connection connection : connectionRepository.getConnections(null)) {
 			try {
 				URL url = new URL(connection.getUri(false) + "/api/extensions/checkVersion");
@@ -491,6 +493,7 @@ public class ClientServiceImpl implements ClientService {
 					if (highestVersion == null || version.compareTo(highestVersion) > 0) {
 						highestVersion = version;
 						highestVersionUpdate = extensionUpdate;
+						highestVersionConnection = connection;
 					}
 				}
 			} catch (IOException ioe) {
@@ -505,6 +508,7 @@ public class ClientServiceImpl implements ClientService {
 		if (highestVersionUpdate == null) {
 			throw new IllegalStateException("Failed to get most recent version from any servers.");
 		}
+		log.info(String.format("Highest version available is %s, from server %s", highestVersion, highestVersionConnection.getDisplayName()));
 		return highestVersionUpdate;
 	}
 

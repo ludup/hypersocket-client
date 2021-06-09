@@ -153,7 +153,7 @@ public class Client extends Application implements X509TrustManager {
 	public void start(Stage primaryStage) throws Exception {
 		this.primaryStage = primaryStage;
 
-		if (!"false".equalsIgnoreCase(getParameters().getNamed().get("strictSSL"))) {
+		if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
 			installAllTrustingCertificateVerifier();
 		}
 
@@ -376,6 +376,8 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	protected void installAllTrustingCertificateVerifier() {
+		
+		log.warn("NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
 
 		Security.insertProviderAt(new ClientTrustProvider(), 1);
 		Security.setProperty("ssl.TrustManagerFactory.algorithm", ClientTrustProvider.TRUST_PROVIDER_ALG);
