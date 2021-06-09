@@ -610,7 +610,7 @@ public class ClientServiceImpl implements ClientService {
 						
 						/* Do the separate GUI update */
 						appsToUpdate = 1;
-						ClientUpdater guiJob = new ClientUpdater(frontEnd.getPlace(), ExtensionTarget.CLIENT_GUI, context);
+						ClientUpdater guiJob = new ClientUpdater(frontEnd.getPlace(), frontEnd.getTarget(), context);
 	
 						try {
 							context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
@@ -874,10 +874,10 @@ public class ClientServiceImpl implements ClientService {
 				updaters.add(new ClientUpdater(defaultExt, ExtensionTarget.CLIENT_SERVICE, context));
 
 				/*
-				 * For the GUI, we get the extension place remotely, as the GUI itself is best
+				 * For the GUI (and CLI), we get the extension place remotely, as the clients themselves are best
 				 * placed to know what extensions it has and where they stored.
 				 * 
-				 * However, it's possible the GUI is not yet running, so we only do this if it
+				 * However, it's possible the client is not yet running, so we only do this if it
 				 * is available. If this happens we may need to update the GUI as well when it
 				 * eventually
 				 */
@@ -885,7 +885,7 @@ public class ClientServiceImpl implements ClientService {
 					if (!fe.isUpdated()) {
 						guiNeedsSeparateUpdate = false;
 						appsToUpdate++;
-						updaters.add(new ClientUpdater(fe.getPlace(), ExtensionTarget.CLIENT_GUI, context));
+						updaters.add(new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
 					}
 				}
 
@@ -918,7 +918,7 @@ public class ClientServiceImpl implements ClientService {
 										guiNeedsSeparateUpdate = false;
 										appsToUpdate++;
 										updaters.add(
-												new ClientUpdater(fe.getPlace(), ExtensionTarget.CLIENT_GUI, context));
+												new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
 									}
 								}
 								if (appsToUpdate == 0) {

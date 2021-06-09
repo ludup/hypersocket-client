@@ -12,6 +12,7 @@ import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.extensions.ExtensionTarget;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 
 import picocli.CommandLine;
@@ -70,6 +71,7 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	private String uri;
 
 	public Main() {
+		super(ExtensionTarget.CLIENT_GUI);
 		instance = this;
 		setSupportsAuthorization(true);
 

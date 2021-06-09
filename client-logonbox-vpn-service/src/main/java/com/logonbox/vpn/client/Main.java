@@ -26,6 +26,7 @@ import org.freedesktop.dbus.messages.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.extensions.ExtensionTarget;
 import com.logonbox.vpn.client.dbus.VPNConnectionImpl;
 import com.logonbox.vpn.client.dbus.VPNImpl;
 import com.logonbox.vpn.client.service.ClientServiceImpl;
@@ -207,13 +208,13 @@ public class Main implements Callable<Integer>, LocalContext {
 	}
 
 	@Override
-	public VPNFrontEnd registerFrontEnd(String source) {
+	public VPNFrontEnd registerFrontEnd(String source, String target) {
 		synchronized (frontEnds) {
 			VPNFrontEnd fe = frontEnds.get(source);
 			if (fe != null) {
 				throw new IllegalArgumentException(String.format("Front end '%s' already registered.", source));
 			}
-			fe = new VPNFrontEnd(source);
+			fe = new VPNFrontEnd(source, ExtensionTarget.valueOf(target));
 			frontEnds.put(source, fe);
 			return fe;
 		}

@@ -17,7 +17,7 @@ public interface LocalContext {
 
 	void sendMessage(Message message);
 	
-	VPNFrontEnd registerFrontEnd(String source);
+	VPNFrontEnd registerFrontEnd(String source, String target);
 	
 	VPNFrontEnd getFrontEnd(String source);
 

@@ -1,6 +1,7 @@
 package com.logonbox.vpn.common.client.dbus;
 
 import com.hypersocket.extensions.ExtensionPlace;
+import com.hypersocket.extensions.ExtensionTarget;
 
 public class VPNFrontEnd {
 
@@ -11,9 +12,19 @@ public class VPNFrontEnd {
 	private String username;
 	private long lastPing = System.currentTimeMillis();
 	private boolean updated = false;
+	private ExtensionTarget target;
 
-	public VPNFrontEnd(String source) {
+	public VPNFrontEnd(String source, ExtensionTarget target) {
 		this.source = source;
+		this.target = target;
+	}
+
+	public ExtensionTarget getTarget() {
+		return target;
+	}
+
+	public void setTarget(ExtensionTarget target) {
+		this.target = target;
 	}
 
 	public boolean isUpdated() {
