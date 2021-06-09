@@ -482,6 +482,8 @@ public class ClientServiceImpl implements ClientService {
 		for (Connection connection : connectionRepository.getConnections(null)) {
 			try {
 				URL url = new URL(connection.getUri(false) + "/api/extensions/checkVersion");
+				if(log.isDebugEnabled())
+					log.info(String.format("Trying %s.", url));
 				URLConnection urlConnection = url.openConnection();
 				try (InputStream in = urlConnection.getInputStream()) {
 					JsonExtensionUpdate extensionUpdate = mapper.readValue(in, JsonExtensionUpdate.class);
@@ -492,8 +494,12 @@ public class ClientServiceImpl implements ClientService {
 					}
 				}
 			} catch (IOException ioe) {
-				log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
-						connection.getPort()));
+				if(log.isDebugEnabled())
+					log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
+							connection.getPort()), ioe);
+				else
+					log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
+							connection.getPort()));
 			}
 		}
 		if (highestVersionUpdate == null) {
