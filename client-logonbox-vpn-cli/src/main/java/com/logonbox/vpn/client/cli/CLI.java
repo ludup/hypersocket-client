@@ -70,7 +70,8 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 	private boolean exitWhenDone;
 
 	public CLI() {
-		super(ExtensionTarget.CLIENT_CLI);
+		/* TODO: Note this is a temporary hack due to issues with update server */
+		super(ExtensionTarget.VIRTUAL_MACHINE);
 		try {
 			console = new NativeConsoleDevice();
 		} catch (IllegalArgumentException iae) {
