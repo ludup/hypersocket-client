@@ -21,6 +21,7 @@ import java.util.Objects;
 import javax.imageio.ImageIO;
 import javax.swing.JMenu;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
@@ -48,6 +49,7 @@ public class DorkBoxTray implements AutoCloseable, Tray, BusLifecycleListener {
 	private SystemTray systemTray;
 	
 	static {
+		SystemTray.DEBUG = true;
 		SystemTray.getVersion();
 	}
 
@@ -83,7 +85,8 @@ public class DorkBoxTray implements AutoCloseable, Tray, BusLifecycleListener {
 			} catch (Exception re) {
 				context.getOpQueue().execute(() -> {
 					rebuildMenu(false, Collections.emptyList());
-					setImage(false, Collections.emptyList());
+					if(systemTray != null)
+						setImage(false, Collections.emptyList());
 				});
 			}
 		});

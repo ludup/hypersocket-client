@@ -21,6 +21,7 @@ import com.hypersocket.extensions.JsonExtensionPhase;
 import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.LocalContext;
+import com.logonbox.vpn.client.service.updates.ClientUpdater;
 import com.logonbox.vpn.common.client.ConnectionImpl;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
@@ -81,7 +82,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public String getVersion() {
 		assertRegistered();
-		return HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-service");
+		return HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS);
 	}
 
 	@Override
@@ -100,7 +101,11 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public void update() {
 		assertRegistered();
-		ctx.getClientService().update();
+		new Thread("Updater") {
+			public void run() {
+				ctx.getClientService().update();
+			}
+		}.start();
 	}
 
 	@Override

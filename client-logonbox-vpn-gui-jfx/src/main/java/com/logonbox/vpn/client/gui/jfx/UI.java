@@ -539,6 +539,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				@Override
 				public void handle(VPN.UpdateDone sig) {
 					maybeRunLater(() -> {
+						LOG.info(String.format("Update done. Message: %s, Restart: %s", sig.getFailureMessage(), sig.isRestart() ? "Yes" : "No"));
 						if (StringUtils.isBlank(sig.getFailureMessage())) {
 							if (sig.isRestart()) {
 								LOG.info(String.format("All apps updated, starting restart process " + Math.random()));

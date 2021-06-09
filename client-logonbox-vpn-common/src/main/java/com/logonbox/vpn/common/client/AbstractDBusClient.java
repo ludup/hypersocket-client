@@ -1,6 +1,7 @@
 package com.logonbox.vpn.common.client;
 
 import java.io.File;
+import java.rmi.activation.UnknownObjectException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import org.freedesktop.dbus.DBusMatchRule;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
 import org.freedesktop.dbus.errors.ServiceUnknown;
+import org.freedesktop.dbus.errors.UnknownObject;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.freedesktop.dbus.interfaces.Local;
@@ -177,9 +179,10 @@ public abstract class AbstractDBusClient implements DBusClient {
 	protected void lazyInit() {
 		if (vpn == null) {
 			synchronized (initLock) {
+				log.info("Trying connect to DBus");
 				try {
 					init();
-				} catch (DBusException | ServiceUnknown dbe) {
+				} catch (UnknownObject | DBusException | ServiceUnknown dbe) {
 					busGone();
 				} catch (RuntimeException re) {
 					throw re;

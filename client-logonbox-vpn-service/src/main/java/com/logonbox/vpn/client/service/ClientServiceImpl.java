@@ -779,9 +779,9 @@ public class ClientServiceImpl implements ClientService {
 			 * connections we can get LogonBox VPN server version from
 			 */
 			try {
-				if (automaticUpdates)
-					update(false);
-				else {
+//				if (automaticUpdates)
+//					update(false);
+//				else {
 					update(true);
 					if (needsUpdate) {
 						/*
@@ -791,7 +791,7 @@ public class ClientServiceImpl implements ClientService {
 						log.info("GUI Needs update, awaiting GUI to connect.");
 						return;
 					}
-				}
+//				}
 			} catch (Exception e) {
 				log.info(String.format("Extension versions not checked."), e);
 			}
@@ -868,6 +868,13 @@ public class ClientServiceImpl implements ClientService {
 				log.info("No updates to do.");
 				guiNeedsSeparateUpdate = false;
 			} else {
+
+				Collection<VPNFrontEnd> frontEnds = context.getFrontEnds();
+//				if(frontEnds.isEmpty()) {
+//					log.info("No front-ends, only check for updates for now.");
+//					checkOnly = true;
+//				}
+				
 				if(checkOnly)
 					log.info("Checking for updates");
 				else
@@ -891,7 +898,7 @@ public class ClientServiceImpl implements ClientService {
 				 * is available. If this happens we may need to update the GUI as well when it
 				 * eventually
 				 */
-				for (VPNFrontEnd fe : context.getFrontEnds()) {
+				for (VPNFrontEnd fe : frontEnds) {
 					if (!fe.isUpdated()) {
 						guiNeedsSeparateUpdate = false;
 						appsToUpdate++;
@@ -921,9 +928,9 @@ public class ClientServiceImpl implements ClientService {
 							 * If when we started the update, the GUI wasn't attached, but it is now, then
 							 * instead of restarting immediately, try to update any client extensions too
 							 */
-							if (guiNeedsSeparateUpdate && !context.getFrontEnds().isEmpty()) {
+							if (guiNeedsSeparateUpdate && !frontEnds.isEmpty()) {
 								appsToUpdate = 0;
-								for (VPNFrontEnd fe : context.getFrontEnds()) {
+								for (VPNFrontEnd fe : frontEnds) {
 									if (!fe.isUpdated()) {
 										guiNeedsSeparateUpdate = false;
 										appsToUpdate++;
@@ -933,9 +940,10 @@ public class ClientServiceImpl implements ClientService {
 								}
 								if (appsToUpdate == 0) {
 									/* Still nothing else to update, we are done */
-									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, null));
+									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, ""));
 									log.info("Update complete, restarting.");
-									System.exit(99);
+									/* Delay restart to let signals be sent */
+									getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
 								} else {
 									context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
 									int updated = 0;
@@ -943,16 +951,18 @@ public class ClientServiceImpl implements ClientService {
 										if (update.update())
 											updated++;
 									}
-									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", updated > 0, null));
+									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", updated > 0, ""));
 									if (updated > 0) {
 										log.info("Update complete, restarting.");
-										System.exit(99);
+										/* Delay restart to let signals be sent */
+										getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
 									}
 								}
 							} else {
-								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, null));
+								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, ""));
 								log.info("Update complete, restarting.");
-								System.exit(99);
+								/* Delay restart to let signals be sent */
+								getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
 							}
 						} else {
 							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, "Nothing to update."));

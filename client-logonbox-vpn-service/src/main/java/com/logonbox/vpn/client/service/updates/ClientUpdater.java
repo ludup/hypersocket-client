@@ -30,6 +30,8 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.common.client.dbus.VPN;
 
 public class ClientUpdater extends AbstractExtensionUpdater {
+	public static final String ARTIFACT_COORDS = "com.hypersocket/client-logonbox-vpn-service";
+
 	static Logger log = LoggerFactory.getLogger(ClientUpdater.class);
 
 	private ExtensionTarget target;
@@ -105,7 +107,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 	@Override
 	public String getVersion() {
-		return HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-service");
+		return HypersocketVersion.getVersion(ARTIFACT_COORDS);
 	}
 
 	@Override
@@ -117,7 +119,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 				 */
 				return ExtensionHelper.resolveExtensions(true,
 						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
-						new String[] { "logonbox-vpn-client" }, HypersocketVersion.getVersion("com.hypersocket:client-logonbox-vpn-service"), HypersocketVersion.getSerial(),
+						new String[] { "logonbox-vpn-client" }, getVersion(), HypersocketVersion.getSerial(),
 						"LogonBox VPN Client", "Public", extensionPlace, true, null, getUpdateTargets());
 			}
 			else {
