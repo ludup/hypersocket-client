@@ -45,6 +45,7 @@ import com.logonbox.vpn.client.dbus.VPNConnectionImpl;
 import com.logonbox.vpn.client.dbus.VPNImpl;
 import com.logonbox.vpn.client.service.ClientServiceImpl;
 import com.logonbox.vpn.client.service.ConfigurationRepositoryImpl;
+import com.logonbox.vpn.client.service.PromptServiceImpl;
 import com.logonbox.vpn.client.service.updates.ClientUpdater;
 import com.logonbox.vpn.client.service.vpn.ConnectionRepositoryImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
@@ -56,6 +57,7 @@ import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionRepository;
 import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.PromptService;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 import com.sshtools.forker.common.OS;
 
@@ -88,6 +90,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	}
 
 	private ClientServiceImpl clientService;
+	private PromptServiceImpl promptService;
 	private PlatformService<?> platform;
 	private DBusConnection conn;
 	private Map<String, VPNFrontEnd> frontEnds = Collections.synchronizedMap(new HashMap<>());
@@ -134,8 +137,14 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		return conn;
 	}
 
+	@Override
 	public ClientService getClientService() {
 		return clientService;
+	}
+
+	@Override
+	public PromptService getPromptService() {
+		return promptService;
 	}
 
 	@Override
@@ -296,19 +305,19 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				if(sessionBus) {
 					log.info("Per configuration, connecting to Session DBus");
 					conn = DBusConnection.getConnection(DBusBusType.SESSION);
-					log.info("Ready to Session DBus");
+					log.info("Ready to start Session DBus");
 					address = conn.getAddress().getRawAddress();
 				}
 				else {
 					log.info("Connected to System DBus");
 					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
-					log.info("Ready to System DBus");
+					log.info("Ready to start System DBus");
 					address = conn.getAddress().getRawAddress();
 				}
 			} else {
 				log.info("Not administrator, connecting to Session DBus");
 				conn = DBusConnection.getConnection(DBusBusType.SESSION);
-				log.info("Ready to Session DBus");
+				log.info("Ready to start Session DBus");
 				address = conn.getAddress().getRawAddress();
 			}
 		} else {
@@ -390,10 +399,9 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			log.info("Creating Client Service");
 		}
 		clientService = new ClientServiceImpl(this, connectionRepository, configurationRepository);
+		promptService = new PromptServiceImpl(this);
 
-		if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
-			installAllTrustingCertificateVerifier();
-		}
+		installCertificateVerifier();
 
 		return true;
 
@@ -476,9 +484,22 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 					log.debug(String.format("Validating: %s", c));
 				chainSubjectDN.add(c.getSubjectDN().toString());
 				c.checkValidity();
+				throw new CertificateException("Test Exception");
 			} catch (CertificateException ce) {
 				log.error("Certificate error. " + String.join(" -> ", chainSubjectDN), ce);
-				throw ce;
+				synchronized(frontEnds) {
+					if(frontEnds.isEmpty()) {
+						throw ce;
+					}
+				}
+				try {
+					promptService.prompt("certificateError.title", new String[] {c.getSubjectDN().toString() },
+							"certificateError.text", new String[0], "accept", "reject");
+				} catch (InterruptedException e) {
+					log.debug("Time-out waiting for confirmation of certificate.");
+					throw ce;
+				}
+				
 			}
 		}
 	}
@@ -489,9 +510,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		return NO_CERTS;
 	}
 
-	protected void installAllTrustingCertificateVerifier() {
-		
-		log.warn("NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
+	protected void installCertificateVerifier() {
 
 		Security.insertProviderAt(new ServiceTrustProvider(), 1);
 		Security.setProperty("ssl.TrustManagerFactory.algorithm", ServiceTrustProvider.TRUST_PROVIDER_ALG);
@@ -508,7 +527,12 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			@Override
 			public boolean verify(String hostname, SSLSession session) {
 				log.debug(String.format("Verify hostname %s: %s", hostname, session));
-				return true;
+				if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {				
+					log.warn("NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
+					return true;
+				}
+				else
+					return false;
 			}
 		};
 

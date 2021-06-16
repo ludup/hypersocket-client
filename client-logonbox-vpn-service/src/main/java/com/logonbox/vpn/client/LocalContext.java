@@ -7,6 +7,7 @@ import org.freedesktop.dbus.messages.Message;
 
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.common.client.ClientService;
+import com.logonbox.vpn.common.client.PromptService;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 
 public interface LocalContext {
@@ -14,6 +15,8 @@ public interface LocalContext {
 	PlatformService<?> getPlatformService();
 	
 	ClientService getClientService();
+	
+	PromptService getPromptService();
 
 	void sendMessage(Message message);
 	

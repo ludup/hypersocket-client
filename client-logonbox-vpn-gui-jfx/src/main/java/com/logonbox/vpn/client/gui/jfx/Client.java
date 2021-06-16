@@ -153,9 +153,7 @@ public class Client extends Application implements X509TrustManager {
 	public void start(Stage primaryStage) throws Exception {
 		this.primaryStage = primaryStage;
 
-		if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
-			installAllTrustingCertificateVerifier();
-		}
+		installCertificateVerifier();
 
 		if (useLocalHTTPService) {
 			miniHttp = new MiniHttpServer(59999, 0, null);
@@ -375,9 +373,7 @@ public class Client extends Application implements X509TrustManager {
 		return waitingForExitChoice;
 	}
 
-	protected void installAllTrustingCertificateVerifier() {
-		
-		log.warn("NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
+	protected void installCertificateVerifier() {
 
 		Security.insertProviderAt(new ClientTrustProvider(), 1);
 		Security.setProperty("ssl.TrustManagerFactory.algorithm", ClientTrustProvider.TRUST_PROVIDER_ALG);
@@ -393,8 +389,14 @@ public class Client extends Application implements X509TrustManager {
 		HostnameVerifier allHostsValid = new HostnameVerifier() {
 			@Override
 			public boolean verify(String hostname, SSLSession session) {
+
 				log.debug(String.format("Verify hostname %s: %s", hostname, session));
-				return true;
+				if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
+					log.warn("NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
+					return true;
+				}
+				else
+					return false;
 			}
 		};
 

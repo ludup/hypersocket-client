@@ -1,7 +1,6 @@
 package com.logonbox.vpn.common.client;
 
 import java.io.File;
-import java.rmi.activation.UnknownObjectException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -144,15 +143,19 @@ public abstract class AbstractDBusClient implements DBusClient {
 		log.debug("Getting bus.");
 		String busAddress = this.busAddress;
 		if (StringUtils.isNotBlank(busAddress)) {
+			log.info(String.format("Using bus address %s", busAddress));
 			conn = DBusConnection.getConnection(busAddress);
 		} else {
 			if (sessionBus) {
+				log.info(String.format("Using session bus"));
 				conn = DBusConnection.getConnection(DBusBusType.SESSION);
 			} else {
 				String fixedAddress = getServerDBusAddress();
 				if (fixedAddress == null) {
+					log.info(String.format("Using system bus"));
 					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
 				} else {
+					log.info(String.format("Using bus on %s", fixedAddress));
 					conn = DBusConnection.getConnection(fixedAddress);
 				}
 			}
@@ -183,10 +186,13 @@ public abstract class AbstractDBusClient implements DBusClient {
 				try {
 					init();
 				} catch (UnknownObject | DBusException | ServiceUnknown dbe) {
+					dbe.printStackTrace();
 					busGone();
 				} catch (RuntimeException re) {
+					re.printStackTrace();
 					throw re;
 				} catch (Exception e) {
+					e.printStackTrace();
 					throw new IllegalStateException("Failed to initialize.", e);
 				}
 			}

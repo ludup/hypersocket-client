@@ -27,6 +27,8 @@ public interface VPN extends DBusInterface {
 	String getVersion();
 
 	String getDeviceName();
+	
+	String getPrompt();
 
 	void ping();
 
@@ -156,6 +158,13 @@ public interface VPN extends DBusInterface {
 			return value;
 		}
 
+	}
+
+	public class Prompt extends DBusSignal {
+
+		public Prompt(String path) throws DBusException {
+			super(path);
+		}
 	}
 
 	public class Alert extends DBusSignal {

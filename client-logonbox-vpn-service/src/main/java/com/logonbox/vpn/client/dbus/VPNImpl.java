@@ -275,4 +275,9 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 		}
 		return active;
 	}
+
+	@Override
+	public String getPrompt() {
+		return String.format("%s/prompts/%d", getObjectPath(), ctx.hashCode());
+	}
 }

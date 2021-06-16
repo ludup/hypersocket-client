@@ -51,7 +51,6 @@ import org.w3c.dom.Element;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ser.std.EnumSetSerializer;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.AbstractDBusClient.BusLifecycleListener;
@@ -460,6 +459,15 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					});
 				}
 			});
+			
+			/* Certificate confirmation */
+			connection.addSigHandler(VPN.Prompt.class, new DBusSigHandler<VPN.Prompt>() {
+				@Override
+				public void handle(VPN.Prompt sig) {
+					maybeRunLater(() -> {
+					});
+				}
+			});
 
 			/* On update init */
 			connection.addSigHandler(VPN.UpdateInit.class, new DBusSigHandler<VPN.UpdateInit>() {
@@ -483,7 +491,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				@Override
 				public void handle(VPN.UpdateStart sig) {
 					maybeRunLater(() -> {
-						LOG.info(String.format("Starting up of %s, expect %d bytes", sig.getApp(),
+						LOG.info(String.format("Starting update of %s, expect %d bytes", sig.getApp(),
 								sig.getTotalBytesExpected()));
 						String appName = getAppName(sig.getApp());
 						setUpdateProgress(0, MessageFormat.format(resources.getString("updating"), appName));
