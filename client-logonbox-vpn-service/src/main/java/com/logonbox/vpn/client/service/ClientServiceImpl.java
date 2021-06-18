@@ -616,7 +616,7 @@ public class ClientServiceImpl implements ClientService {
 						log.warn(String.format("Front-end %s did not supply its list of extensions. Probably running in a development environment. Skipping updates.", frontEnd.getPlace().getApp()));
 						appsToUpdate = 0;
 					}
-					else {
+					else if(Boolean.getBoolean("logonbox.automaticUpdates")) {
 						
 						/* Do the separate GUI update */
 						appsToUpdate = 1;
@@ -773,7 +773,7 @@ public class ClientServiceImpl implements ClientService {
 		boolean automaticUpdates = Boolean
 				.valueOf(configurationRepository.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"));
 
-		if (!isTrackServerVersion() || connectionRepository.getConnections(null).size() > 0) {
+		if (Boolean.getBoolean("logonbox.automaticUpdates") && (!isTrackServerVersion() || connectionRepository.getConnections(null).size() > 0)) {
 			/*
 			 * Do updates if we are not tracking the server version or if there are some
 			 * connections we can get LogonBox VPN server version from
