@@ -17,8 +17,8 @@
 			<small style="float:right;"><a href="about.html" data-i18n="about">About</a></small>
 			<h1 data-i18n="options">Options</h1>
 			<form id="optionsForm">
+<!-- 
 				<h4 data-i18n="updates">Updates</h4>
-
 				<div class="form-check">
 					<input type="checkbox" class="form-check-input"
 						id="automaticUpdates" /> <label for="automaticUpdates"
@@ -35,7 +35,7 @@
 						class="form-control" id="phase">
 					</select> <small id="phaseHelp" data-i18n="phaseHelp"
 						class="form-text text-muted">Help</small>
-				</div>
+				</div> -->
 
 				<h4 data-i18n="tray">Tray</h4>
 
@@ -56,10 +56,10 @@
 		for (var i = 0; i < trayModes.length; i++) {
 			$('#trayMode').append('<option ' + (trayModes[i] == trayMode ? 'selected="selected"' : '') + ' value="' + trayModes[i] + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
 		}
-		for (var i = 0; i < phases.length; i++) {
+		/* for (var i = 0; i < phases.length; i++) {
 			$('#phase').append('<option ' + (phases[i].getName() == phase ? 'selected=""' : '') + '>' + phases[i].getName() + '</option>');
 		}
-		$('#automaticUpdates').prop('checked', automaticUpdates);
+		$('#automaticUpdates').prop('checked', automaticUpdates); */
 		$("#optionsForm").submit(function(event) {
 			$('#save').buttonLoader('start');
 			bridge.saveOptions({

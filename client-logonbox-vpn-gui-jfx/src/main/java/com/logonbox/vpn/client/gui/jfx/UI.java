@@ -1006,16 +1006,19 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
 	}
 
-	protected void saveOptions(String trayMode, String phase, boolean automaticUpdates) {
+	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates) {
 		try {
 			/* Tray mode stored per-user */
 			Configuration.getDefault().trayModeProperty().set(trayMode);
 
 			/* Update configuration stored globally in service */
-			if (!context.getDBus().getVPN().isTrackServerVersion())
-				context.getDBus().getVPN().setValue(ConfigurationRepository.PHASE, phase);
-			context.getDBus().getVPN().setValue(ConfigurationRepository.AUTOMATIC_UPDATES,
-					String.valueOf(automaticUpdates));
+			if(phase != null) {
+				if (!context.getDBus().getVPN().isTrackServerVersion())
+					context.getDBus().getVPN().setValue(ConfigurationRepository.PHASE, phase);
+			}
+			if(automaticUpdates != null)
+				context.getDBus().getVPN().setValue(ConfigurationRepository.AUTOMATIC_UPDATES,
+						String.valueOf(automaticUpdates));
 			
 			if(connections.getSelectionModel().isEmpty()) {
 				adjustingSelection = true;
