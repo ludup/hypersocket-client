@@ -65,6 +65,8 @@ public class ClientServiceImpl implements ClientService {
 	private static final int PHASES_TIMEOUT = 3600 * 24;
 	private static final long PING_TIMEOUT = TimeUnit.SECONDS.toMillis(30);
 
+	private static final long UPDATE_SERVER_POLL_INTERVAL = TimeUnit.MINUTES.toMillis(10);
+
 	protected Map<Connection, VPNSession> activeSessions = new HashMap<>();
 	protected Map<Connection, ScheduledFuture<?>> authorizingClients = new HashMap<>();
 	protected Set<Connection> disconnectingClients = new HashSet<>();
@@ -772,8 +774,15 @@ public class ClientServiceImpl implements ClientService {
 	public void start() throws Exception {
 		boolean automaticUpdates = Boolean
 				.valueOf(configurationRepository.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"));
+		
+		/* Regardless of any other configuration or state, always check for updates every 24 hours so
+		 * the update server gets pinged and we can track basic usages of the client */
+		timer.scheduleAtFixedRate(() -> {
+			update(true);
+		}, UPDATE_SERVER_POLL_INTERVAL, UPDATE_SERVER_POLL_INTERVAL, TimeUnit.MILLISECONDS);
 
-		if (Boolean.getBoolean("logonbox.automaticUpdates") && (!isTrackServerVersion() || connectionRepository.getConnections(null).size() > 0)) {
+
+		if ((!isTrackServerVersion() || connectionRepository.getConnections(null).size() > 0)) {
 			/*
 			 * Do updates if we are not tracking the server version or if there are some
 			 * connections we can get LogonBox VPN server version from
