@@ -134,7 +134,7 @@ public interface VPNConnection extends DBusInterface {
 
 	String getPath();
 
-	public class Connected extends DBusSignal {
+	public static class Connected extends DBusSignal {
 		public Connected(String path) throws DBusException {
 			super(path);
 		}
@@ -144,7 +144,7 @@ public interface VPNConnection extends DBusInterface {
 		}
 	}
 
-	public class Connecting extends DBusSignal {
+	public static class Connecting extends DBusSignal {
 		public Connecting(String path) throws DBusException {
 			super(path);
 		}
@@ -172,7 +172,7 @@ public interface VPNConnection extends DBusInterface {
 		}
 	}
 
-	public class Disconnected extends DBusSignal {
+	public static class Disconnected extends DBusSignal {
 
 		private final String reason;
 
@@ -190,7 +190,7 @@ public interface VPNConnection extends DBusInterface {
 		}
 	}
 
-	public class Disconnecting extends DBusSignal {
+	public static class Disconnecting extends DBusSignal {
 
 		private final String reason;
 
@@ -208,10 +208,10 @@ public interface VPNConnection extends DBusInterface {
 		}
 	}
 
-	public class Authorize extends DBusSignal {
+	public static class Authorize extends DBusSignal {
 
 		private final String uri;
-
+		
 		public Authorize(String path, String uri) throws DBusException {
 			super(path, uri);
 			this.uri = uri;

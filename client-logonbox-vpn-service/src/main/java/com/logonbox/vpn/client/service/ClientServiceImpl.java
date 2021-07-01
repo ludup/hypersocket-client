@@ -240,17 +240,15 @@ public class ClientServiceImpl implements ClientService {
 		try {
 			try {
 
-				timer.execute(() -> {
-					try {
-						if (log.isInfoEnabled()) {
-							log.info("Sending disconnecting event");
-						}
-						context.sendMessage(new VPNConnection.Disconnecting(
-								String.format("/com/logonbox/vpn/%d", c.getId()), reason));
-					} catch (DBusException e) {
-						log.error("Failed to send disconnected event.", e);
+				try {
+					if (log.isInfoEnabled()) {
+						log.info("Sending disconnecting event");
 					}
-				});
+					context.sendMessage(new VPNConnection.Disconnecting(
+							String.format("/com/logonbox/vpn/%d", c.getId()), reason == null ? "" : reason));
+				} catch (DBusException e) {
+					log.error("Failed to send disconnected event.", e);
+				}
 
 				try {
 					if (wireguardSession != null) {
@@ -269,21 +267,21 @@ public class ClientServiceImpl implements ClientService {
 				disconnectingClients.remove(c);
 			}
 		} finally {
-			timer.execute(() -> {
-				try {
-					if (log.isInfoEnabled()) {
-						log.info("Sending disconnected event on bus");
-					}
-					context.sendMessage(
-							new VPNConnection.Disconnected(String.format("/com/logonbox/vpn/%d", c.getId()), reason));
-
-					if (log.isInfoEnabled()) {
-						log.info("Sent disconnected event on bus");
-					}
-				} catch (DBusException e) {
-					throw new IllegalStateException("Failed to send disconnected message.", e);
+			try {
+				if (log.isInfoEnabled()) {
+					log.info("Sending disconnected event on bus");
 				}
-			});
+
+				VPNConnection.Disconnected message = new VPNConnection.Disconnected(
+						String.format("/com/logonbox/vpn/%d", c.getId()), reason == null ? "" : reason);
+				context.sendMessage(message);
+
+				if (log.isInfoEnabled()) {
+					log.info("Sent disconnected event on bus");
+				}
+			} catch (DBusException e) {
+				throw new IllegalStateException("Failed to send disconnected message.", e);
+			}
 		}
 	}
 
@@ -486,7 +484,7 @@ public class ClientServiceImpl implements ClientService {
 		for (Connection connection : connectionRepository.getConnections(null)) {
 			try {
 				URL url = new URL(connection.getUri(false) + "/api/extensions/checkVersion");
-				if(log.isDebugEnabled())
+				if (log.isDebugEnabled())
 					log.info(String.format("Trying %s.", url));
 				URLConnection urlConnection = url.openConnection();
 				try (InputStream in = urlConnection.getInputStream()) {
@@ -499,7 +497,7 @@ public class ClientServiceImpl implements ClientService {
 					}
 				}
 			} catch (IOException ioe) {
-				if(log.isDebugEnabled())
+				if (log.isDebugEnabled())
 					log.info(String.format("Skipping %s:%d because it appears offline.", connection.getHostname(),
 							connection.getPort()), ioe);
 				else
@@ -510,7 +508,8 @@ public class ClientServiceImpl implements ClientService {
 		if (highestVersionUpdate == null) {
 			throw new IllegalStateException("Failed to get most recent version from any servers.");
 		}
-		log.info(String.format("Highest version available is %s, from server %s", highestVersion, highestVersionConnection.getDisplayName()));
+		log.info(String.format("Highest version available is %s, from server %s", highestVersion,
+				highestVersionConnection.getDisplayName()));
 		return highestVersionUpdate;
 	}
 
@@ -567,7 +566,7 @@ public class ClientServiceImpl implements ClientService {
 		log.info(String.format("Registered front-end %s as %s, %s, %s", frontEnd.getSource(), frontEnd.getUsername(),
 				frontEnd.isSupportsAuthorization() ? "supports auth" : "doesnt support auth",
 				frontEnd.isInteractive() ? "interactive" : "not interactive"));
-		for(Map.Entry<String, File> en : frontEnd.getPlace().getBootstrapArchives().entrySet()) {
+		for (Map.Entry<String, File> en : frontEnd.getPlace().getBootstrapArchives().entrySet()) {
 			log.info(String.format("    Has extension: %s (%s)", en.getKey(), en.getValue()));
 		}
 
@@ -583,7 +582,7 @@ public class ClientServiceImpl implements ClientService {
 
 							context.sendMessage(new VPNConnection.Authorize(
 									String.format("/com/logonbox/vpn/%d", conx.getConnection().getId()),
-									"/logonbox-vpn-client/"));
+									"/logonBoxVPNClient/"));
 
 							/* Done */
 							return;
@@ -610,20 +609,22 @@ public class ClientServiceImpl implements ClientService {
 		try {
 			if (frontEnd.isInteractive()) {
 				if (guiNeedsSeparateUpdate) {
-					/* If the client hasn't supplied the extensions it is using, then we can't
-					 * do any updates. It is probably running outside of Forker, so isn't supplied
-					 * the list
+					/*
+					 * If the client hasn't supplied the extensions it is using, then we can't do
+					 * any updates. It is probably running outside of Forker, so isn't supplied the
+					 * list
 					 */
-					if(frontEnd.getPlace().getBootstrapArchives().isEmpty()) {
-						log.warn(String.format("Front-end %s did not supply its list of extensions. Probably running in a development environment. Skipping updates.", frontEnd.getPlace().getApp()));
+					if (frontEnd.getPlace().getBootstrapArchives().isEmpty()) {
+						log.warn(String.format(
+								"Front-end %s did not supply its list of extensions. Probably running in a development environment. Skipping updates.",
+								frontEnd.getPlace().getApp()));
 						appsToUpdate = 0;
-					}
-					else if(Boolean.getBoolean("logonbox.automaticUpdates")) {
-						
+					} else if (Boolean.getBoolean("logonbox.automaticUpdates")) {
+
 						/* Do the separate GUI update */
 						appsToUpdate = 1;
 						ClientUpdater guiJob = new ClientUpdater(frontEnd.getPlace(), frontEnd.getTarget(), context);
-	
+
 						try {
 							context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
 							try {
@@ -634,7 +635,7 @@ public class ClientServiceImpl implements ClientService {
 									log.info("No updates available.");
 								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", atLeastOneUpdate, null));
 							} catch (IOException e) {
-								if(log.isDebugEnabled())
+								if (log.isDebugEnabled())
 									log.error("Failed to update GUI.", e);
 								else
 									log.error(String.format("Failed to update GUI. %s", e.getMessage()));
@@ -694,7 +695,7 @@ public class ClientServiceImpl implements ClientService {
 
 			try {
 				context.sendMessage(new VPNConnection.Authorize(
-						String.format("/com/logonbox/vpn/%d", connection.getId()), "/logonbox-vpn-client/"));
+						String.format("/com/logonbox/vpn/%d", connection.getId()), "/logonBoxVPNClient/"));
 			} catch (DBusException e) {
 				throw new IllegalStateException("Failed to send message.", e);
 			}
@@ -774,13 +775,15 @@ public class ClientServiceImpl implements ClientService {
 	public void start() throws Exception {
 		boolean automaticUpdates = Boolean
 				.valueOf(configurationRepository.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"));
-		
-		/* Regardless of any other configuration or state, always check for updates every 24 hours so
-		 * the update server gets pinged and we can track basic usages of the client */
+
+		/*
+		 * Regardless of any other configuration or state, always check for updates
+		 * every 24 hours so the update server gets pinged and we can track basic usages
+		 * of the client
+		 */
 		timer.scheduleAtFixedRate(() -> {
 			update(true);
 		}, UPDATE_SERVER_POLL_INTERVAL, UPDATE_SERVER_POLL_INTERVAL, TimeUnit.MILLISECONDS);
-
 
 		if ((!isTrackServerVersion() || connectionRepository.getConnections(null).size() > 0)) {
 			/*
@@ -791,15 +794,15 @@ public class ClientServiceImpl implements ClientService {
 //				if (automaticUpdates)
 //					update(false);
 //				else {
-					update(true);
-					if (needsUpdate) {
-						/*
-						 * If updates are manual, don't try to connect until the GUI connects and does
-						 * it's update
-						 */
-						log.info("GUI Needs update, awaiting GUI to connect.");
-						return;
-					}
+				update(true);
+				if (needsUpdate) {
+					/*
+					 * If updates are manual, don't try to connect until the GUI connects and does
+					 * it's update
+					 */
+					log.info("GUI Needs update, awaiting GUI to connect.");
+					return;
+				}
 //				}
 			} catch (Exception e) {
 				log.info(String.format("Extension versions not checked."), e);
@@ -883,8 +886,8 @@ public class ClientServiceImpl implements ClientService {
 //					log.info("No front-ends, only check for updates for now.");
 //					checkOnly = true;
 //				}
-				
-				if(checkOnly)
+
+				if (checkOnly)
 					log.info("Checking for updates");
 				else
 					log.info("Getting updates to apply");
@@ -900,12 +903,13 @@ public class ClientServiceImpl implements ClientService {
 				updaters.add(new ClientUpdater(defaultExt, ExtensionTarget.CLIENT_SERVICE, context));
 
 				/*
-				 * For the GUI (and CLI), we get the extension place remotely, as the clients themselves are best
-				 * placed to know what extensions it has and where they stored.
+				 * For the GUI (and CLI), we get the extension place remotely, as the clients
+				 * themselves are best placed to know what extensions it has and where they
+				 * stored.
 				 * 
-				 * However, it's possible the client is not yet running, so we only do this if it
-				 * is available. If this happens we may need to update the GUI as well when it
-				 * eventually
+				 * However, it's possible the client is not yet running, so we only do this if
+				 * it is available. If this happens we may need to update the GUI as well when
+				 * it eventually
 				 */
 				for (VPNFrontEnd fe : frontEnds) {
 					if (!fe.isUpdated()) {
@@ -923,10 +927,11 @@ public class ClientServiceImpl implements ClientService {
 					for (ClientUpdater update : updaters) {
 						if ((checkOnly && update.checkForUpdates()) || (!checkOnly && update.update())) {
 							updates++;
-							log.info(String.format("    %s (%s) - needs update", update.getExtensionPlace().getApp(),update.getExtensionPlace().getDir() ));
-						}
-						else
-							log.info(String.format("    %s (%s) - no updates", update.getExtensionPlace().getApp(),update.getExtensionPlace().getDir() ));
+							log.info(String.format("    %s (%s) - needs update", update.getExtensionPlace().getApp(),
+									update.getExtensionPlace().getDir()));
+						} else
+							log.info(String.format("    %s (%s) - no updates", update.getExtensionPlace().getApp(),
+									update.getExtensionPlace().getDir()));
 					}
 
 					if (!checkOnly) {
@@ -943,8 +948,7 @@ public class ClientServiceImpl implements ClientService {
 									if (!fe.isUpdated()) {
 										guiNeedsSeparateUpdate = false;
 										appsToUpdate++;
-										updaters.add(
-												new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
+										updaters.add(new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
 									}
 								}
 								if (appsToUpdate == 0) {
@@ -981,8 +985,7 @@ public class ClientServiceImpl implements ClientService {
 				} catch (IOException | DBusException e) {
 					if (log.isDebugEnabled()) {
 						log.error("Failed to execute update job.", e);
-					}
-					else {
+					} else {
 						log.warn(String.format("Failed to execute update job. %s", e.getMessage()));
 					}
 					return;
@@ -991,9 +994,9 @@ public class ClientServiceImpl implements ClientService {
 		} catch (Exception re) {
 			if (log.isDebugEnabled()) {
 				log.error("Failed to get GUI extension information. Update aborted.", re);
-			}
-			else {
-				log.error(String.format("Failed to get GUI extension information. Update aborted. %s", re.getMessage()));
+			} else {
+				log.error(
+						String.format("Failed to get GUI extension information. Update aborted. %s", re.getMessage()));
 			}
 		} finally {
 			updating = false;
@@ -1012,11 +1015,14 @@ public class ClientServiceImpl implements ClientService {
 			if (!added.contains(c)) {
 				StatusDetail status = StatusDetail.EMPTY;
 				VPNSession session = activeSessions.get(c);
-				if(session != null) { 
+				if (session != null) {
 					try {
 						status = getContext().getPlatformService().status(session.getIp().getName());
 					} catch (IOException e) {
-						throw new IllegalStateException(String.format("Failed to get status for an active connection %s on interface %s.", c.getDisplayName(), session.getIp().getName()), e);
+						throw new IllegalStateException(
+								String.format("Failed to get status for an active connection %s on interface %s.",
+										c.getDisplayName(), session.getIp().getName()),
+								e);
 					}
 				}
 				ret.add(new ConnectionStatusImpl(c, status, getStatusType(c)));
