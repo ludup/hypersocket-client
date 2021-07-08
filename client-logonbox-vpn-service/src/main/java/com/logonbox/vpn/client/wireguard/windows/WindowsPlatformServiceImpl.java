@@ -176,6 +176,10 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		 * find none, try to create one.
 		 */
 		int maxIface = -1;
+		
+
+		List<WindowsIP> ips = ips(false);
+		
 		for (int i = 0; i < MAX_INTERFACES; i++) {
 			String name = getInterfacePrefix() + i;
 			LOG.info(String.format("Looking for %s.", name));
@@ -185,34 +189,36 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			 * 'net' isn't specific to wireguard, nor even to WinTun.
 			 */
 			if (exists(name, false)) {
+				LOG.info(String.format("    %s exists.", name));
 				/* Get if this is actually a Wireguard interface. */
-				WindowsIP nicByName = get(name);
+				WindowsIP nicByName = find(name, ips);
 				if (isWireGuardInterface(nicByName)) {
 					/* Interface exists and is wireguard, is it connected? */
 
 					// TODO check service state, we can't rely on the public key
 					// as we manage storage of it ourselves (no wg show command)
+					LOG.info(String.format("    Looking for public key for %s.", name));
 					String publicKey = getPublicKey(name);
 					if (publicKey == null) {
 						/* No addresses, wireguard not using it */
-						LOG.info(String.format("%s (%s) is free.", name, nicByName.getDisplayName()));
-						ip = get(name);
+						LOG.info(String.format("    %s (%s) is free.", name, nicByName.getDisplayName()));
+						ip = nicByName;
 						maxIface = i;
 						break;
 					} else if (publicKey.equals(configuration.getUserPublicKey())) {
 						LOG.warn(
-								String.format("Peer with public key %s on %s is already active (by %s).", publicKey, name, nicByName.getDisplayName()));
-						return get(name);
+								String.format("    Peer with public key %s on %s is already active (by %s).", publicKey, name, nicByName.getDisplayName()));
+						return nicByName;
 					} else {
-						LOG.info(String.format("%s is already in use (by %s).", name, nicByName.getDisplayName()));
+						LOG.info(String.format("    %s is already in use (by %s).", name, nicByName.getDisplayName()));
 					}
 				} else
-					LOG.info(String.format("%s is already in use by something other than WinTun (%s).", name,
+					LOG.info(String.format("    %s is already in use by something other than WinTun (%s).", name,
 							nicByName.getDisplayName()));
 			} else if (maxIface == -1) {
 				/* This one is the next free number */
 				maxIface = i;
-				LOG.info(String.format("%s is next free interface.", name));
+				LOG.info(String.format("    %s is next free interface.", name));
 				break;
 			}
 		}
