@@ -188,7 +188,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			 * Get ALL the interfaces because on Windows the interface name is netXXX, and
 			 * 'net' isn't specific to wireguard, nor even to WinTun.
 			 */
-			if (exists(name, false)) {
+			if ( exists(name, ips)) {
 				LOG.info(String.format("    %s exists.", name));
 				/* Get if this is actually a Wireguard interface. */
 				WindowsIP nicByName = find(name, ips);
