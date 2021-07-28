@@ -65,7 +65,7 @@
 		<repository>
 			<id>public-releases</id>
 			<name>public-releases</name>
-			<url>http://artifactory.javassh.com/public-releases</url>
+			<url>https://artifactory.jadaptive.com/public-releases</url>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
@@ -74,7 +74,7 @@
 		<repository>
 			<id>public-snapshots</id>
 			<name>public-snapshots</name>
-			<url>http://artifactory.javassh.com/public-snapshots</url>
+			<url>https://artifactory.jadaptive.com/public-snapshots</url>
 			<releases>
 				<enabled>false</enabled>
 			</releases>
@@ -82,8 +82,8 @@
 		</repository>
 		<repository>
 			<id>ext-snapshots-local</id>
-			<name>artifactory.javassh.com-ext-snapshots</name>
-			<url>http://artifactory.javassh.com/ext-snapshots-local</url>
+			<name>artifactory.jadaptive.com-ext-snapshots</name>
+			<url>https://artifactory.jadaptive.com/ext-snapshots-local</url>
 			<releases>
 				<enabled>false</enabled>
 			</releases>
@@ -91,8 +91,8 @@
 		</repository>
 		<repository>
 			<id>ext-releases-local</id>
-			<name>artifactory.javassh.com-ext-releases</name>
-			<url>http://artifactory.javassh.com/ext-releases-local</url>
+			<name>artifactory.jadaptive.com-ext-releases</name>
+			<url>https://artifactory.jadaptive.com/ext-releases-local</url>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
@@ -101,7 +101,7 @@
 		<repository>
 			<id>opensource-releases</id>
 			<name>opensource-releases</name>
-			<url>http://artifactory.javassh.com/opensource-releases</url>
+			<url>https://artifactory.jadaptive.com/opensource-releases</url>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
@@ -110,7 +110,7 @@
 		<repository>
 			<id>opensource-snapshots</id>
 			<name>opensource-snapshots</name>
-			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<url>https://artifactory.jadaptive.com/opensource-snapshots</url>
 			<releases>
 				<enabled>false</enabled>
 			</releases>

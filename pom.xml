@@ -27,11 +27,11 @@
 	<distributionManagement>
 		<repository>
 			<id>opensource-releases</id>
-			<url>http://artifactory.javassh.com/opensource-releases</url>
+			<url>https://artifactory.jadaptive.com/opensource-releases</url>
 		</repository>
 		<snapshotRepository>
 			<id>opensource-snapshots</id>
-			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<url>https://artifactory.jadaptive.com/opensource-snapshots</url>
 		</snapshotRepository>
 	</distributionManagement>
 
@@ -267,7 +267,7 @@
 	<repositories>
 		<repository>
 			<id>opensource-snapshots</id>
-			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<url>https://artifactory.jadaptive.com/opensource-snapshots</url>
 			<snapshots />
 			<releases>
 				<enabled>false</enabled>
@@ -275,7 +275,7 @@
 		</repository>
 		<repository>
 			<id>opensource-releases</id>
-			<url>http://artifactory.javassh.com/opensource-releases</url>
+			<url>https://artifactory.jadaptive.com/opensource-releases</url>
 			<releases />
 			<snapshots>
 				<enabled>false</enabled>
@@ -294,7 +294,7 @@
 		</pluginRepository>
 		<pluginRepository>
 			<id>opensource-snapshots</id>
-			<url>http://artifactory.javassh.com/opensource-snapshots</url>
+			<url>https://artifactory.jadaptive.com/opensource-snapshots</url>
 			<snapshots />
 			<releases>
 				<enabled>false</enabled>
