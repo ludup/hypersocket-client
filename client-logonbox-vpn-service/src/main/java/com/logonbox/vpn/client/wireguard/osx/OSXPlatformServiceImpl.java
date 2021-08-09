@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.common.client.Connection;
+import com.sshtools.forker.client.OSCommand;
 
 public class OSXPlatformServiceImpl extends AbstractPlatformServiceImpl<OSXIP> {
 
@@ -27,7 +28,15 @@ public class OSXPlatformServiceImpl extends AbstractPlatformServiceImpl<OSXIP> {
 
 	@Override
 	protected String getDefaultGateway() throws IOException {
-		throw new UnsupportedOperationException("TODO");
+		for(String line : OSCommand.adminCommandAndIterateOutput("route", "-n", "get", "default")) {
+			line = line.trim();
+			if(line.startsWith("gateway:")) {
+				String[] args = line.split(":");
+				if(args.length > 1)
+					return args[1].trim();
+			}
+		}
+		throw new IOException("Could not get default gateway.");
 	}
 
 	@Override
@@ -38,21 +47,6 @@ public class OSXPlatformServiceImpl extends AbstractPlatformServiceImpl<OSXIP> {
 	@Override
 	protected OSXIP onConnect(VPNSession logonBoxVPNSession, Connection configuration)
 			throws IOException {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-	@Override
-	protected String getPublicKey(String interfaceName) throws IOException {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-	@Override
-	public OSXIP getByPublicKey(String publicKey) {
-		throw new UnsupportedOperationException("TODO");
-	}
-
-	@Override
-	public boolean isAlive(VPNSession logonBoxVPNSession, Connection configuration) throws IOException {
 		throw new UnsupportedOperationException("TODO");
 	}
 

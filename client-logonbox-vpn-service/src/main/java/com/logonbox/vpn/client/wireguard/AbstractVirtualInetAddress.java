@@ -2,71 +2,77 @@ package com.logonbox.vpn.client.wireguard;
 
 import java.util.Objects;
 
-import com.logonbox.vpn.client.wireguard.windows.WindowsIP;
-
 public abstract class AbstractVirtualInetAddress implements VirtualInetAddress {
 
 	public final static String TABLE_AUTO = "auto";
 	public final static String TABLE_OFF = "off";
 	
 	private int mtu;
-	protected String name;
-	protected String peer;
+	private String name;
+	private String peer;
 	private String table = TABLE_AUTO;
 
 	public AbstractVirtualInetAddress() {
 		super();
 	}
 
+	public AbstractVirtualInetAddress(String name) {
+		super();
+		this.name = name;
+	}
+
 	@Override
-	public boolean equals(Object obj) {
+	public final int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		return result;
+	}
+
+	@Override
+	public final boolean equals(Object obj) {
 		if (this == obj)
 			return true;
-		if (!super.equals(obj))
+		if (obj == null)
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		WindowsIP other = (WindowsIP) obj;
+		AbstractVirtualInetAddress other = (AbstractVirtualInetAddress) obj;
 		if (name == null) {
 			if (other.name != null)
 				return false;
 		} else if (!name.equals(other.name))
 			return false;
-		if (peer == null) {
-			if (other.peer != null)
-				return false;
-		} else if (!peer.equals(other.peer))
-			return false;
 		return true;
 	}
 
 	@Override
-	public int getMtu() {
+	public final int getMtu() {
 		return mtu;
 	}
 
 	@Override
-	public String getName() {
+	public final String getName() {
 		return name;
 	}
 
 	@Override
-	public String getPeer() {
+	public final String getPeer() {
 		return peer;
 	}
 
 	@Override
-	public String getTable() {
+	public final String getTable() {
 		return table;
 	}
 
 	@Override
-	public void setMtu(int mtu) {
+	public final void setMtu(int mtu) {
 		this.mtu = mtu;
 	}
 
 	@Override
-	public void setName(String name) {
+	public final void setName(String name) {
 		this.name = name;
 	}
 
@@ -78,7 +84,7 @@ public abstract class AbstractVirtualInetAddress implements VirtualInetAddress {
 	}
 
 	@Override
-	public void setTable(String table) {
+	public final void setTable(String table) {
 		this.table = table;
 	}
 

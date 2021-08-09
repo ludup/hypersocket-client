@@ -81,7 +81,7 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 				Class<?> appClazz = Class.forName("com.apple.eawt.Application");
 				Object app = appClazz.getMethod("getApplication").invoke(null);
 				appClazz.getMethod("setDockIconImage", Image.class).invoke(app, java.awt.Toolkit.getDefaultToolkit()
-						.getImage(Main.class.getResource("hypersocket-icon128x128.png")));
+						.getImage(Main.class.getResource("logonbox-icon128x128.png")));
 			}
 		} catch (Exception e) {
 			// Won't work on Windows or Linux.

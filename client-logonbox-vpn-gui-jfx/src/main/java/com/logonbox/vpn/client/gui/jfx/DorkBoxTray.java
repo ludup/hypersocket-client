@@ -55,7 +55,7 @@ public class DorkBoxTray implements AutoCloseable, Tray, BusLifecycleListener {
 
 	public DorkBoxTray(Client context) throws Exception {
 		this.context = context;
-		context.getOpQueue().execute(() -> adjustTray(false, Collections.emptyList()));
+		queueOp(() -> adjustTray(false, Collections.emptyList()));
 		context.getDBus().addBusLifecycleListener(this);
 		Configuration.getDefault().trayModeProperty().addListener((e, o, n) -> {
 			reload();
@@ -74,16 +74,24 @@ public class DorkBoxTray implements AutoCloseable, Tray, BusLifecycleListener {
 	public boolean isActive() {
 		return systemTray != null;
 	}
+	
+	protected void queueOp(Runnable r) {
+		if(com.sun.jna.Platform.isMac()) {
+			Platform.runLater(r);
+		}
+		else
+			context.getOpQueue().execute(r);
+	}
 
 	protected void reload() {
-		context.getOpQueue().execute(() -> {
+		queueOp(() -> {
 			try {
 				List<VPNConnection> conx = context.getDBus().getVPNConnections();
 				boolean connected = context.getDBus().isBusAvailable();
 				rebuildMenu(connected, conx);
 				setImage(connected, conx);
 			} catch (Exception re) {
-				context.getOpQueue().execute(() -> {
+				queueOp(() -> {
 					rebuildMenu(false, Collections.emptyList());
 					if(systemTray != null)
 						setImage(false, Collections.emptyList());

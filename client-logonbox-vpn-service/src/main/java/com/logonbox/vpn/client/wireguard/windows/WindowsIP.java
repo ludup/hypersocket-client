@@ -35,8 +35,8 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	private Set<String> domainsAdded = new LinkedHashSet<String>();
 	
 	public WindowsIP(String name, String displayName, WindowsPlatformServiceImpl platform) {
+		super(name);
 		this.platform = platform;
-		this.name = name;
 		this.displayName = displayName;
 	}
 
@@ -80,15 +80,6 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	}
 
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = super.hashCode();
-		result = prime * result + ((name == null) ? 0 : name.hashCode());
-		result = prime * result + ((peer == null) ? 0 : peer.hashCode());
-		return result;
-	}
-
-	@Override
 	public boolean isUp() {
 		synchronized (lock) {
 			try {
@@ -102,12 +93,12 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	protected Service getService() throws IOException {
 		Service service = Services.get().getService(getServiceName());
 		if (service == null)
-			throw new IOException(String.format("No service for interface %s.", name));
+			throw new IOException(String.format("No service for interface %s.", getName()));
 		return service;
 	}
 
 	protected String getServiceName() {
-		return WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name;
+		return WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + getName();
 	}
 
 	public boolean isInstalled() {
@@ -132,7 +123,7 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 
 	@Override
 	public String toString() {
-		return "Ip [name=" + name + ", peer=" + peer + "]";
+		return "Ip [name=" + getName() + ", peer=" + getPeer() + "]";
 	}
 
 	@Override
@@ -164,44 +155,18 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 		if(dnsAddresses.length > 2) {
 			LOG.warn("Windows only supports a maximum of 2 DNS servers. %d were supplied, the last %d will be ignored.", dnsAddresses.length, dnsAddresses.length - 2);
 		}
-		if(dnsAddresses.length > 1) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", dnsAddresses[0], "secondary");	
+		if(dns != null && dns.length > 1) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", dns[0], "secondary");	
 		} 
-		else if(dnsAddresses.length < 2) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", "none", "secondary");	
+		else if(dns != null && dns.length < 2) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", "none", "secondary");	
 		}
-		if(dnsAddresses.length > 0) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", dnsAddresses[0], "primary");	
+		if(dns != null && dns.length > 0) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", dns[0], "primary");	
 		} 
-		else if(dnsAddresses.length < 1) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", "none", "primary");	
-		}
+		else if(dns != null && dns.length < 1) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", "none", "primary");	
 
-		String[] dnsNames = IpUtil.filterNames(dns);
-		String currentDomains = null;
-		try {
-			currentDomains = Advapi32Util.registryGetStringValue
-	                (WinReg.HKEY_LOCAL_MACHINE,
-	                        "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList");
-		}
-		catch(Exception e) {
-			//
-		}
-		Set<String> newDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
-		for(String dnsName : dnsNames) {
-			if(!newDomainList.contains(dnsName)) {
-				LOG.info(String.format("Adding domain %s to search", dnsName));
-				newDomainList.add(dnsName);
-			}
-		}
-		String newDomains = String.join(",", newDomainList);
-		if(!Objects.equals(currentDomains, newDomains)) {
-			domainsAdded.clear();
-			domainsAdded.addAll(newDomainList);
-			LOG.info(String.format("Final domain search %s", newDomains));
-			Advapi32Util.registrySetStringValue
-            (WinReg.HKEY_LOCAL_MACHINE,
-                    "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList", newDomains);
 		}
 	}
 

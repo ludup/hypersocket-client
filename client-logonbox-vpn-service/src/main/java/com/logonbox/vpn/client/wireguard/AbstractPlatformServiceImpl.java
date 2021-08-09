@@ -151,7 +151,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 						}
 					} else {
 						LOG.info(
-								String.format("%s has no public key, so it is a free wireguard interface.", name));
+								String.format("%s has no public key, so it likely used by another application.", name));
 					}
 				} catch (Exception e) {
 					LOG.error("Failed to get peer configuration for existing wireguard interface.", e);
@@ -298,11 +298,17 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				String.format("Endpoint = %s:%d", configuration.getEndpointAddress(), configuration.getEndpointPort()));
 		if (configuration.getPersistentKeepalive() > 0)
 			pw.println(String.format("PersistentKeepalive = %d", configuration.getPersistentKeepalive()));
-		List<String> allowedIps = configuration.getAllowedIps();
+		List<String> allowedIps = new ArrayList<>(configuration.getAllowedIps());
 		if(configuration.isRouteAll()) {
 			pw.println("AllowedIPs = 0.0.0.0/0");
 		}	
 		else {
+			String ignoreAddresses = System.getProperty("logonbox.vpn.ignoreAddresses", "");
+			if(ignoreAddresses.length() > 0) {
+				for(String ignoreAddress : ignoreAddresses.split(",")) {
+					allowedIps.remove(ignoreAddress);
+				}
+			}
 			if (!allowedIps.isEmpty())
 				pw.println(String.format("AllowedIPs = %s", String.join(", ", allowedIps)));
 		}

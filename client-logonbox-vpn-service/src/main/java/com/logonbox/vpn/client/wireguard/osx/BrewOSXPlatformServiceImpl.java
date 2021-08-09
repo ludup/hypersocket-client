@@ -1,4 +1,4 @@
-package com.logonbox.vpn.client.wireguard.linux;
+package com.logonbox.vpn.client.wireguard.osx;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -10,13 +10,10 @@ import java.net.NetworkInterface;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,17 +23,16 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
-import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.StatusDetail;
 import com.sshtools.forker.client.OSCommand;
 
-public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxIP> {
+public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<BrewOSXIP> {
 
-	static Logger log = LoggerFactory.getLogger(LinuxPlatformServiceImpl.class);
+	static Logger log = LoggerFactory.getLogger(BrewOSXPlatformServiceImpl.class);
 
-	private static final String INTERFACE_PREFIX = "wg";
-	final static Logger LOG = LoggerFactory.getLogger(LinuxPlatformServiceImpl.class);
+	private static final String INTERFACE_PREFIX = "utun";
+	final static Logger LOG = LoggerFactory.getLogger(BrewOSXPlatformServiceImpl.class);
 
 	enum IpAddressState {
 		HEADER, IP, MAC
@@ -44,12 +40,12 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 
 	static Object lock = new Object();
 
-	public LinuxPlatformServiceImpl() {
+	public BrewOSXPlatformServiceImpl() {
 		super(INTERFACE_PREFIX);
 	}
 
-	protected LinuxIP add(String name, String type) throws IOException {
-		OSCommand.adminCommand("ip", "link", "add", "dev", name, "type", type);
+	protected BrewOSXIP add(String name, String type) throws IOException {
+		OSCommand.adminCommand("/usr/local/bin/wireguard-go", name);
 		return find(name, ips(false));
 	}
 
@@ -93,37 +89,45 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 				return pk;
 
 		} catch (IOException ioe) {
-			if (ioe.getMessage() != null && ioe.getMessage().indexOf("The system cannot find the file specified") != -1)
+			if (ioe.getMessage() != null &&
+					( ioe.getMessage().indexOf("The system cannot find the file specified") != -1 ||
+					ioe.getMessage().indexOf("Unable to access interface: No such file or directory") != -1))
 				return null;
 			else
 				throw ioe;
 		}
 	}
+	
+	protected String getWGCommand() {
+		return "/usr/local/bin/wg";
+	}
 
 	@Override
-	public List<LinuxIP> ips(boolean wireguardOnly) {
-		List<LinuxIP> l = new ArrayList<>();
-		LinuxIP lastLink = null;
+	public List<BrewOSXIP> ips(boolean wireguardOnly) {
+		List<BrewOSXIP> l = new ArrayList<>();
+		BrewOSXIP lastLink = null;
 		try {
 			IpAddressState state = IpAddressState.HEADER;
-			for (String r : OSCommand.runCommandAndCaptureOutput("ip", "address")) {
+			for (String r : OSCommand.runCommandAndCaptureOutput("ifconfig")) {
 				if (!r.startsWith(" ")) {
 					String[] a = r.split(":");
-					String name = a[1].trim();
+					String name = a[0].trim();
 					if (!wireguardOnly || (wireguardOnly && name.startsWith(getInterfacePrefix()))) {
-						l.add(lastLink = new LinuxIP(name, this));
+						l.add(lastLink = new BrewOSXIP(name, this));
 						state = IpAddressState.MAC;
 					}
 				} else if (lastLink != null) {
 					r = r.trim();
 					if (state == IpAddressState.MAC) {
-						String[] a = r.split("\\s+");
-						if (a.length > 1) {
-							String mac = lastLink.getMac();
-							if (mac != null && !mac.equals(a[1]))
-								throw new IllegalStateException("Unexpected MAC.");
+						if(r.startsWith("ether ")) {
+							String[] a = r.split("\\s+");
+							if (a.length > 1) {
+								String mac = lastLink.getMac();
+								if (mac != null && !mac.equals(a[1]))
+									throw new IllegalStateException("Unexpected MAC.");
+							}
+							state = IpAddressState.IP;
 						}
-						state = IpAddressState.IP;
 					} else if (state == IpAddressState.IP) {
 						if (r.startsWith("inet ")) {
 							String[] a = r.split("\\s+");
@@ -143,8 +147,8 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		return l;
 	}
 
-	protected LinuxIP find(String name, Iterable<LinuxIP> links) {
-		for (LinuxIP link : links)
+	protected BrewOSXIP find(String name, Iterable<BrewOSXIP> links) {
+		for (BrewOSXIP link : links)
 			if (Objects.equals(name, link.getName()))
 				return link;
 		throw new IllegalArgumentException(String.format("No IP item %s", name));
@@ -169,14 +173,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 
 	@Override
 	public String[] getMissingPackages() {
-		if (new File("/etc/debian_version").exists()) {
-			Set<String> missing = new LinkedHashSet<>(Arrays.asList("wireguard-tools"));
-			if (OsUtil.doesCommandExist(getWGCommand()))
-				missing.remove("wireguard-tools");
-			return missing.toArray(new String[0]);
-		} else {
-			return new String[0];
-		}
+		return new String[0];
 	}
 
 	@Override
@@ -206,9 +203,18 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		};
 	}
 
+	boolean doesCommandExist(String command) {
+		for (String dir : System.getenv("PATH").split(File.pathSeparator)) {
+			File wg = new File(dir, command);
+			if (wg.exists())
+				return true;
+		}
+		return false;
+	}
+
 	@Override
-	protected LinuxIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
-		LinuxIP ip = new LinuxIP(nif.getName(), this);
+	protected BrewOSXIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
+		BrewOSXIP ip = new BrewOSXIP(nif.getName(), this);
 		for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
 			ip.getAddresses().add(addr.getAddress().toString());
 		}
@@ -216,27 +222,29 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	}
 
 	@Override
-	protected LinuxIP onConnect(VPNSession session, Connection configuration) throws IOException {
-		LinuxIP ip = null;
+	protected BrewOSXIP onConnect(VPNSession session, Connection configuration) throws IOException {
+		BrewOSXIP ip = null;
 
 		/*
 		 * Look for wireguard interfaces that are available but not connected. If we
 		 * find none, try to create one.
 		 */
 		int maxIface = -1;
+
+		List<BrewOSXIP> ips = ips(false);
 		for (int i = 0; i < MAX_INTERFACES; i++) {
 			String name = getInterfacePrefix() + i;
 			log.info(String.format("Looking for %s.", name));
-			if (exists(name, true)) {
+			if (exists(name, ips)) {
 				/* Interface exists, is it connected? */
 				String publicKey = getPublicKey(name);
-				if (publicKey == null) {
+				if (publicKey == null && new File("/var/run/wireguard/" + name + ".sock").exists()) {
 					/* No addresses, wireguard not using it */
 					log.info(String.format("%s is free.", name));
-					ip = get(name);
+					ip = find(name, ips);
 					maxIface = i;
 					break;
-				} else if (publicKey.equals(configuration.getUserPublicKey())) {
+				} else if (publicKey != null && publicKey.equals(configuration.getUserPublicKey())) {
 					throw new IllegalStateException(
 							String.format("Peer with public key %s on %s is already active.", publicKey, name));
 				} else {
@@ -262,10 +270,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		} else
 			log.info(String.format("Using %s", ip.getName()));
 
-		/* Set the address reserved */
-		ip.setAddresses(configuration.getAddress());
-
-		Path tempFile = Files.createTempFile(getWGCommand(), "cfg");
+		Path tempFile = Files.createTempFile("wg", "cfg");
 		try {
 			try (Writer writer = Files.newBufferedWriter(tempFile)) {
 				write(configuration, writer);
@@ -283,6 +288,10 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		 */
 		long connectionStarted = ((System.currentTimeMillis() / 1000l) - 1) * 1000l;
 
+		/* Set the address reserved */
+		log.info(String.format("Setting address %s on %s", configuration.getAddress(), ip.getName()));
+		ip.setAddresses(configuration.getAddress());
+
 		/* Bring up the interface (will set the given MTU) */
 		ip.setMtu(configuration.getMtu());
 		log.info(String.format("Bringing up %s", ip.getName()));
@@ -293,20 +302,27 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		 * we don't get a handshake in that time, then consider this a failed
 		 * connection. We don't know WHY, just it has failed
 		 */
-		log.info(String.format("Waiting for first handshake on %s", ip.getName()));
-		LinuxIP ok = waitForFirstHandshake(configuration, ip, connectionStarted);
-
-		/* DNS */
-		dns(configuration, ip);
+		log.info(String.format("Waiting for first handshake on %s (starts at %d)", ip.getName(), connectionStarted));
+		BrewOSXIP ok = waitForFirstHandshake(configuration, ip, connectionStarted);
 
 		/* Set the routes */
 		log.info(String.format("Setting routes for %s", ip.getName()));
 		setRoutes(session, ip);
+		
+		if(ip.isAutoRoute4() || ip.isAutoRoute6()) {
+			ip.setEndpointDirectRoute();
+		}
+		
+		/* DNS */
+		dns(configuration, ip);
+		
+//		monitor_daemon
+//		execute_hooks "${POST_UP[@]}"
 
 		return ok;
 	}
 
-	void setRoutes(VPNSession session, LinuxIP ip) throws IOException {
+	void setRoutes(VPNSession session, BrewOSXIP ip) throws IOException {
 
 		/* Set routes from the known allowed-ips supplies by Wireguard. */
 		session.getAllows().clear();
@@ -339,7 +355,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	}
 
 	@Override
-	public LinuxIP getByPublicKey(String publicKey) {
+	public BrewOSXIP getByPublicKey(String publicKey) {
 		// TODO Auto-generated method stub
 		throw new UnsupportedOperationException("TODO");
 	}

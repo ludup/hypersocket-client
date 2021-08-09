@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.dbus.Resolve1Manager;
+import com.logonbox.vpn.client.wireguard.AbstractVirtualInetAddress;
 import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
 import com.logonbox.vpn.client.wireguard.IpUtil;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
@@ -36,7 +37,7 @@ import com.sshtools.forker.client.ForkerProcess;
 import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.common.IO;
 
-public class LinuxIP implements VirtualInetAddress {
+public class LinuxIP extends AbstractVirtualInetAddress {
 	enum IpAddressState {
 		HEADER, IP, MAC
 	}
@@ -49,33 +50,29 @@ public class LinuxIP implements VirtualInetAddress {
 	private static final String END_HYPERSOCKET_WIREGUARD_RESOLVCONF = "###### END-HYPERSOCKET-WIREGUARD ######";
 	private static final String START_HYPERSOCKET_WIREGUARD_RESOLVECONF = "###### START-HYPERSOCKET-WIREGUARD ######";
 
-	Set<String> addresses = new LinkedHashSet<>();
+	private Set<String> addresses = new LinkedHashSet<>();
 
 	private boolean dnsSet;
 	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
-	private int mtu;
-	private String name;
-	private String peer;
 	private LinuxPlatformServiceImpl platform;
-	private String table = TABLE_AUTO;
 
-	public LinuxIP(String name, LinuxPlatformServiceImpl platform) {
+	public LinuxIP(String name, LinuxPlatformServiceImpl platform) {		
+		super(name);
 		this.platform = platform;
-		this.name = name;
 	}
 
 	public void addAddress(String address) throws IOException {
 		if (addresses.contains(address))
-			throw new IllegalStateException(String.format("Interface %s already has address %s", name, address));
-		if (addresses.size() > 0 && StringUtils.isNotBlank(peer))
+			throw new IllegalStateException(String.format("Interface %s already has address %s", getName(), address));
+		if (addresses.size() > 0 && StringUtils.isNotBlank(getPeer()))
 			throw new IllegalStateException(String.format(
-					"Interface %s is configured to have a single peer %s, so cannot add a second address %s", name,
-					peer, address));
+					"Interface %s is configured to have a single peer %s, so cannot add a second address %s", getName(),
+					getPeer(), address));
 
-		if (StringUtils.isNotBlank(peer))
-			OSCommand.adminCommand("ip", "address", "add", "dev", name, address, "peer", peer);
+		if (StringUtils.isNotBlank(getPeer()))
+			OSCommand.adminCommand("ip", "address", "add", "dev", getName(), address, "peer", getPeer());
 		else
-			OSCommand.adminCommand("ip", "address", "add", "dev", name, address);
+			OSCommand.adminCommand("ip", "address", "add", "dev", getName(), address);
 		addresses.add(address);
 	}
 
@@ -90,7 +87,7 @@ public class LinuxIP implements VirtualInetAddress {
 				unsetDns();
 		} else {
 			DNSIntegrationMethod method = calcDnsMethod();
-			LOG.info(String.format("Setting DNS for %s (iface prefix %s) to %s using %s", name,
+			LOG.info(String.format("Setting DNS for %s (iface prefix %s) to %s using %s", getName(),
 					platform.resolvconfIfacePrefix(), String.join(", ", dns), method));
 			switch (method) {
 			case RESOLVCONF:
@@ -137,65 +134,8 @@ public class LinuxIP implements VirtualInetAddress {
 		delete();
 	}
 
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (!super.equals(obj))
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		LinuxIP other = (LinuxIP) obj;
-		if (addresses == null) {
-			if (other.addresses != null)
-				return false;
-		} else if (!addresses.equals(other.addresses))
-			return false;
-		if (name == null) {
-			if (other.name != null)
-				return false;
-		} else if (!name.equals(other.name))
-			return false;
-		if (peer == null) {
-			if (other.peer != null)
-				return false;
-		} else if (!peer.equals(other.peer))
-			return false;
-		return true;
-	}
-
-	@Override
-	public int getMtu() {
-		return mtu;
-	}
-
-	@Override
-	public String getName() {
-		return name;
-	}
-
-	@Override
-	public String getPeer() {
-		return peer;
-	}
-
-	@Override
-	public String getTable() {
-		return table;
-	}
-
 	public boolean hasAddress(String address) {
 		return addresses.contains(address);
-	}
-
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = super.hashCode();
-		result = prime * result + ((addresses == null) ? 0 : addresses.hashCode());
-		result = prime * result + ((name == null) ? 0 : name.hashCode());
-		result = prime * result + ((peer == null) ? 0 : peer.hashCode());
-		return result;
 	}
 
 	@Override
@@ -214,11 +154,11 @@ public class LinuxIP implements VirtualInetAddress {
 
 	public void removeAddress(String address) throws IOException {
 		if (!addresses.contains(address))
-			throw new IllegalStateException(String.format("Interface %s not not have address %s", name, address));
-		if (addresses.size() > 0 && StringUtils.isNotBlank(peer))
+			throw new IllegalStateException(String.format("Interface %s not not have address %s", getName(), address));
+		if (addresses.size() > 0 && StringUtils.isNotBlank(getPeer()))
 			throw new IllegalStateException(String.format(
-					"Interface %s is configured to have a single peer %s, so cannot add a second address %s", name,
-					peer, address));
+					"Interface %s is configured to have a single peer %s, so cannot add a second address %s", getName(),
+					getPeer(), address));
 
 		OSCommand.adminCommand("ip", "address", "del", address, "dev", getName());
 		addresses.remove(address);
@@ -257,34 +197,24 @@ public class LinuxIP implements VirtualInetAddress {
 	}
 
 	@Override
-	public void setMtu(int mtu) {
-		this.mtu = mtu;
-	}
-
-	@Override
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	@Override
 	public void setPeer(String peer) {
-		if (!Objects.equals(peer, this.peer)) {
+		if (!Objects.equals(peer, this.getPeer())) {
 			if (StringUtils.isNotBlank(peer) && addresses.size() > 1)
 				throw new IllegalStateException(String.format(
 						"Interface %s is already configured to have multiple addresses, so cannot have a single peer %s",
-						name, peer));
-			this.peer = peer;
+						getName(), peer));
+			super.setPeer(peer);
 		}
 	}
 
 	public void setRoutes(Collection<String> allows) throws IOException {
 
 		/* Remove all the current routes for this interface */
-		for (String row : OSCommand.adminCommandAndCaptureOutput("ip", "route", "show", "dev", name)) {
+		for (String row : OSCommand.adminCommandAndCaptureOutput("ip", "route", "show", "dev", getName())) {
 			String[] l = row.split("\\s+");
 			if (l.length > 0) {
-				LOG.info(String.format("Removing route %s for %s", l[0], name));
-				OSCommand.adminCommand("ip", "route", "del", l[0], "dev", name);
+				LOG.info(String.format("Removing route %s for %s", l[0], getName()));
+				OSCommand.adminCommand("ip", "route", "del", l[0], "dev", getName());
 			}
 		}
 
@@ -294,19 +224,14 @@ public class LinuxIP implements VirtualInetAddress {
 	}
 
 	@Override
-	public void setTable(String table) {
-		this.table = table;
-	}
-
-	@Override
 	public String toString() {
-		return "Ip [name=" + name + ", addresses=" + addresses + ", peer=" + peer + "]";
+		return "Ip [name=" + getName() + ", addresses=" + addresses + ", peer=" + getPeer() + "]";
 	}
 
 	@Override
 	public void up() throws IOException {
-		if (mtu > 0) {
-			OSCommand.adminCommand("ip", "link", "set", "mtu", String.valueOf(mtu), "up", "dev", getName());
+		if (getMtu() > 0) {
+			OSCommand.adminCommand("ip", "link", "set", "mtu", String.valueOf(getMtu()), "up", "dev", getName());
 		} else {
 			/*
 			 * First detect MTU, then bring up. First try from existing Wireguard
@@ -366,14 +291,14 @@ public class LinuxIP implements VirtualInetAddress {
 			if(args.length > 1) {
 				try {
 					int idx = Integer.parseInt(args[0].trim());
-					if(args[1].trim().equals(name))
+					if(args[1].trim().equals(getName()))
 						return idx;
 				}
 				catch(Exception e) {
 				}
 			}
 		}
-		throw new IOException(String.format("Could not find interface index for %s", name));
+		throw new IOException(String.format("Could not find interface index for %s", getName()));
 	}
 
 	private void addDefault(String route) {
@@ -382,18 +307,18 @@ public class LinuxIP implements VirtualInetAddress {
 
 	private void addRoute(String route) throws IOException {
 		String proto = "-4";
-		if (route.equals("*:*"))
+		if (route.matches(".*:.*"))
 			proto = "-6";
-		if (TABLE_OFF.equals(table))
+		if (TABLE_OFF.equals(getTable()))
 			return;
-		if (!TABLE_AUTO.equals(table)) {
-			OSCommand.adminCommand("ip", proto, "route", "add", route, "dev", name, "table", table);
-		} else if ("*/0".equals(route)) {
+		if (!TABLE_AUTO.equals(getTable())) {
+			OSCommand.adminCommand("ip", proto, "route", "add", route, "dev", getName(), "table", getTable());
+		} else if (route.endsWith("/0")) {
 			addDefault(route);
 		} else {
 			try {
 				String res = OSCommand
-						.adminCommandAndCaptureOutput("ip", proto, "route", "show", "dev", name, "match", route)
+						.adminCommandAndCaptureOutput("ip", proto, "route", "show", "dev", getName(), "match", route)
 						.iterator().next();
 				if (StringUtils.isNotBlank(res)) {
 					// Already have
@@ -401,8 +326,8 @@ public class LinuxIP implements VirtualInetAddress {
 				}
 			} catch (Exception e) {
 			}
-			LOG.info(String.format("Adding route %s to %s for %s", route, name, proto));
-			OSCommand.adminCommand("ip", proto, "route", "add", route, "dev", name);
+			LOG.info(String.format("Adding route %s to %s for %s", route, getName(), proto));
+			OSCommand.adminCommand("ip", proto, "route", "add", route, "dev", getName());
 		}
 	}
 
@@ -429,10 +354,10 @@ public class LinuxIP implements VirtualInetAddress {
 
 	private void unsetDns() throws IOException {
 		try {
-			LOG.info(String.format("unsetting DNS for %s (iface prefix %s)", name, platform.resolvconfIfacePrefix()));
+			LOG.info(String.format("unsetting DNS for %s (iface prefix %s)", getName(), platform.resolvconfIfacePrefix()));
 			switch (calcDnsMethod()) {
 			case RESOLVCONF:
-				OSCommand.adminCommand("resolvconf", "-d", platform.resolvconfIfacePrefix() + name, "-f");
+				OSCommand.adminCommand("resolvconf", "-d", platform.resolvconfIfacePrefix() + getName(), "-f");
 				break;
 			case SYSTEMD:
 				updateSystemd(null);
@@ -466,7 +391,7 @@ public class LinuxIP implements VirtualInetAddress {
 	}
 
 	private void updateResolvConf(String[] dns) throws IOException {
-		ForkerBuilder b = new ForkerBuilder("resolvconf", "-a", platform.resolvconfIfacePrefix() + name, "-m", "0",
+		ForkerBuilder b = new ForkerBuilder("resolvconf", "-a", platform.resolvconfIfacePrefix() + getName(), "-m", "0",
 				"-x");
 		b.redirectErrorStream(true);
 		b.io(IO.IO);
@@ -573,5 +498,9 @@ public class LinuxIP implements VirtualInetAddress {
 		} catch (IOException ioe) {
 			return "Unknown";
 		}
+	}
+
+	public Set<String> getAddresses() {
+		return addresses;
 	}
 }

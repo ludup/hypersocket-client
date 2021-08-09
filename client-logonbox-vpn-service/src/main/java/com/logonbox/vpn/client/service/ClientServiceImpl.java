@@ -785,6 +785,15 @@ public class ClientServiceImpl implements ClientService {
 			update(true);
 		}, UPDATE_SERVER_POLL_INTERVAL, UPDATE_SERVER_POLL_INTERVAL, TimeUnit.MILLISECONDS);
 
+
+		Collection<VPNSession> toStart = getContext().getPlatformService().start(getContext());
+		if (!toStart.isEmpty()) {
+			log.warn(String.format("%d connections already active.", toStart.size()));
+		}
+		for (VPNSession session : toStart) {
+			activeSessions.put(session.getConnection(), session);
+		}
+
 		if ((!isTrackServerVersion() || connectionRepository.getConnections(null).size() > 0)) {
 			/*
 			 * Do updates if we are not tracking the server version or if there are some
@@ -807,14 +816,6 @@ public class ClientServiceImpl implements ClientService {
 			} catch (Exception e) {
 				log.info(String.format("Extension versions not checked."), e);
 			}
-		}
-
-		Collection<VPNSession> toStart = getContext().getPlatformService().start(getContext());
-		if (!toStart.isEmpty()) {
-			log.warn(String.format("Not starting %d connections until update is done.", toStart.size()));
-		}
-		for (VPNSession session : toStart) {
-			activeSessions.put(session.getConnection(), session);
 		}
 
 	}
