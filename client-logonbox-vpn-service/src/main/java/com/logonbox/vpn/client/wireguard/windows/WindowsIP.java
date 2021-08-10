@@ -155,18 +155,44 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 		if(dnsAddresses.length > 2) {
 			LOG.warn("Windows only supports a maximum of 2 DNS servers. %d were supplied, the last %d will be ignored.", dnsAddresses.length, dnsAddresses.length - 2);
 		}
-		if(dns != null && dns.length > 1) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", dns[0], "secondary");	
+		if(dnsAddresses.length > 1) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", dnsAddresses[0], "secondary");	
 		} 
-		else if(dns != null && dns.length < 2) {
+		else if(dnsAddresses.length < 2) {
 			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", "none", "secondary");	
 		}
-		if(dns != null && dns.length > 0) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", dns[0], "primary");	
+		if(dnsAddresses.length > 0) {
+			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", dnsAddresses[0], "primary");	
 		} 
-		else if(dns != null && dns.length < 1) {
+		else if(dnsAddresses.length < 1) {
 			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", "none", "primary");	
+		}
 
+		String[] dnsNames = IpUtil.filterNames(dns);
+		String currentDomains = null;
+		try {
+			currentDomains = Advapi32Util.registryGetStringValue
+	                (WinReg.HKEY_LOCAL_MACHINE,
+	                        "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList");
+		}
+		catch(Exception e) {
+			//
+		}
+		Set<String> newDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
+		for(String dnsName : dnsNames) {
+			if(!newDomainList.contains(dnsName)) {
+				LOG.info(String.format("Adding domain %s to search", dnsName));
+				newDomainList.add(dnsName);
+			}
+		}
+		String newDomains = String.join(",", newDomainList);
+		if(!Objects.equals(currentDomains, newDomains)) {
+			domainsAdded.clear();
+			domainsAdded.addAll(newDomainList);
+			LOG.info(String.format("Final domain search %s", newDomains));
+			Advapi32Util.registrySetStringValue
+            (WinReg.HKEY_LOCAL_MACHINE,
+                    "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList", newDomains);
 		}
 	}
 
