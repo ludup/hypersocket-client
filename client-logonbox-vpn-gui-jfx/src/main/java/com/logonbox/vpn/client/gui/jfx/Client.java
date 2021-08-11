@@ -283,8 +283,12 @@ public class Client extends Application implements X509TrustManager {
 			we.consume();
 		});
 
-		if (!Main.getInstance().isNoSystemTray())
-			tray = new DorkBoxTray(this);
+		if (!Main.getInstance().isNoSystemTray()) {
+			if(com.sun.jna.Platform.isMac())
+				tray = new AWTTray(this);
+			else
+				tray = new DorkBoxTray(this);
+		}
 		
         final SplashScreen splash = SplashScreen.getSplashScreen();
         if (splash != null) {
