@@ -173,11 +173,11 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				System.exit(3);
 			}
 
-			if (!configureDBus()) {
+			if (!startServices()) {
 				System.exit(3);
 			}
 
-			if (!startServices()) {
+			if (!configureDBus()) {
 				System.exit(3);
 			}
 

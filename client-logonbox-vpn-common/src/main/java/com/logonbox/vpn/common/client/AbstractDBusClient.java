@@ -73,11 +73,10 @@ public abstract class AbstractDBusClient implements DBusClient {
 		scheduler = Executors.newScheduledThreadPool(1);
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
-				if(vpn != null) {
+				if (vpn != null) {
 					try {
 						vpn.deregister();
-					}
-					catch(Exception e) {
+					} catch (Exception e) {
 						log.warn("De-registrating failed. Maybe service is already gone.");
 					}
 				}
@@ -140,24 +139,31 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	protected void init() throws Exception {
+		if (vpn != null) {
+			log.debug("Call to init when already have bus.");
+			return;
+		}
 
-		log.debug("Getting bus.");
 		String busAddress = this.busAddress;
 		if (StringUtils.isNotBlank(busAddress)) {
+			log.debug("Getting bus. " + this.busAddress);
 			conn = DBusConnection.getConnection(busAddress);
 		} else {
 			if (sessionBus) {
+				log.info("Getting session bus.");
 				conn = DBusConnection.getConnection(DBusBusType.SESSION);
 			} else {
 				String fixedAddress = getServerDBusAddress();
 				if (fixedAddress == null) {
+					log.info("Getting system bus.");
 					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
 				} else {
+					log.info("Getting fixed bus " + fixedAddress);
 					conn = DBusConnection.getConnection(fixedAddress);
 				}
 			}
 		}
-		log.debug("Got bus connection.");
+		log.info("Got bus connection.");
 
 		conn.addSigHandler(new DBusMatchRule((String) null, "org.freedesktop.DBus.Local", "Disconnected"),
 				new DBusSigHandler<Local.Disconnected>() {
@@ -185,28 +191,34 @@ public abstract class AbstractDBusClient implements DBusClient {
 				} catch (UnknownObject | DBusException | ServiceUnknown dbe) {
 					busGone();
 				} catch (RuntimeException re) {
+					re.printStackTrace();
 					throw re;
 				} catch (Exception e) {
+					e.printStackTrace();
 					throw new IllegalStateException("Failed to initialize.", e);
 				}
 			}
 		}
 	}
 
-	private void loadRemote() throws DBusException { 
+	private void loadRemote() throws DBusException {
 		vpn = conn.getRemoteObject(BUS_NAME, ROOT_OBJECT_PATH, VPN.class);
 		ExtensionPlace place = ExtensionPlace.getDefault();
+		log.info("Registering with DBus.");
 		vpn.register(System.getProperty("user.name"), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
 				place.getUrls().stream().map(placeUrl -> placeUrl.toExternalForm()).collect(Collectors.toList())
-						.toArray(new String[0]), supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()), target.name());
+						.toArray(new String[0]),
+				supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()), target.name());
 		busAvailable = true;
 		log.info("Registered with DBus.");
 		pingTask = scheduler.scheduleAtFixedRate(() -> {
-			if (vpn != null) {
-				try {
-					vpn.ping();
-				} catch (Exception e) {
-					busGone();
+			synchronized(initLock) {
+				if (vpn != null) {
+					try {
+						vpn.ping();
+					} catch (Exception e) {
+						busGone();
+					}
 				}
 			}
 		}, 5, 5, TimeUnit.SECONDS);
@@ -214,7 +226,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 	private Map<String, String> toStringMap(Map<String, File> bootstrapArchives) {
 		Map<String, String> map = new HashMap<String, String>();
-		for(Map.Entry<String, File> en : bootstrapArchives.entrySet()) { 
+		for (Map.Entry<String, File> en : bootstrapArchives.entrySet()) {
 			map.put(en.getKey(), en.getValue().getAbsolutePath());
 		}
 		return map;
@@ -229,30 +241,36 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	private void busGone() {
-		cancelPingTask();
+		synchronized (initLock) {
+			cancelPingTask();
 
-		if (busAvailable) {
-			busAvailable = false;
-			vpn = null;
-			for (BusLifecycleListener b : busLifecycleListeners) {
-				b.busGone();
+			if (busAvailable) {
+				busAvailable = false;
+				vpn = null;
+				for (BusLifecycleListener b : busLifecycleListeners) {
+					b.busGone();
+				}
 			}
+
+			/*
+			 * Only really likely to happen with the embedded bus. As the service itself
+			 * hosts it.
+			 */
+			scheduler.schedule(() -> {
+				synchronized (initLock) {
+					try {
+						init();
+					} catch (DBusException | ServiceUnknown dbe) {
+						if(log.isDebugEnabled())
+							log.debug("Init() failed, retrying");
+						busGone();
+					} catch (RuntimeException re) {
+						throw re;
+					} catch (Exception e) {
+						throw new IllegalStateException("Failed to schedule new connection.", e);
+					}
+				}
+			}, 5, TimeUnit.SECONDS);
 		}
-
-		/*
-		 * Only really likely to happen with the embedded bus. As the service itself
-		 * hosts it.
-		 */
-		scheduler.schedule(() -> {
-			try {
-				init();
-			} catch (DBusException | ServiceUnknown dbe) {
-				busGone();
-			} catch (RuntimeException re) {
-				throw re;
-			} catch (Exception e) {
-				throw new IllegalStateException("Failed to schedule new connection.", e);
-			}
-		}, 5, TimeUnit.SECONDS);
 	}
 }

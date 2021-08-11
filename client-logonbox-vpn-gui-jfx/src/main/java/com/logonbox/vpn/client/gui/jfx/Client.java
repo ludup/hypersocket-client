@@ -284,7 +284,7 @@ public class Client extends Application implements X509TrustManager {
 		});
 
 		if (!Main.getInstance().isNoSystemTray()) {
-			if(com.sun.jna.Platform.isMac())
+			if(System.getProperty("logonbox.vpn.useAWTTray", "false").equals("true"))
 				tray = new AWTTray(this);
 			else
 				tray = new DorkBoxTray(this);

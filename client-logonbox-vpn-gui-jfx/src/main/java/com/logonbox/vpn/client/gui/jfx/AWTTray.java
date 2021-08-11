@@ -34,10 +34,6 @@ public class AWTTray extends AbstractTray {
 	public AWTTray(Client context) throws Exception {
 		super(context);
 		SwingUtilities.invokeLater(() -> adjustTray(false, Collections.emptyList()));
-		context.getDBus().addBusLifecycleListener(this);
-		Configuration.getDefault().trayModeProperty().addListener((e, o, n) -> {
-			reload();
-		});
 	}
 
 	@Override
@@ -56,8 +52,8 @@ public class AWTTray extends AbstractTray {
 	protected void reload() {
 		SwingUtilities.invokeLater(() -> {
 			try {
-				List<VPNConnection> conx = context.getDBus().getVPNConnections();
 				boolean connected = context.getDBus().isBusAvailable();
+				List<VPNConnection> conx = connected ? context.getDBus().getVPNConnections() : Collections.emptyList();
 				rebuildMenu(connected, conx);
 				setImage(connected, conx);
 			} catch (Exception re) {

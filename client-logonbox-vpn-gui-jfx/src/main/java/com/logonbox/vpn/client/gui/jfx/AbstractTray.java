@@ -205,8 +205,6 @@ public abstract class AbstractTray implements AutoCloseable, Tray, BusLifecycleL
 							reload();
 						}
 					});
-
-			reload();
 		} catch (DBusException dbe) {
 			throw new IllegalStateException("Failed to configure.", dbe);
 		}

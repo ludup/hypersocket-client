@@ -32,6 +32,7 @@ import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 
@@ -231,6 +232,19 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			return connection == null ? null : MessageFormat.format(resources.getString("usageDetail"), Util.toHumanSize(connection.getRx()), Util.toHumanSize(connection.getTx()));
 		}
 	}
+	
+	class BrandingCacheItem {
+		Branding branding;
+		long loaded = System.currentTimeMillis();
+		
+		BrandingCacheItem(Branding branding) {
+			this.branding = branding;
+		}
+
+		boolean isExpired() {
+			return System.currentTimeMillis() > loaded + TimeUnit.MINUTES.toMillis(10);
+		}
+	}
 
 	final static ResourceBundle bundle = ResourceBundle.getBundle(UI.class.getName());
 
@@ -261,6 +275,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private boolean awaitingRestart;
 	private Branding branding;
 	private Map<String, Collection<String>> collections = new HashMap<>();
+	private Map<VPNConnection, BrandingCacheItem> brandingCache = new HashMap<>();
 	private List<VPNConnection> connecting = new ArrayList<>();
 	private boolean deleteOnDisconnect;
 	private String htmlPage;
@@ -1714,13 +1729,28 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	protected Branding getBrandingForConnection(ObjectMapper mapper, VPNConnection connection)
 			throws UnknownHostException, IOException, JsonProcessingException, JsonMappingException {
-		URL url = new URL(connection.getUri(false) + "/api/brand/info");
-		URLConnection urlConnection = url.openConnection();
-		try (InputStream in = urlConnection.getInputStream()) {
-			Branding brandingObj = mapper.readValue(in, Branding.class);
-			brandingObj.setLogo("https://" + connection.getHostname() + ":" + connection.getPort()
-					+ connection.getPath() + "/api/brand/logo");
-			return brandingObj;
+		synchronized(brandingCache) {
+			BrandingCacheItem item = brandingCache.get(connection);
+			if(item != null && item.isExpired() ) {
+				item = null;
+			}
+			if(item == null) {
+				item = new BrandingCacheItem(branding);
+				brandingCache.put(connection, item);
+				String uri = connection.getUri(false) + "/api/brand/info";
+				log.info(String.format("Retrieving branding from %s", uri));
+				URL url = new URL(uri);
+				URLConnection urlConnection = url.openConnection();
+				urlConnection.setConnectTimeout((int)TimeUnit.SECONDS.toMillis(10));
+				urlConnection.setReadTimeout((int)TimeUnit.SECONDS.toMillis(10));
+				try (InputStream in = urlConnection.getInputStream()) {
+					Branding brandingObj = mapper.readValue(in, Branding.class);
+					brandingObj.setLogo("https://" + connection.getHostname() + ":" + connection.getPort()
+							+ connection.getPath() + "/api/brand/logo");
+					item.branding = brandingObj;
+				}
+			}
+			return item.branding;
 		}
 	}
 }

@@ -487,6 +487,8 @@ public class ClientServiceImpl implements ClientService {
 				if (log.isDebugEnabled())
 					log.info(String.format("Trying %s.", url));
 				URLConnection urlConnection = url.openConnection();
+				urlConnection.setConnectTimeout((int)TimeUnit.SECONDS.toMillis(10));
+				urlConnection.setReadTimeout((int)TimeUnit.SECONDS.toMillis(10));
 				try (InputStream in = urlConnection.getInputStream()) {
 					JsonExtensionUpdate extensionUpdate = mapper.readValue(in, JsonExtensionUpdate.class);
 					Version version = new Version(extensionUpdate.getResource().getCurrentVersion());
