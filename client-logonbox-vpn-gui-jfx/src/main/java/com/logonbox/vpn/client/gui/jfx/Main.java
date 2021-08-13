@@ -111,6 +111,10 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	 * technique!). Because we are launched from BoostrapMain, this is what it
 	 * detects. To work around this LauncherImpl.launchApplication() is used
 	 * directly, which is an internal API.
+	 * 
+	 * TODO With the new forker arrangement, this is no longer the case. So
+	 *      check if this is still required.  This is one of the reasons for 
+	 *      the new bootstrap arrangement.
 	 */
 	public Integer call() throws Exception {
 		com.sun.javafx.application.LauncherImpl.launchApplication(Client.class, null, new String[0]);
