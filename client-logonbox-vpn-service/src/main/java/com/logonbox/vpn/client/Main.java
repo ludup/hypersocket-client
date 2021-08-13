@@ -5,14 +5,20 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -30,12 +36,15 @@ import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.freedesktop.dbus.bin.EmbeddedDBusDaemon;
 import org.freedesktop.dbus.connections.BusAddress;
+import org.freedesktop.dbus.connections.BusAddress.AddressBusTypes;
+import org.freedesktop.dbus.connections.SASL;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
 import org.freedesktop.dbus.connections.impl.DirectConnection;
 import org.freedesktop.dbus.connections.transports.TransportFactory;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.messages.Message;
+import org.freedesktop.dbus.utils.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +69,7 @@ import com.logonbox.vpn.common.client.ConnectionRepository;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 import com.sshtools.forker.common.OS;
+import com.sun.jna.Platform;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -113,6 +123,10 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	@Option(names = { "-t",
 			"--tcp-bus" }, description = "Force use of TCP DBus service. Usually it is enabled by default for anything other than Linux.")
 	private boolean tcpBus;
+
+	@Option(names = { "-u",
+			"--auth" }, description = "Mask of SASL authentication method to use.")
+	private int authTypes= SASL.AUTH_ANON;
 	
 	public Main() throws Exception {
 		instance = this;
@@ -331,8 +345,9 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				busAddress = new BusAddress(address);
 			}
 
-			log.info(String.format("Starting embedded bus on address %s", busAddress.getRawAddress()));
+			log.info(String.format("Starting embedded bus on address %s (auth types: %s)", busAddress.getRawAddress(), toAuthTypesString(authTypes)));
 			daemon = new EmbeddedDBusDaemon();
+			daemon.setAuthTypes(authTypes);
 			daemon.setAddress(busAddress);
 			daemon.startInBackground();
 			log.info(String.format("Started embedded bus on address %s", busAddress.getRawAddress()));
@@ -348,6 +363,16 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 						throw dbe;
 					Thread.sleep(500);
 				}
+			}
+			
+			/* Not ideal but we need read / write access to the domain socket from
+			 * non-root users. 
+			 * 
+			 * TODO secure this a bit. at least use a group permission
+			 */
+			if( ( Platform.isLinux() || Util.isMacOs() ) && busAddress.getBusType().equals(AddressBusTypes.UNIX)) {
+				Path path = Paths.get(busAddress.getPath());
+				Files.setPosixFilePermissions(path, new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
 			}
 		}
 		log.info(String.format("Requesting name from Bus %s", address));
@@ -365,6 +390,23 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			return false;
 		}
 		return true;
+	}
+
+	private String toAuthTypesString(int authTypes) {
+		List<String> l = new ArrayList<>();
+		if((authTypes & SASL.AUTH_ANON) > 0) {
+			l.add("ANON");
+		}
+		if((authTypes & SASL.AUTH_EXTERNAL) > 0) {
+			l.add("EXTERNAL");
+		}
+		if((authTypes & SASL.AUTH_SHA) > 0) {
+			l.add("SHA");
+		}
+		if((authTypes & SASL.AUTH_NONE) > 0) {
+			l.add("NONE");
+		}
+		return String.join(",", l);
 	}
 
 	private boolean startServices() {

@@ -113,6 +113,8 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 	public VPN getVPN() {
 		lazyInit();
+		if(vpn == null)
+			throw new IllegalStateException("Bus not available.");
 		return vpn;
 	}
 

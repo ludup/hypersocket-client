@@ -104,9 +104,15 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 	public void about() throws IOException {
 		PrintWriter writer = getConsole().out();
 		writer.println(String.format("CLI Version: %s", HypersocketVersion.getVersion("com.logonbox/client-logonbox-vpn-cli")));
-		writer.println(String.format("Service Version: %s", getVPN().getVersion()));
-		writer.println(String.format("Device Name: %s", getVPN().getDeviceName()));
-		writer.println(String.format("Device UUID: %s", getVPN().getUUID()));
+		try {
+			VPN vpn = getVPN();
+			writer.println(String.format("Service Version: %s", vpn.getVersion()));
+			writer.println(String.format("Device Name: %s", vpn.getDeviceName()));
+			writer.println(String.format("Device UUID: %s", vpn.getUUID()));
+		}
+		catch(IllegalStateException ise) {
+			writer.println("Service not available.");
+		}
 	}
 
 	@Override
@@ -136,7 +142,6 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 				}
 			} while (!exitWhenDone);
 		} catch (Exception e1) {
-			e1.printStackTrace();
 			throw new IllegalStateException("Failed to open console.", e1);
 		} finally {
 			exitCLI();
