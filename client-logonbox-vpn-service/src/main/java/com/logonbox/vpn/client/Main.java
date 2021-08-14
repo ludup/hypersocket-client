@@ -56,11 +56,9 @@ import com.logonbox.vpn.client.service.ClientServiceImpl;
 import com.logonbox.vpn.client.service.ConfigurationRepositoryImpl;
 import com.logonbox.vpn.client.service.updates.ClientUpdater;
 import com.logonbox.vpn.client.service.vpn.ConnectionRepositoryImpl;
-import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.client.wireguard.linux.LinuxPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.osx.BrewOSXPlatformServiceImpl;
-import com.logonbox.vpn.client.wireguard.osx.OSXPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.windows.WindowsPlatformServiceImpl;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.ConfigurationRepository;
@@ -135,10 +133,10 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		} else if (SystemUtils.IS_OS_WINDOWS) {
 			platform = new WindowsPlatformServiceImpl();
 		} else if (SystemUtils.IS_OS_MAC_OSX) {
-			if(OsUtil.doesCommandExist("wg"))
+//			if(OsUtil.doesCommandExist("wg"))
 				platform = new BrewOSXPlatformServiceImpl();
-			else
-				platform = new OSXPlatformServiceImpl();
+//			else
+//				platform = new OSXPlatformServiceImpl();
 		} else
 			throw new UnsupportedOperationException(
 					String.format("%s not currently supported.", System.getProperty("os.name")));
@@ -182,6 +180,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 		try {
 			log.info(String.format("LogonBox VPN Client, version %s", HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS)));
+			log.info(String.format("OS: %s", System.getProperty("os.name") + " / " + System.getProperty("os.arch")));
 
 			if (!buildServices()) {
 				System.exit(3);

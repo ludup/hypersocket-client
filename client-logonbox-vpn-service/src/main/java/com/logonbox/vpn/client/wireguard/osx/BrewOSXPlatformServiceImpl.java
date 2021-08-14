@@ -21,11 +21,15 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
+import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.StatusDetail;
 import com.sshtools.forker.client.OSCommand;
+
+import jnr.posix.util.Platform;
 
 public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<BrewOSXIP> {
 
@@ -40,12 +44,43 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 
 	static Object lock = new Object();
 
+	private Path wgCommandPath;
+	private Path wgGoCommandPath;
+
 	public BrewOSXPlatformServiceImpl() {
 		super(INTERFACE_PREFIX);
 	}
 
+	@Override
+	protected void beforeStart(LocalContext ctx) {
+		
+		/* Detect or extract the binaries for this platform */
+		wgCommandPath = OsUtil.getPathOfCommandInPath("wg");
+		wgGoCommandPath = OsUtil.getPathOfCommandInPath("wireguard-go");
+		
+		if(wgCommandPath == null) {
+			try {
+				wgCommandPath = extractCommand("macosx", Platform.IS_64_BIT ? "x86-64" : "x86", "wg");
+			} catch (IOException e) {
+				LOG.error("Failed to extract bundled wireguard components.", e);
+			}
+		}
+		else
+			LOG.info(String.format("Found 'wg' at %s", wgCommandPath));
+		
+		if(wgGoCommandPath == null) {
+			try {
+				wgGoCommandPath = extractCommand("macosx", Platform.IS_64_BIT ? "x86-64" : "x86", "wireguard-go");
+			} catch (IOException e) {
+				LOG.error("Failed to extract bundled wireguard components.", e);
+			}
+		}
+		else
+			LOG.info(String.format("Found 'wireguard-go' at %s", wgGoCommandPath));
+	}
+
 	protected BrewOSXIP add(String name, String type) throws IOException {
-		OSCommand.adminCommand("/usr/local/bin/wireguard-go", name);
+		OSCommand.adminCommand(wgGoCommandPath.toString(), name);
 		return find(name, ips(false));
 	}
 
@@ -99,7 +134,7 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 	}
 	
 	protected String getWGCommand() {
-		return "/usr/local/bin/wg";
+		return wgCommandPath == null ? null : wgCommandPath.toString();
 	}
 
 	@Override
@@ -173,6 +208,12 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 
 	@Override
 	public String[] getMissingPackages() {
+		if(wgCommandPath == null && wgGoCommandPath == null)
+			return new String[] {"wireguard" };
+		else if(wgCommandPath == null)
+			return new String[] {"wg" };
+		else if(wgCommandPath == null)
+			return new String[] {"wireguard-go" };
 		return new String[0];
 	}
 

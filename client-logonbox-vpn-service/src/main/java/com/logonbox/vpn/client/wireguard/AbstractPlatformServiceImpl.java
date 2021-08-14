@@ -2,13 +2,19 @@ package com.logonbox.vpn.client.wireguard;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.net.NetworkInterface;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,9 +38,30 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	final static Logger LOG = LoggerFactory.getLogger(AbstractPlatformServiceImpl.class);
 	
 	private String interfacePrefix;
+	protected Path tempCommandDir;
 	
 	protected AbstractPlatformServiceImpl(String interfacePrefix) {
 		this.interfacePrefix = interfacePrefix;
+	}
+
+	protected Path extractCommand(String platform, String arch, String name) throws IOException {
+		LOG.info(String.format("Extracting command %s for platform %s on arch %s", name, platform, arch));
+		try(InputStream in = getClass().getResource("/" + platform + "-" + arch + "/" + name).openStream()) {
+			Path path = getTempCommandDir().resolve(name);
+			try(OutputStream out = Files.newOutputStream(path)) {
+				in.transferTo(out);
+			}
+			path.toFile().deleteOnExit();
+			Files.setPosixFilePermissions(path, new LinkedHashSet<>(Arrays.asList(PosixFilePermission.OWNER_EXECUTE, PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)));
+			LOG.info(String.format("Extracted command %s for platform %s on arch %s to %s", name, platform, arch, path));
+			return path;
+		}
+	}
+
+	protected Path getTempCommandDir() throws IOException {
+		if(tempCommandDir == null)
+			tempCommandDir = Files.createTempDirectory("vpn");
+		return tempCommandDir;
 	}
 
 	@Override
@@ -116,6 +143,8 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	
 	@Override
 	public final Collection<VPNSession> start(LocalContext ctx) {
+		LOG.info(String.format("Starting platform services %s", getClass().getName()));
+		beforeStart(ctx);
 
 		/*
 		 * Look for wireguard already existing interfaces, checking if they are
@@ -164,6 +193,9 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	@Override
 	public StatusDetail status(String iface) throws IOException {
 		return new WireguardPipe(iface);
+	}
+	
+	protected void beforeStart(LocalContext ctx) {
 	}
 	
 	protected Collection<VPNSession> onStart(LocalContext ctx, List<VPNSession> sessions) {
