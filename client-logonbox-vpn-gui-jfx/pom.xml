@@ -89,7 +89,7 @@
 		<dependency>
 			<groupId>com.github.hypfvieh</groupId>
 			<artifactId>dbus-java</artifactId>
-			<version>3.3.1-SNAPSHOT</version>
+			<version>3.3.1-LB-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.kordamp.bootstrapfx</groupId>
