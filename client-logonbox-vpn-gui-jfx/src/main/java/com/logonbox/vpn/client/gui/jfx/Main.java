@@ -1,13 +1,12 @@
 package com.logonbox.vpn.client.gui.jfx;
 
-import java.awt.Image;
+import java.awt.Taskbar;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 
 import javax.swing.UIManager;
 
-import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,17 +74,13 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 		instance = this;
 		setSupportsAuthorization(true);
 
-		// http://stackoverflow.com/questions/24159825/changing-application-dock-icon-javafx-programatically
-		try {
-			if (SystemUtils.IS_OS_MAC_OSX) {
-				Class<?> appClazz = Class.forName("com.apple.eawt.Application");
-				Object app = appClazz.getMethod("getApplication").invoke(null);
-				appClazz.getMethod("setDockIconImage", Image.class).invoke(app, java.awt.Toolkit.getDefaultToolkit()
-						.getImage(Main.class.getResource("logonbox-icon128x128.png")));
-			}
-		} catch (Exception e) {
-			// Won't work on Windows or Linux.
-		}
+		final Taskbar taskbar = Taskbar.getTaskbar();
+        try {
+            taskbar.setIconImage(java.awt.Toolkit.getDefaultToolkit()
+					.getImage(Main.class.getResource("logonbox-icon128x128.png")));
+        } catch (final UnsupportedOperationException e) {
+        } catch (final SecurityException e) {
+        }
 
 		String logConfigPath = System.getProperty("hypersocket.logConfiguration", "");
 		if (logConfigPath.equals("")) {

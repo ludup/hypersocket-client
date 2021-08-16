@@ -78,6 +78,7 @@ public class AWTTray extends AbstractTray {
 		Type status = Type.valueOf(device.getStatus());
 		if (status == Type.CONNECTED) {
 			var disconnectDev = new MenuItem(bundle.getString("disconnect"));
+			disconnectDev.setShortcut(new MenuShortcut('d'));
 			disconnectDev.addActionListener((e) -> {
 				context.getOpQueue().execute(() -> device.disconnect(""));
 			});
@@ -85,6 +86,7 @@ public class AWTTray extends AbstractTray {
 			menuEntries.add(disconnectDev);
 		} else if (devs.size() > 0 && status == Type.DISCONNECTED) {
 			var openDev = new MenuItem(bundle.getString("connect"));
+			openDev.setShortcut(new MenuShortcut('c'));
 			openDev.addActionListener((e) -> Platform.runLater(() -> {
 				context.getOpQueue().execute(() -> device.connect());
 			}));
@@ -176,15 +178,17 @@ public class AWTTray extends AbstractTray {
 
 			var options = new MenuItem(bundle.getString("options"));
 			options.addActionListener((e) -> context.options());
+			options.setShortcut(new MenuShortcut('o'));
 			menuEntries.add(options);
-			menu.add(options).setShortcut(new MenuShortcut('o'));
+			menu.add(options);
 
 			var quit = new MenuItem(bundle.getString("quit"));
+			quit.setShortcut(new MenuShortcut('q'));
 			quit.addActionListener((e) -> {
 				Platform.runLater(() -> context.confirmExit());
 			});
 			menuEntries.add(quit);
-			menu.add(quit).setShortcut(new MenuShortcut('q'));
+			menu.add(quit);
 		}
 	}
 

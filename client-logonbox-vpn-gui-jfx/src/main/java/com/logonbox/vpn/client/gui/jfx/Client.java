@@ -33,6 +33,7 @@ import javax.net.ssl.X509TrustManager;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.PropertyConfigurator;
+import org.freedesktop.dbus.utils.Util;
 import org.kordamp.bootstrapfx.BootstrapFX;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +60,7 @@ import javafx.scene.image.Image;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Modality;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -284,7 +286,8 @@ public class Client extends Application implements X509TrustManager {
 		});
 
 		if (!Main.getInstance().isNoSystemTray()) {
-			if(System.getProperty("logonbox.vpn.useAWTTray", "false").equals("true"))
+			if(System.getProperty("logonbox.vpn.useAWTTray", "false").equals("true") || (
+					Util.isMacOs() && isHidpi()))
 				tray = new AWTTray(this);
 			else
 				tray = new DorkBoxTray(this);
@@ -294,6 +297,11 @@ public class Client extends Application implements X509TrustManager {
         if (splash != null) {
         	splash.close();
         }
+	}
+
+	private boolean isHidpi() {
+		System.out.println("DPI is " + Screen.getPrimary().getDpi());
+		return Screen.getPrimary().getDpi() >= 300;
 	}
 
 	public Stage getStage() {

@@ -65,9 +65,12 @@ import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 import com.sshtools.twoslices.Toast;
 import com.sshtools.twoslices.ToastType;
+import com.sshtools.twoslices.Toaster;
 import com.sshtools.twoslices.ToasterFactory;
 import com.sshtools.twoslices.ToasterSettings;
 import com.sshtools.twoslices.ToasterSettings.SystemTrayIconMode;
+import com.sshtools.twoslices.impl.JavaFXToaster;
+import com.sun.javafx.util.Utils;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -253,6 +256,14 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		settings.setAppName(bundle.getString("appName"));
 		settings.setSystemTrayIconMode(SystemTrayIconMode.HIDDEN);
 		ToasterFactory.setSettings(settings);
+		if(Utils.isMac()) {
+			ToasterFactory.setFactory(new ToasterFactory() {
+				@Override
+				public Toaster toaster() {
+					return new JavaFXToaster(settings);
+				}
+			});
+		}
 	}
 
 	static int DROP_SHADOW_SIZE = 11;
