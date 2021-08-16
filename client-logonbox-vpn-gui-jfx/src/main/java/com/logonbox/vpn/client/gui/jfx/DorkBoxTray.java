@@ -35,7 +35,11 @@ public class DorkBoxTray extends AbstractTray implements AutoCloseable, Tray, Bu
 
 	public DorkBoxTray(Client context) throws Exception {
 		super(context);
-		queueGuiOp(() -> adjustTray(false, Collections.emptyList()));
+		queueGuiOp(() -> {
+			boolean connected = context.getDBus().isBusAvailable();
+			List<VPNConnection> conx = connected ? context.getDBus().getVPNConnections() : Collections.emptyList();
+			adjustTray(connected, conx);
+		});
 	}
 
 	@Override
@@ -57,7 +61,7 @@ public class DorkBoxTray extends AbstractTray implements AutoCloseable, Tray, Bu
 			context.getOpQueue().execute(r);
 	}
 
-	protected void reload() {
+	public void reload() {
 		queueGuiOp(() -> {
 			try {
 				boolean connected = context.getDBus().isBusAvailable();

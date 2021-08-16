@@ -1,6 +1,7 @@
 package com.logonbox.vpn.client.gui.jfx;
 
 import java.awt.SplashScreen;
+import java.awt.Taskbar;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -286,7 +287,10 @@ public class Client extends Application implements X509TrustManager {
 		});
 
 		if (!Main.getInstance().isNoSystemTray()) {
-			if(System.getProperty("logonbox.vpn.useAWTTray", "false").equals("true") || (
+			if(Taskbar.isTaskbarSupported()) {
+				tray = new AWTTaskbarTray(this);
+			}
+			else if(System.getProperty("logonbox.vpn.useAWTTray", "false").equals("true") || (
 					Util.isMacOs() && isHidpi()))
 				tray = new AWTTray(this);
 			else
@@ -300,7 +304,6 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	private boolean isHidpi() {
-		System.out.println("DPI is " + Screen.getPrimary().getDpi());
 		return Screen.getPrimary().getDpi() >= 300;
 	}
 

@@ -50,8 +50,6 @@ public abstract class AbstractTray implements AutoCloseable, Tray, BusLifecycleL
 
 	protected abstract void onClose() throws Exception;
 
-	protected abstract void reload();
-
 	protected BufferedImage createAwesomeIcon(FontAwesome string, int sz) {
 		return createAwesomeIcon(string, sz, 100);
 	}

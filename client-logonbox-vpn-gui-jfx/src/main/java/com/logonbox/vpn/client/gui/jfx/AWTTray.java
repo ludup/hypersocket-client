@@ -33,7 +33,11 @@ public class AWTTray extends AbstractTray {
 	
 	public AWTTray(Client context) throws Exception {
 		super(context);
-		SwingUtilities.invokeLater(() -> adjustTray(false, Collections.emptyList()));
+		SwingUtilities.invokeLater(() -> {
+			boolean connected = context.getDBus().isBusAvailable();
+			List<VPNConnection> conx = connected ? context.getDBus().getVPNConnections() : Collections.emptyList();
+			adjustTray(connected, conx);
+		});
 	}
 
 	@Override
@@ -49,7 +53,7 @@ public class AWTTray extends AbstractTray {
 		return systemTray != null;
 	}
 	
-	protected void reload() {
+	public void reload() {
 		SwingUtilities.invokeLater(() -> {
 			try {
 				boolean connected = context.getDBus().isBusAvailable();
@@ -178,7 +182,7 @@ public class AWTTray extends AbstractTray {
 
 			var options = new MenuItem(bundle.getString("options"));
 			options.addActionListener((e) -> context.options());
-			options.setShortcut(new MenuShortcut('o'));
+			options.setShortcut(new MenuShortcut('p'));
 			menuEntries.add(options);
 			menu.add(options);
 

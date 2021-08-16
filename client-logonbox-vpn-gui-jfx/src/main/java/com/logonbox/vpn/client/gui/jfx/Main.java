@@ -74,13 +74,15 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 		instance = this;
 		setSupportsAuthorization(true);
 
-		final Taskbar taskbar = Taskbar.getTaskbar();
-        try {
-            taskbar.setIconImage(java.awt.Toolkit.getDefaultToolkit()
-					.getImage(Main.class.getResource("logonbox-icon128x128.png")));
-        } catch (final UnsupportedOperationException e) {
-        } catch (final SecurityException e) {
-        }
+		if(Taskbar.isTaskbarSupported()) {
+	        try {
+	    		final Taskbar taskbar = Taskbar.getTaskbar();
+	            taskbar.setIconImage(java.awt.Toolkit.getDefaultToolkit()
+						.getImage(Main.class.getResource("logonbox-icon128x128.png")));
+	        } catch (final UnsupportedOperationException e) {
+	        } catch (final SecurityException e) {
+	        }
+		}
 
 		String logConfigPath = System.getProperty("hypersocket.logConfiguration", "");
 		if (logConfigPath.equals("")) {
