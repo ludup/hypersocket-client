@@ -660,7 +660,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			public void handle(VPNConnection.Connected sig) {
 				VPNConnection connection = context.getDBus().getVPNConnection(sig.getId());
 				maybeRunLater(() -> {
-					UI.getInstance().notify(connection.getHostname() + " connected", ToastType.INFO);
+					UI.this.notify(MessageFormat.format(bundle.getString("connected"), connection.getName(), connection.getHostname()), ToastType.INFO);
 					connecting.remove(connection);
 					connections.refresh();
 					if (Main.getInstance().isExitOnConnection()) {
@@ -696,6 +696,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 						maybeRunLater(() -> {
 							log.info("Disconnected " + sig.getId() + " (delete " + deleteOnDisconnect + ")");
 							VPNConnection connection = context.getDBus().getVPNConnection(sig.getId());
+							if(StringUtils.isBlank(disconnectionReason))
+								UI.this.notify(MessageFormat.format(bundle.getString("disconnectedNoReason"), connection.getName(), connection.getHostname()), ToastType.INFO);
+							else
+								UI.this.notify(MessageFormat.format(bundle.getString("disconnected"), connection.getName(), connection.getHostname(), disconnectionReason), ToastType.INFO);
+							
 							connections.refresh();
 							if (deleteOnDisconnect) {
 								try {
