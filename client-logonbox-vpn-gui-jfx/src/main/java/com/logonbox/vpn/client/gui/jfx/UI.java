@@ -8,7 +8,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -69,7 +71,7 @@ import com.sshtools.twoslices.Toaster;
 import com.sshtools.twoslices.ToasterFactory;
 import com.sshtools.twoslices.ToasterSettings;
 import com.sshtools.twoslices.ToasterSettings.SystemTrayIconMode;
-import com.sshtools.twoslices.impl.JavaFXToaster;
+import com.sshtools.twoslices.impl.OsXToaster;
 import com.sun.javafx.util.Utils;
 
 import javafx.animation.KeyFrame;
@@ -203,10 +205,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 
 		public void saveOptions(JSObject o) {
-			String trayMode = (String) o.getMember("trayMode");
-			String phase = (String) o.getMember("phase");
-			Boolean automaticUpdates = (Boolean) o.getMember("automaticUpdates");
-			UI.this.saveOptions(trayMode, phase, automaticUpdates);
+			String trayMode = memberOrDefault(o, "trayMode", String.class, null);
+			String logLevel = memberOrDefault(o, "logLevel", String.class, null);
+			String phase = memberOrDefault(o, "phase", String.class, null);
+			Boolean automaticUpdates = memberOrDefault(o, "automaticUpdates", Boolean.class, false);
+			UI.this.saveOptions(trayMode, phase, automaticUpdates, logLevel);
 		}
 
 		public void showError(String error) {
@@ -251,6 +254,16 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	final static ResourceBundle bundle = ResourceBundle.getBundle(UI.class.getName());
 
+	
+	static <T> T memberOrDefault(JSObject obj,  String member, Class<T> clazz, T def) {
+		try {
+			return (T) obj.getMember(member);
+		}
+		catch(Exception ex) {
+			return def;
+		}
+	}
+	
 	static {
 		ToasterSettings settings = new ToasterSettings();
 		settings.setAppName(bundle.getString("appName"));
@@ -260,7 +273,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			ToasterFactory.setFactory(new ToasterFactory() {
 				@Override
 				public Toaster toaster() {
-					return new JavaFXToaster(settings);
+					return new OsXToaster(settings);
 				}
 			});
 		}
@@ -291,7 +304,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private boolean deleteOnDisconnect;
 	private String htmlPage;
 	private String lastErrorMessage;
-	private Throwable lastException;
+	private String lastErrorCause;
+	private String lastException;
 	private ResourceBundle pageBundle;
 	private UIState mode = UIState.NORMAL;
 	private File logoFile;
@@ -389,12 +403,25 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 		beans.put("trayModes", new String[] { Configuration.TRAY_MODE_AUTO, Configuration.TRAY_MODE_COLOR,
 				Configuration.TRAY_MODE_DARK, Configuration.TRAY_MODE_LIGHT, Configuration.TRAY_MODE_OFF });
+		beans.put("logLevels", new String[] {
+				"",
+				org.apache.log4j.Level.ALL.toString(),
+				org.apache.log4j.Level.TRACE.toString(),
+				org.apache.log4j.Level.DEBUG.toString(),
+				org.apache.log4j.Level.INFO.toString(),
+				org.apache.log4j.Level.WARN.toString(),
+				org.apache.log4j.Level.ERROR.toString(),
+				org.apache.log4j.Level.FATAL.toString(),
+				org.apache.log4j.Level.OFF.toString()
+				});
 		try {
-			/* Tray mode stored per-user */
-			String trayMode = Configuration.getDefault().trayModeProperty().get();
+			/* Per-user GUI specific */
+			Configuration config = Configuration.getDefault();
+			String trayMode = config.trayModeProperty().get();
 			beans.put("trayMode", trayMode);
+			beans.put("logLevel", config.logLevelProperty().get() == null ? "" : config.logLevelProperty().get());
 
-			/* Update configuration stored globally in service */
+			/* Configuration stored globally in service */
 			beans.put("phase", context.getDBus().getVPN().getValue(ConfigurationRepository.PHASE, ""));
 			beans.put("automaticUpdates", Boolean
 					.valueOf(context.getDBus().getVPN().getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true")));
@@ -681,7 +708,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					log.info(String.format("Failed to connect. %s", s));
 					connecting.remove(connection);
 					connections.refresh();
-					showError("Failed to connect.");
+					showError("Failed to connect.", s, sig.getTrace());
 					UI.this.notify(s, ToastType.ERROR);
 				});
 			}
@@ -697,9 +724,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 							log.info("Disconnected " + sig.getId() + " (delete " + deleteOnDisconnect + ")");
 							VPNConnection connection = context.getDBus().getVPNConnection(sig.getId());
 							if(StringUtils.isBlank(disconnectionReason))
-								UI.this.notify(MessageFormat.format(bundle.getString("disconnectedNoReason"), connection.getName(), connection.getHostname()), ToastType.INFO);
+								UI.this.notify(MessageFormat.format(bundle.getString("disconnectedNoReason"), connection.getDisplayName(), connection.getHostname()), ToastType.INFO);
 							else
-								UI.this.notify(MessageFormat.format(bundle.getString("disconnected"), connection.getName(), connection.getHostname(), disconnectionReason), ToastType.INFO);
+								UI.this.notify(MessageFormat.format(bundle.getString("disconnected"), connection.getDisplayName(), connection.getHostname(), disconnectionReason), ToastType.INFO);
 							
 							connections.refresh();
 							if (deleteOnDisconnect) {
@@ -935,12 +962,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		
 		bridge = new ServerBridge();
 
-		minimize.setVisible(!Main.getInstance().isNoMinimize());
-		minimize.setManaged(minimize.isVisible());
-		close.setVisible(!Main.getInstance().isNoClose());
-		close.setManaged(close.isVisible());
-		toggleSidebar.setVisible(!Main.getInstance().isNoSidebar());
-		toggleSidebar.setManaged(toggleSidebar.isVisible());
+		setAvailable();
 
 		/*
 		 * Setup the connection list
@@ -1045,25 +1067,51 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 	}
 
+	public void setAvailable() {
+		minimize.setVisible(!Main.getInstance().isNoMinimize() && Client.get().isMinimizeAllowed());
+		minimize.setManaged(minimize.isVisible());
+		close.setVisible(!Main.getInstance().isNoClose());
+		close.setManaged(close.isVisible());
+		toggleSidebar.setVisible(!Main.getInstance().isNoSidebar());
+		toggleSidebar.setManaged(toggleSidebar.isVisible());
+	}
+
 	@Override
 	protected void onInitialize() {
 		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
 	}
 
-	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates) {
+	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates, String logLevel) {
 		try {
-			/* Tray mode stored per-user */
-			Configuration.getDefault().trayModeProperty().set(trayMode);
+			/* Local per-user GUI specific configuration  */
+			Configuration config = Configuration.getDefault();
+			
+			if(trayMode != null)
+				config.trayModeProperty().set(trayMode);
+			
+			if(logLevel != null) {
+				config.logLevelProperty().set(logLevel);
+				if(logLevel.length() == 0)
+					org.apache.log4j.Logger.getRootLogger().setLevel(Main.getInstance().getDefaultLogLevel());
+				else
+					org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(logLevel));
+			}
 
 			/* Update configuration stored globally in service */
+			VPN vpn = context.getDBus().getVPN();
 			if(phase != null) {
-				if (!context.getDBus().getVPN().isTrackServerVersion())
-					context.getDBus().getVPN().setValue(ConfigurationRepository.PHASE, phase);
+				if (!vpn.isTrackServerVersion())
+					vpn.setValue(ConfigurationRepository.PHASE, phase);
 			}
 			if(automaticUpdates != null)
-				context.getDBus().getVPN().setValue(ConfigurationRepository.AUTOMATIC_UPDATES,
+				vpn.setValue(ConfigurationRepository.AUTOMATIC_UPDATES,
 						String.valueOf(automaticUpdates));
+			if(logLevel != null) {
+				vpn.setValue(ConfigurationRepository.LOG_LEVEL,
+						logLevel);
+			}
 			
+			/* Update selection */
 			if(connections.getSelectionModel().isEmpty()) {
 				adjustingSelection = true;
 				try {
@@ -1075,6 +1123,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			}
 			
 			selectPageForState(false, false);
+			
+			LOG.info("Saved options");
 		} catch (Exception e) {
 			showError("Failed to save options.", e);
 		}
@@ -1207,13 +1257,14 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	private void processDOM() {
-		DOMProcessor processor = new DOMProcessor(getSelectedConnection(), collections, lastErrorMessage, lastException,
+		DOMProcessor processor = new DOMProcessor(context.getDBus().getVPN(), getSelectedConnection(), collections, lastErrorMessage, lastErrorCause, lastException,
 				branding, pageBundle, resources, webView.getEngine().getDocument().getDocumentElement(),
 				disconnectionReason);
 		processor.process();
 		collections.clear();
 		lastException = null;
 		lastErrorMessage = null;
+		lastErrorCause = null;
 	}
 
 	private void connectToUri(String unprocessedUri) {
@@ -1270,10 +1321,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				throw new IllegalStateException(
 						"Did not receive private key from server, and we didn't generate one on the client. Connection impossible.");
 			}
-			config.setPreUp(interfaceSection.containsKey("PreUp") ? interfaceSection.get("PreUp") : "");
-			config.setPostUp(interfaceSection.containsKey("PostUp") ? interfaceSection.get("PostUp") : "");
-			config.setPreDown(interfaceSection.containsKey("PreDown") ? interfaceSection.get("PreDown") : "");
-			config.setPostDown(interfaceSection.containsKey("PostDown") ? interfaceSection.get("PostDown") : "");
+			config.setPreUp(interfaceSection.containsKey("PreUp") ?  String.join("\n", interfaceSection.getAll("PreUp")) : "");
+			config.setPostUp(interfaceSection.containsKey("PostUp") ? String.join("\n", interfaceSection.getAll("PostUp")) : "");
+			config.setPreDown(interfaceSection.containsKey("PreDown") ? String.join("\n", interfaceSection.getAll("PreDown")) : "");
+			config.setPostDown(interfaceSection.containsKey("PostDown") ? String.join("\n", interfaceSection.getAll("PostDown")) : "");
 
 			/* Custom LogonBox */
 			Section logonBoxSection = ini.get("LogonBox");
@@ -1682,14 +1733,47 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	private void showError(String error) {
-		showError(error, null);
+		showError(error, (String)null);
+	}
+
+	private void showError(String error, String cause) {
+		showError(error, cause, (String)null);
 	}
 
 	private void showError(String error, Throwable exception) {
+		showError(error, null, exception);
+	}
+
+	private void showError(String error, String cause, String exception) {
 		maybeRunLater(() -> {
 			LOG.error(error, exception);
-			lastException = exception;
+			lastErrorCause = cause;
 			lastErrorMessage = error;
+			lastException = exception;
+			setHtmlPage("error.html");
+		});
+	}
+	
+	private void showError(String error, String cause, Throwable exception) {
+		maybeRunLater(() -> {
+			LOG.error(error, exception);
+			if (error == null && exception != null) {
+				lastErrorMessage = exception.getMessage();
+			} else {
+				lastErrorMessage = error;
+			}
+			if ((cause == null || cause.equals("")) && exception != null && exception.getCause() != null) {
+				lastErrorCause = exception.getCause().getMessage();
+			} else {
+				lastErrorCause = cause;
+			}
+			if (exception == null) {
+				lastException = "";
+			} else {
+				StringWriter w = new StringWriter();
+				exception.printStackTrace(new PrintWriter(w));
+				lastException = w.toString();
+			}
 			setHtmlPage("error.html");
 		});
 	}

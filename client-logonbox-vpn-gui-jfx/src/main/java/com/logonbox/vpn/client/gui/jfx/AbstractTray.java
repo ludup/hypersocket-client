@@ -33,13 +33,21 @@ public abstract class AbstractTray implements AutoCloseable, Tray, BusLifecycleL
 	
 	protected Client context;
 	private Font font;
+
+	private boolean constructing;
 	
 	public AbstractTray(Client context) throws Exception {
+		constructing = true;
 		this.context = context;
-		context.getDBus().addBusLifecycleListener(this);
-		Configuration.getDefault().trayModeProperty().addListener((e, o, n) -> {
-			reload();
-		});
+		try {
+			context.getDBus().addBusLifecycleListener(this);
+			Configuration.getDefault().trayModeProperty().addListener((e, o, n) -> {
+				reload();
+			});
+		}
+		finally {
+			constructing = false;
+		}
 	}
 
 	@Override
@@ -203,6 +211,9 @@ public abstract class AbstractTray implements AutoCloseable, Tray, BusLifecycleL
 							reload();
 						}
 					});
+			if(!constructing) {
+				reload();
+			}
 		} catch (DBusException dbe) {
 			throw new IllegalStateException("Failed to configure.", dbe);
 		}

@@ -1,7 +1,6 @@
 package com.logonbox.vpn.common.client;
 
 import java.io.File;
-import java.rmi.activation.UnknownObjectException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -44,7 +43,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	final static int DEFAULT_TIMEOUT = 10000;
-	static Logger log = LoggerFactory.getLogger(AbstractDBusClient.class);
+	static Logger log;
 
 	private static final String BUS_NAME = "com.logonbox.vpn";
 
@@ -77,7 +76,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 					try {
 						vpn.deregister();
 					} catch (Exception e) {
-						log.warn("De-registrating failed. Maybe service is already gone.");
+						getLog().warn("De-registrating failed. Maybe service is already gone.");
 					}
 				}
 			}
@@ -142,30 +141,30 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 	protected void init() throws Exception {
 		if (vpn != null) {
-			log.debug("Call to init when already have bus.");
+			getLog().debug("Call to init when already have bus.");
 			return;
 		}
 
 		String busAddress = this.busAddress;
 		if (StringUtils.isNotBlank(busAddress)) {
-			log.debug("Getting bus. " + this.busAddress);
+			getLog().debug("Getting bus. " + this.busAddress);
 			conn = DBusConnection.getConnection(busAddress);
 		} else {
 			if (sessionBus) {
-				log.info("Getting session bus.");
+				getLog().info("Getting session bus.");
 				conn = DBusConnection.getConnection(DBusBusType.SESSION);
 			} else {
 				String fixedAddress = getServerDBusAddress();
 				if (fixedAddress == null) {
-					log.info("Getting system bus.");
+					getLog().info("Getting system bus.");
 					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
 				} else {
-					log.info("Getting fixed bus " + fixedAddress);
+					getLog().info("Getting fixed bus " + fixedAddress);
 					conn = DBusConnection.getConnection(fixedAddress);
 				}
 			}
 		}
-		log.info("Got bus connection.");
+		getLog().info("Got bus connection.");
 
 		conn.addSigHandler(new DBusMatchRule((String) null, "org.freedesktop.DBus.Local", "Disconnected"),
 				new DBusSigHandler<Local.Disconnected>() {
@@ -183,11 +182,18 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	protected abstract boolean isInteractive();
+	
+	protected Logger getLog() {
+		if(log == null) {
+			log = LoggerFactory.getLogger(AbstractDBusClient.class);
+		}
+		return log;
+	}
 
 	protected void lazyInit() {
 		if (vpn == null) {
 			synchronized (initLock) {
-				log.info("Trying connect to DBus");
+				getLog().info("Trying connect to DBus");
 				try {
 					init();
 				} catch (UnknownObject | DBusException | ServiceUnknown dbe) {
@@ -206,13 +212,13 @@ public abstract class AbstractDBusClient implements DBusClient {
 	private void loadRemote() throws DBusException {
 		vpn = conn.getRemoteObject(BUS_NAME, ROOT_OBJECT_PATH, VPN.class);
 		ExtensionPlace place = ExtensionPlace.getDefault();
-		log.info("Registering with DBus.");
+		getLog().info("Registering with DBus.");
 		vpn.register(System.getProperty("user.name"), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
 				place.getUrls().stream().map(placeUrl -> placeUrl.toExternalForm()).collect(Collectors.toList())
 						.toArray(new String[0]),
 				supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()), target.name());
 		busAvailable = true;
-		log.info("Registered with DBus.");
+		getLog().info("Registered with DBus.");
 		pingTask = scheduler.scheduleAtFixedRate(() -> {
 			synchronized(initLock) {
 				if (vpn != null) {
@@ -236,7 +242,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 	private void cancelPingTask() {
 		if (pingTask != null) {
-			log.info("Stopping pinging.");
+			getLog().info("Stopping pinging.");
 			pingTask.cancel(false);
 			pingTask = null;
 		}
@@ -263,8 +269,8 @@ public abstract class AbstractDBusClient implements DBusClient {
 					try {
 						init();
 					} catch (DBusException | ServiceUnknown dbe) {
-						if(log.isDebugEnabled())
-							log.debug("Init() failed, retrying");
+						if(getLog().isDebugEnabled())
+							getLog().debug("Init() failed, retrying");
 						busGone();
 					} catch (RuntimeException re) {
 						throw re;

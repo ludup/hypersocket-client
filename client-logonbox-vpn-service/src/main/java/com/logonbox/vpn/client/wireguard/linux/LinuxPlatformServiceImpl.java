@@ -297,11 +297,27 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		LinuxIP ok = waitForFirstHandshake(configuration, ip, connectionStarted);
 
 		/* DNS */
-		dns(configuration, ip);
+		try {
+			dns(configuration, ip);
+		} catch (IOException | RuntimeException ioe) {
+			try {
+				doDisconnect(ip, session);
+			} catch (Exception e) {
+			}
+			throw ioe;
+		}
 
 		/* Set the routes */
-		log.info(String.format("Setting routes for %s", ip.getName()));
-		setRoutes(session, ip);
+		try {
+			log.info(String.format("Setting routes for %s", ip.getName()));
+			setRoutes(session, ip);
+		} catch (IOException | RuntimeException ioe) {
+			try {
+				doDisconnect(ip, session);
+			} catch (Exception e) {
+			}
+			throw ioe;
+		}
 
 		return ok;
 	}
@@ -342,5 +358,10 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	public LinuxIP getByPublicKey(String publicKey) {
 		// TODO Auto-generated method stub
 		throw new UnsupportedOperationException("TODO");
+	}
+
+	@Override
+	public void runHook(VPNSession session, String hookScript) throws IOException {
+		runHookViaPipeToShell(session, OsUtil.getPathOfCommandInPathOrFail("bash").toString(), "-c", hookScript);
 	}
 }

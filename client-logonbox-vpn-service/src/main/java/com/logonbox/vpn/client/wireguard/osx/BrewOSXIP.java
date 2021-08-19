@@ -57,15 +57,15 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 					getPeer(), address));
 
 		if(address.matches(".*:.*"))
-			OSCommand.adminCommand("ifconfig", getName(), "inet6", address, "alias");
+			OSCommand.adminCommand(debugCommandArgs("ifconfig", getName(), "inet6", address, "alias"));
 		else
-			OSCommand.adminCommand("ifconfig", getName(), "inet", address, address.replace("/*", ""), "alias");
+			OSCommand.adminCommand(debugCommandArgs("ifconfig", getName(), "inet", address, address.replace("/*", ""), "alias"));
 		addresses.add(address);
 	}
 
 	@Override
 	public void delete() throws IOException {
-		OSCommand.adminCommand("rm", "-f", "/var/run/wireguard/" + getName() + ".sock");
+		OSCommand.adminCommand(debugCommandArgs("rm", "-f", "/var/run/wireguard/" + getName() + ".sock"));
 	}
 
 	public void dns(String[] dns) throws IOException {
@@ -82,13 +82,17 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 				String[] dnsAddresses = IpUtil.filterAddresses(dns);
 				String[] dnsSearchDomains = IpUtil.filterNames(dns);
 				for(Map.Entry<String,String> serviceEn : new HashMap<>(serviceDns).entrySet()) {
-					checkForError(OSCommand.runCommandAndCaptureOutput("networksetup", "-setdnsservers", serviceEn.getKey(), String.join(" ", dnsAddresses)));
+					List<String> args = new ArrayList<>(Arrays.asList("networksetup", "-setdnsservers", serviceEn.getKey()));
+					args.addAll(Arrays.asList(dnsAddresses));
+					checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs(args.toArray(new String[0]))));
 					dnsSet = true;
-					if(dnsSearchDomains.length > 0) {
-						checkForError(OSCommand.runCommandAndCaptureOutput("networksetup", "-setsearchdomains", serviceEn.getKey(), "Empty"));
+					if(dnsSearchDomains.length == 0) {
+						checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-setsearchdomains", serviceEn.getKey(), "Empty")));
 					}
 					else {
-						checkForError(OSCommand.runCommandAndCaptureOutput("networksetup", "-setsearchdomains", serviceEn.getKey(), String.join(" ", dnsSearchDomains)));
+						args = new ArrayList<>(Arrays.asList("networksetup", "-setsearchdomains", serviceEn.getKey()));
+						args.addAll(Arrays.asList(dnsSearchDomains));
+						checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs(args.toArray(new String[0]))));
 					}
 				}
 				break;
@@ -184,7 +188,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 					"Interface %s is configured to have a single peer %s, so cannot add a second address %s", getName(),
 					getPeer(), address));
 
-		OSCommand.adminCommand("ifconfig", getName(), "-alias", address);
+		OSCommand.adminCommand(debugCommandArgs("ifconfig", getName(), "-alias", address));
 		addresses.remove(address);
 	}
 
@@ -240,7 +244,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 
 		/* Remove all the current routes for this interface */
 		boolean ipv6 = false;
-		for (String row : OSCommand.adminCommandAndCaptureOutput("netstat", "-nr")) {
+		for (String row : OSCommand.adminCommandAndCaptureOutput(debugCommandArgs("netstat", "-nr"))) {
 			String[] l = row.trim().split("\\s+");
 			if(l[0].equals("Destination") || l[0].equals("Routing"))
 				continue;
@@ -257,10 +261,10 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 				}
 				LOG.info(String.format("Removing route %s %s for %s", l[0], gateway, getName()));
 				if(ipv6) {
-					OSCommand.adminCommand("route", "-qn", "delete", "-inet6", "-ifp", getName(), l[0], gateway);
+					OSCommand.adminCommand(debugCommandArgs("route", "-qn", "delete", "-inet6", "-ifp", getName(), l[0], gateway));
 				}
 				else {
-					OSCommand.adminCommand("route", "-qn", "delete", "-ifp", getName(), l[0], gateway);
+					OSCommand.adminCommand(debugCommandArgs("route", "-qn", "delete", "-ifp", getName(), l[0], gateway));
 				}
 			}
 		}
@@ -280,13 +284,13 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 		setMtu();
 		
 
-		OSCommand.adminCommand("ifconfig", getName(), "up");
+		OSCommand.adminCommand(debugCommandArgs("ifconfig", getName(), "up"));
 	}
 
 	protected void setMtu() throws IOException {
 	
 		int currentMtu = 0;
-		for(String line : OSCommand.runCommandAndCaptureOutput("ifconfig", getName())) {
+		for(String line : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("ifconfig", getName()))) {
 			List<String> parts = Arrays.asList(line.split("\\s+"));
 			int idx = parts.indexOf("mtu");
 			if(idx == -1 && idx < parts.size() - 1)
@@ -301,7 +305,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 			tmtu = getMtu();
 		} else {
 			String defaultIf = null;
-			for(String line : OSCommand.runCommandAndCaptureOutput("netstat", "-nr", "-f", "inet")) {
+			for(String line : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("netstat", "-nr", "-f", "inet"))) {
 				String[] arr = line.split("\\s+");
 				if(arr[0].equals("default")) {
 					defaultIf = arr[3];
@@ -311,7 +315,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 			if(StringUtils.isBlank(defaultIf))
 				LOG.warn("Could not determine default interface to get MTU from.");
 			else {
-				for(String line : OSCommand.runCommandAndCaptureOutput("ifconfig", defaultIf)) {
+				for(String line : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("ifconfig", defaultIf))) {
 					List<String> parts = Arrays.asList(line.split("\\s+"));
 					int idx = parts.indexOf("mtu");
 					if(idx == -1 && idx < parts.size() - 1)
@@ -333,7 +337,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 		/* Bring it up! */
 		if(currentMtu > 0 && tmtu != currentMtu) {
 			LOG.info(String.format("Setting MTU to %d", tmtu));
-			OSCommand.adminCommand("ifconfig", getName(), "mtu", String.valueOf(tmtu));
+			OSCommand.adminCommand(debugCommandArgs("ifconfig", getName(), "mtu", String.valueOf(tmtu)));
 		}
 		else
 			LOG.info(String.format("MTU already set to %d", tmtu));
@@ -350,13 +354,13 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 		if(route.endsWith("/0") && (StringUtils.isBlank(getTable()) || TABLE_AUTO.equals(getTable()))) {
 			if(route.matches(".*:.*")) {
 				autoRoute6 = true;
-				OSCommand.adminCommand("route", "-q", "-n", "add", "-inet6", "::/1:", "-interface", getName());
-				OSCommand.adminCommand("route", "-q", "-m", "add", "-inet6", "8000::/1", "-interface", getName());
+				OSCommand.adminCommand(debugCommandArgs("route", "-q", "-n", "add", "-inet6", "::/1:", "-interface", getName()));
+				OSCommand.adminCommand(debugCommandArgs("route", "-q", "-m", "add", "-inet6", "8000::/1", "-interface", getName()));
 			}
 			else {
 				autoRoute4 = true;
-				OSCommand.adminCommand("route", "-q", "-n", "add", "-inet", "0.0.0.0/1", "-interface", getName());
-				OSCommand.adminCommand("route", "-q", "-m", "add", "-inet", "128.0.0.1/1", "-interface", getName());
+				OSCommand.adminCommand(debugCommandArgs("route", "-q", "-n", "add", "-inet", "0.0.0.0/1", "-interface", getName()));
+				OSCommand.adminCommand(debugCommandArgs("route", "-q", "-m", "add", "-inet", "128.0.0.1/1", "-interface", getName()));
 			}
 		}
 		else {
@@ -364,7 +368,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 				throw new IOException("Darwin only supports TABLE=auto|main|off");
 			}
 
-			for(String line : OSCommand.runCommandAndCaptureOutput("route", "-n", "get", "-" + proto,  route)) {
+			for(String line : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("route", "-n", "get", "-" + proto,  route))) {
 				line = line.trim();
 				String[] args = line.split(":");
 				if(args.length > 1 && args[0].equals("interface:") && args[1].equals(getName())) {
@@ -375,7 +379,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 			
 			
 			LOG.info(String.format("Adding route %s to %s for %s", route, getName(), proto));
-			OSCommand.adminCommand("route", "-q", "-n", "add", "-" + proto, route, "-interface", getName());
+			OSCommand.adminCommand(debugCommandArgs("route", "-q", "-n", "add", "-" + proto, route, "-interface", getName()));
 		}
 		
 	}
@@ -396,7 +400,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 
 	private void collectNewServiceDns() throws IOException {
 		Set<String> foundServices = new HashSet<>();
-		for(String service : OSCommand.runCommandAndCaptureOutput("networksetup", "-listallnetworkservices")) {
+		for(String service : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-listallnetworkservices"))) {
 			if(service.startsWith("*")) {
 				service = service.substring(1);
 			}
@@ -409,7 +413,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 				continue;
 			}
 			
-			for(String out : OSCommand.runCommandAndCaptureOutput("networksetup", "-getdnsservers", service)) {
+			for(String out : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-getdnsservers", service))) {
 				if(out.indexOf(' ') != -1) {
 					/* Multi-word message indicating no Dns servers */
 					break;
@@ -419,7 +423,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 				}
  			}
 			
-			for(String out : OSCommand.runCommandAndCaptureOutput("networksetup", "-getsearchdomains", service)) {
+			for(String out : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-getsearchdomains", service))) {
 				if(out.indexOf(' ') != -1) {
 					/* Multi-word message indicating no Dns servers */
 					break;
@@ -445,8 +449,8 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 			switch (calcDnsMethod()) {
 			case NETWORKSETUP:
 				for(Map.Entry<String,String> serviceEn : new HashMap<>(serviceDns).entrySet()) {
-					checkForError(OSCommand.runCommandAndCaptureOutput("networksetup", "-setdnsservers", serviceEn.getKey(), serviceEn.getValue()));
-					checkForError(OSCommand.runCommandAndCaptureOutput("networksetup", "-setsearchdomains", serviceEn.getKey(), serviceDnsSearch.get(serviceEn.getKey())));
+					checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-setdnsservers", serviceEn.getKey(), serviceEn.getValue())));
+					checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-setsearchdomains", serviceEn.getKey(), serviceDnsSearch.get(serviceEn.getKey()))));
 				}
 				break;
 			default:
@@ -455,5 +459,11 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 		} finally {
 			dnsSet = false;
 		}
+	}
+
+	
+	private String[] debugCommandArgs(String... args) {
+		LOG.debug("Executing commands: " + String.join(" ", args));
+		return args;
 	}
 }

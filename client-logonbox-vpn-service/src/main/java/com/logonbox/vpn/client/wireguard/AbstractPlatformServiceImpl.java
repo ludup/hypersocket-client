@@ -1,8 +1,10 @@
 package com.logonbox.vpn.client.wireguard;
 
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -13,9 +15,11 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.slf4j.Logger;
@@ -29,6 +33,9 @@ import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.Keys;
 import com.logonbox.vpn.common.client.StatusDetail;
+import com.logonbox.vpn.common.client.Util;
+import com.sshtools.forker.client.EffectiveUserFactory.DefaultEffectiveUserFactory;
+import com.sshtools.forker.client.ForkerBuilder;
 import com.sshtools.forker.client.OSCommand;
 
 public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> implements PlatformService<I> {
@@ -80,9 +87,17 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 
 	@Override
 	public final void disconnect(VPNSession session) throws IOException {
+		doDisconnect(session.getIp(), session);
+	}
+
+	protected void doDisconnect(VirtualInetAddress ip, VPNSession session) throws IOException {
 		try {
-			session.getIp().down();
-			session.getIp().delete();
+			try {
+				ip.down();
+			}
+			finally {
+				ip.delete();
+			}
 		}
 		finally {
 			if(session.getConnection().isRouteAll()) {
@@ -351,5 +366,85 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	}
 
 	protected void writePeer(Connection configuration, Writer writer) {
+	}
+
+	protected void runHookViaPipeToShell(VPNSession session, String... args) throws IOException {
+		if(LOG.isDebugEnabled()) {
+			LOG.debug("Executing hook");
+			for(String arg : args) {
+				LOG.debug(String.format("    %s", arg));
+			}
+		}
+		ForkerBuilder cmd = new ForkerBuilder(args);
+		cmd.redirectErrorStream(true);
+		Connection connection = session.getConnection();
+		Map<String, String> env = cmd.environment();
+		if(connection != null) {
+			env.put("LBVPN_ADDRESS", connection.getAddress());
+			env.put("LBVPN_DEFAULT_DISPLAY_NAME", connection.getDefaultDisplayName());
+			env.put("LBVPN_DISPLAY_NAME", connection.getDisplayName());
+			env.put("LBVPN_ENDPOINT_ADDRESS", connection.getEndpointAddress());
+			env.put("LBVPN_ENDPOINT_PORT", String.valueOf(connection.getEndpointPort()));
+			env.put("LBVPN_HOSTNAME", connection.getHostname());
+			env.put("LBVPN_NAME", connection.getName() == null ? "": connection.getName());
+			env.put("LBVPN_PEER_PUBLIC_KEY", connection.getPublicKey());
+			env.put("LBVPN_USER_PUBLIC_KEY", connection.getUserPublicKey());
+			env.put("LBVPN_ID", String.valueOf(connection.getId()));
+			env.put("LBVPN_PORT", String.valueOf(connection.getPort()));
+			env.put("LBVPN_DNS", String.join(" ", connection.getDns()));
+			env.put("LBVPN_MTU", String.valueOf(connection.getMtu()));
+		}
+		@SuppressWarnings("unchecked")
+		I addr = (I)session.getIp();
+		if(addr != null) {
+			env.put("LBVPN_IP_MAC", addr.getMac());
+			env.put("LBVPN_IP_NAME", addr.getName());
+			env.put("LBVPN_IP_DISPLAY_NAME", addr.getDisplayName());
+			env.put("LBVPN_IP_PEER", addr.getPeer());
+			env.put("LBVPN_IP_TABLE", addr.getTable());
+		}
+		if(LOG.isDebugEnabled()) {
+			LOG.debug("Environment:-");
+			for(Map.Entry<String, String> en : env.entrySet()) {
+				LOG.debug("    %s = %s", en.getKey(), en.getValue());
+			}
+		}
+ 		cmd.effectiveUser(DefaultEffectiveUserFactory.getDefault().administrator());
+		Process p = cmd.start();
+		String errorMessage = null;
+		BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+		String line = null;
+		LOG.debug("Command Output: ");
+		while ((line = reader.readLine()) != null) {
+			LOG.debug(String.format("    %s", line));
+			if(line.startsWith("[ERROR] ")) {
+				errorMessage = line.substring(8);
+			}
+		}
+		try {
+			int ret = p.waitFor();
+			LOG.debug(String.format("Exit: %d", ret));
+			if(ret != 0) {
+				if(errorMessage == null)
+					throw new IOException(String.format("Hook exited with non-zero status of %d.", ret));
+				else
+					throw new IOException(errorMessage);
+			}
+		} catch (InterruptedException e) {
+			throw new IOException("Interrupted.", e);
+		}
+		
+	}
+
+	@Override
+	public void runHook(VPNSession session, String hookScript) throws IOException {
+		for(String cmd : split(hookScript)) {
+			OSCommand.admin(Util.parseQuotedString(cmd));
+		}
+	}
+	
+	private Collection<? extends String> split(String str) {
+		str = str == null ? "" : str.trim();
+		return str.equals("") ? Collections.emptyList() : Arrays.asList(str.split("\n"));
 	}
 }

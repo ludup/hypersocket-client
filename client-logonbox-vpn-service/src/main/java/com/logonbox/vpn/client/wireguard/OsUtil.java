@@ -1,6 +1,7 @@
 package com.logonbox.vpn.client.wireguard;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,6 +17,13 @@ public class OsUtil {
 		return getPathOfCommandInPath(command) != null;
 	}
 
+	public static Path getPathOfCommandInPathOrFail(String command) throws IOException {
+		Path p = getPathOfCommandInPath(command);
+		if(p == null)
+			throw new IOException("Could not location command '" + command + "'.");
+		return p;
+	}
+	
 	public static Path getPathOfCommandInPath(String command) {
 		Set<String> path = new LinkedHashSet<>(Arrays.asList(System.getenv("PATH").split(File.pathSeparator)));
 		if (SystemUtils.IS_OS_MAC_OSX) {

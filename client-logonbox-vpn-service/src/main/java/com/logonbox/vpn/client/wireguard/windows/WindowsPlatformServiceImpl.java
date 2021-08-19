@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
+import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.client.wireguard.windows.service.NetworkConfigurationService;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
@@ -307,7 +308,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			try {
 				ip.up();
 			}
-			catch(IOException ioe) {
+			catch(IOException  | RuntimeException ioe) {
 				/* Just installed service failed, clean it up */
 				if(install) {
 					ip.delete(); 
@@ -325,7 +326,17 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		ip = waitForFirstHandshake(configuration, ip, connectionStarted);
 		
 		/* DNS */
-		dns(configuration, ip);
+		try {
+			dns(configuration, ip);
+		}
+		catch(IOException | RuntimeException ioe) {
+			try {
+				doDisconnect(ip, logonBoxVPNSession);
+			}
+			catch(Exception e) {
+			}
+			throw ioe;
+		}
 
 		return ip;
 
@@ -618,5 +629,10 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	protected void writeInterface(Connection configuration, Writer writer) {
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println(String.format("Address = %s", configuration.getAddress()));
+	}
+
+	@Override
+	public void runHook(VPNSession session, String hookScript) throws IOException {
+		runHookViaPipeToShell(session, OsUtil.getPathOfCommandInPathOrFail("cmd.exe").toString(), "/c", hookScript);
 	}
 }

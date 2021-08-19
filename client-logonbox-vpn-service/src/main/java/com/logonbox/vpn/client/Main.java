@@ -32,7 +32,9 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
+import org.apache.log4j.Level;
 import org.apache.log4j.PropertyConfigurator;
 import org.freedesktop.dbus.bin.EmbeddedDBusDaemon;
 import org.freedesktop.dbus.connections.BusAddress;
@@ -102,6 +104,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	private DBusConnection conn;
 	private Map<String, VPNFrontEnd> frontEnds = Collections.synchronizedMap(new HashMap<>());
 	private EmbeddedDBusDaemon daemon;
+	private Level defaultLogLevel;
 
 	@Option(names = { "-a", "--address" }, description = "Address of Bus.")
 	private String address;
@@ -125,6 +128,8 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	@Option(names = { "-u",
 			"--auth" }, description = "Mask of SASL authentication method to use.")
 	private int authTypes= SASL.AUTH_ANON;
+
+	private ConfigurationRepositoryImpl configurationRepository;
 	
 	public Main() throws Exception {
 		instance = this;
@@ -144,6 +149,10 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	
 	public static Main get() {
 		return instance;
+	}
+
+	public Level getDefaultLogLevel() {
+		return defaultLogLevel;
 	}
 
 	@Override
@@ -177,14 +186,23 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			else
 				PropertyConfigurator.configure(Main.class.getResource("/default-log4j-service.properties"));
 		}
+		
+		
 
 		try {
-			log.info(String.format("LogonBox VPN Client, version %s", HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS)));
-			log.info(String.format("OS: %s", System.getProperty("os.name") + " / " + System.getProperty("os.arch")));
 
 			if (!buildServices()) {
 				System.exit(3);
 			}
+
+			/* Have database, so enough to get configuration for log level, we can start logging now */
+			String cfgLevel = configurationRepository.getValue(ConfigurationRepository.LOG_LEVEL, "");
+			defaultLogLevel = org.apache.log4j.Logger.getRootLogger().getLevel();
+			if(StringUtils.isNotBlank(cfgLevel)) {
+				org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(cfgLevel));
+			}	
+			log.info(String.format("LogonBox VPN Client, version %s", HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS)));
+			log.info(String.format("OS: %s", System.getProperty("os.name") + " / " + System.getProperty("os.arch") + " (" + System.getProperty("os.version") + ")"));
 
 			if (!startServices()) {
 				System.exit(3);
@@ -409,6 +427,10 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	}
 
 	private boolean startServices() {
+		if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
+			installAllTrustingCertificateVerifier();
+		}
+		
 		try {
 			clientService.start();
 		} catch (Exception e) {
@@ -420,26 +442,10 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 	private boolean buildServices() throws Exception {
 
-		if (log.isInfoEnabled()) {
-			log.info("Creating Connection Repository");
-		}
-
 		ConnectionRepository connectionRepository = new ConnectionRepositoryImpl();
 
-		if (log.isInfoEnabled()) {
-			log.info("Creating Configuration Repository");
-		}
-
-		ConfigurationRepository configurationRepository = new ConfigurationRepositoryImpl(this);
-
-		if (log.isInfoEnabled()) {
-			log.info("Creating Client Service");
-		}
+		configurationRepository = new ConfigurationRepositoryImpl(this);
 		clientService = new ClientServiceImpl(this, connectionRepository, configurationRepository);
-
-		if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
-			installAllTrustingCertificateVerifier();
-		}
 
 		return true;
 

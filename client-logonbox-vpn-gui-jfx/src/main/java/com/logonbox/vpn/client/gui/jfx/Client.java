@@ -296,11 +296,20 @@ public class Client extends Application implements X509TrustManager {
 			else
 				tray = new DorkBoxTray(this);
 		}
+		fc.setAvailable();
 		
         final SplashScreen splash = SplashScreen.getSplashScreen();
         if (splash != null) {
         	splash.close();
         }
+	}
+	
+	public boolean isMinimizeAllowed() {
+		return tray == null || !(tray instanceof AWTTaskbarTray); 
+	}
+	
+	public boolean isTrayConfigurable() {
+		return tray != null && tray.isConfigurable();
 	}
 
 	private boolean isHidpi() {

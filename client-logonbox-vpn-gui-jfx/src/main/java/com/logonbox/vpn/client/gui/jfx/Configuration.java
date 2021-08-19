@@ -28,6 +28,7 @@ public class Configuration {
 	private StringProperty temporaryOnStartConnection = new SimpleStringProperty();
 	private StringProperty saveCredentialsConnections = new SimpleStringProperty();
 	private StringProperty trayMode = new SimpleStringProperty();
+	private StringProperty logLevel = new SimpleStringProperty();
 	private IntegerProperty w = new SimpleIntegerProperty();
 	private IntegerProperty h = new SimpleIntegerProperty();
 	private IntegerProperty x = new SimpleIntegerProperty();
@@ -130,6 +131,9 @@ public class Configuration {
 		trayMode.set(node.get("trayMode", TRAY_MODE_AUTO));
 		trayMode.addListener(new StringPreferenceUpdateChangeListener(node, "trayMode"));
 
+		logLevel.set(node.get("logLevel", null));
+		logLevel.addListener(new StringPreferenceUpdateChangeListener(node, "logLevel"));
+
 		saveCredentialsConnections.set(node.get("saveCredentialsConnections", ""));
 		saveCredentialsConnections
 				.addListener(new StringPreferenceUpdateChangeListener(node, "saveCredentialsConnections"));
@@ -175,6 +179,10 @@ public class Configuration {
 
 	public StringProperty trayModeProperty() {
 		return temporaryOnStartConnection;
+	}
+
+	public StringProperty logLevelProperty() {
+		return logLevel;
 	}
 
 	static void putColor(String key, Preferences p, Color color) {

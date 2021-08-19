@@ -9,4 +9,8 @@ public interface Tray extends AutoCloseable {
 	boolean isActive();
 	
 	void reload();
+	
+	default boolean isConfigurable() {
+		return true;
+	}
 }

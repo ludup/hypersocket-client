@@ -347,15 +347,35 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 		BrewOSXIP ok = waitForFirstHandshake(configuration, ip, connectionStarted);
 
 		/* Set the routes */
-		log.info(String.format("Setting routes for %s", ip.getName()));
-		setRoutes(session, ip);
+		try {
+			log.info(String.format("Setting routes for %s", ip.getName()));
+			setRoutes(session, ip);
+		}
+		catch(IOException | RuntimeException ioe) {
+			try {
+				doDisconnect(ip, session);
+			}
+			catch(Exception e) {
+			}
+			throw ioe;
+		}
 		
 		if(ip.isAutoRoute4() || ip.isAutoRoute6()) {
 			ip.setEndpointDirectRoute();
 		}
 		
 		/* DNS */
-		dns(configuration, ip);
+		try {
+			dns(configuration, ip);
+		}
+		catch(IOException | RuntimeException ioe) {
+			try {
+				doDisconnect(ip, session);
+			}
+			catch(Exception e) {
+			}
+			throw ioe;
+		}
 		
 //		monitor_daemon
 //		execute_hooks "${POST_UP[@]}"
@@ -399,5 +419,10 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 	public BrewOSXIP getByPublicKey(String publicKey) {
 		// TODO Auto-generated method stub
 		throw new UnsupportedOperationException("TODO");
+	}
+
+	@Override
+	public void runHook(VPNSession session, String hookScript) throws IOException {
+		runHookViaPipeToShell(session, OsUtil.getPathOfCommandInPathOrFail("bash").toString(), "-c", hookScript);
 	}
 }

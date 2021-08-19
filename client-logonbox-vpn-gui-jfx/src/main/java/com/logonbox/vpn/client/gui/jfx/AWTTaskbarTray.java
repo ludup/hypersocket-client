@@ -43,6 +43,11 @@ public class AWTTaskbarTray extends AbstractTray implements AutoCloseable, Tray,
 		taskbar = null;
 	}
 
+	@Override
+	public boolean isConfigurable() {
+		return false;
+	}
+
 	public boolean isActive() {
 		return taskbar != null;
 	}

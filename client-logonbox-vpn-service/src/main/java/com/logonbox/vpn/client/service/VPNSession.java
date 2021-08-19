@@ -3,9 +3,6 @@ package com.logonbox.vpn.client.service;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 
@@ -17,8 +14,6 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionStatus;
-import com.logonbox.vpn.common.client.Util;
-import com.sshtools.forker.client.OSCommand;
 
 public class VPNSession implements Closeable {
 
@@ -60,9 +55,7 @@ public class VPNSession implements Closeable {
 
 			if(StringUtils.isNotBlank(connection.getPreDown())) {
 				log.info("Running pre-down commands.", connection.getPreDown());
-				for(String cmd : split(connection.getPreDown())) {
-					OSCommand.admin(Util.parseQuotedString(cmd));
-				}
+				runHook(connection.getPreDown());  
 			}
 			
 			LocalContext cctx = getLocalContext();
@@ -70,11 +63,13 @@ public class VPNSession implements Closeable {
 
 			if(StringUtils.isNotBlank(connection.getPostDown())) {
 				log.info("Running post-down commands.", connection.getPostDown());
-				for(String cmd : split(connection.getPostDown())) {
-					OSCommand.admin(Util.parseQuotedString(cmd));
-				}
+				runHook(connection.getPostDown());  
 			}
 		}
+	}
+
+	private void runHook(String hookScript) throws IOException {
+		getLocalContext().getPlatformService().runHook(this, hookScript);
 	}
 
 	public void open() throws IOException {
@@ -90,18 +85,14 @@ public class VPNSession implements Closeable {
 		String preUp = vpnConnection.getPreUp();
 		if(StringUtils.isNotBlank(preUp)) {
 			log.info("Running pre-up commands.", preUp);
-			for(String cmd : split(preUp)) {
-				OSCommand.admin(Util.parseQuotedString(cmd));
-			}
+			runHook(preUp);  
 		}
 		
 		ip = getLocalContext().getPlatformService().connect(this, vpnConnection);
 		String postUp = vpnConnection.getPostUp();
 		if(StringUtils.isNotBlank(postUp)) {
 			log.info("Running post-up commands.", postUp);
-			for(String cmd : split(postUp)) {
-				OSCommand.admin(Util.parseQuotedString(cmd));
-			}
+			runHook(postUp);  
 		}
 		
 		if (log.isInfoEnabled()) {
@@ -120,10 +111,5 @@ public class VPNSession implements Closeable {
 
 	public void setTask(ScheduledFuture<?> task) {
 		this.task = task;
-	}
-	
-	private Collection<? extends String> split(String str) {
-		str = str == null ? "" : str.trim();
-		return str.equals("") ? Collections.emptyList() : Arrays.asList(str.split("\n"));
 	}
 }

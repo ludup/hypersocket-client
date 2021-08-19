@@ -89,4 +89,13 @@ public interface PlatformService<I extends VirtualInetAddress> {
 	 */
 	StatusDetail status(String interfaceName) throws IOException;
 
+	/**
+	 * Run a hook script appropriate for the platform. Ideally, this should
+	 * be run as a script fragment.
+	 *  
+	 * @param session session
+	 * @param hookScript
+	 */
+	void runHook(VPNSession session, String hookScript) throws IOException;
+
 }

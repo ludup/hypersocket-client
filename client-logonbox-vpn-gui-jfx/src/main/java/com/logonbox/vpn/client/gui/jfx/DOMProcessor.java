@@ -1,8 +1,6 @@
 package com.logonbox.vpn.client.gui.jfx;
 
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.text.DateFormat;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -28,6 +26,7 @@ import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.api.Branding;
+import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
 public class DOMProcessor {
@@ -41,24 +40,20 @@ public class DOMProcessor {
 	private ResourceBundle resources;
 	private Map<String, Collection<String>> collections;
 
-	public DOMProcessor(VPNConnection connection, Map<String, Collection<String>> collections, String lastErrorMessage, Throwable lastException, Branding branding, ResourceBundle pageBundle, ResourceBundle resources, Element documentElement, String disconnectionReason) {
+	public DOMProcessor(VPN vpn, VPNConnection connection, Map<String, Collection<String>> collections, String lastErrorMessage, String lastErrorCause, String lastException, Branding branding, ResourceBundle pageBundle, ResourceBundle resources, Element documentElement, String disconnectionReason) {
 		String errorText = "";
 		String exceptionText = "";
+		String errorCauseText = lastErrorCause == null ? "" : lastErrorCause;
 
 		if (lastException != null) {
-			StringWriter s = new StringWriter();
-			lastException.printStackTrace(new PrintWriter(s, true));
-			exceptionText = s.toString();
-			if (lastErrorMessage == null) {
-				errorText = lastException.getMessage();
-			} else {
-				errorText = lastErrorMessage + " " + lastException.getMessage();
-			}
-		} else if (lastErrorMessage != null) {
+			exceptionText = lastException;
+		} 
+		if (lastErrorMessage != null) {
 			errorText = lastErrorMessage;
 		}
 
 		replacements.put("errorMessage", errorText);
+		replacements.put("errorCauseMessage", errorCauseText);
 		replacements.put("exception", exceptionText);
 		replacements.put("displayName", connection == null ? "" : connection.getDisplayName());
 		replacements.put("name", connection == null || connection.getName() == null ? "" : connection.getName());
@@ -92,6 +87,8 @@ public class DOMProcessor {
 			replacements.put("lastHandshake",  DateFormat.getDateTimeInstance().format(new Date(connection.getLastHandshake())));			
 			replacements.put("usage",  MessageFormat.format(resources.getString("usageDetail"), Util.toHumanSize(connection.getRx()), Util.toHumanSize(connection.getTx())));
 		}
+		replacements.put("tracksServerVersion", String.valueOf(vpn.isTrackServerVersion()));
+		replacements.put("trayConfigurable", String.valueOf(Client.get().isTrayConfigurable()));
 
 		this.documentElement = documentElement;
 		this.pageBundle = pageBundle;

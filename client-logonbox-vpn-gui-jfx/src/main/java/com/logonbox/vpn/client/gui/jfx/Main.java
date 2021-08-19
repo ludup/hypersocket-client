@@ -7,11 +7,14 @@ import java.util.concurrent.Callable;
 
 import javax.swing.UIManager;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Level;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hypersocket.extensions.ExtensionTarget;
+import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 
 import picocli.CommandLine;
@@ -21,7 +24,12 @@ import picocli.CommandLine.Parameters;
 
 @Command(name = "logonbox-vpn-gui", mixinStandardHelpOptions = true, description = "Start the LogonBox VPN graphical user interface.")
 public class Main extends AbstractDBusClient implements Callable<Integer> {
-	static Logger log = LoggerFactory.getLogger(Main.class);
+	static Logger log;
+	
+	/**
+	 * Used to get version from Maven meta-data
+	 */
+	public static final String ARTIFACT_COORDS = "com.hypersocket/client-logonbox-vpn-gui-jfx";
 
 	private static Main instance;
 
@@ -69,6 +77,8 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	@Parameters(index = "0", arity = "0..1", description = "Connect to a particular server using a URI. Acceptable formats include <server[<port>]> or https://<server[<port>]>[/path]. If a pre-configured connection matching this URI already exists, it will be used.")
 	private String uri;
 
+	private Level defaultLogLevel;
+
 	public Main() {
 		super(ExtensionTarget.CLIENT_GUI);
 		instance = this;
@@ -95,9 +105,18 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 			else
 				PropertyConfigurator.configure(Main.class.getResource("/default-log4j-gui.properties"));
 		}
+		
+		String cfgLevel = Configuration.getDefault().logLevelProperty().get();
+		defaultLogLevel = org.apache.log4j.Logger.getRootLogger().getLevel();
+		if(StringUtils.isNotBlank(cfgLevel)) {
+			org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(cfgLevel));
+		}
+		log = LoggerFactory.getLogger(Main.class);
 
+		log.info(String.format("LogonBox VPN Client GUI, version %s", HypersocketVersion.getVersion(ARTIFACT_COORDS)));
+		log.info(String.format("OS: %s", System.getProperty("os.name") + " / " + System.getProperty("os.arch") + " (" + System.getProperty("os.version") + ")"));
 		try {
-			log.info("I am currently using working directory " + new File(".").getCanonicalPath());
+			log.info(String.format("CWD: %s", new File(".").getCanonicalPath()));
 		} catch (IOException e) {
 		}
 	}
@@ -116,6 +135,10 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	public Integer call() throws Exception {
 		com.sun.javafx.application.LauncherImpl.launchApplication(Client.class, null, new String[0]);
 		return 0;
+	}
+	
+	public Level getDefaultLogLevel() {
+		return defaultLogLevel;
 	}
 
 	public boolean isNoAddWhenNoConnections() {

@@ -3,6 +3,8 @@ package com.logonbox.vpn.client.service;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.InetAddress;
 import java.net.URL;
 import java.net.URLConnection;
@@ -46,8 +48,8 @@ import com.logonbox.vpn.common.client.ConnectionImpl;
 import com.logonbox.vpn.common.client.ConnectionRepository;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
-import com.logonbox.vpn.common.client.Keys.KeyPair;
 import com.logonbox.vpn.common.client.Keys;
+import com.logonbox.vpn.common.client.Keys.KeyPair;
 import com.logonbox.vpn.common.client.StatusDetail;
 import com.logonbox.vpn.common.client.UserCancelledException;
 import com.logonbox.vpn.common.client.dbus.VPN;
@@ -561,6 +563,12 @@ public class ClientServiceImpl implements ClientService {
 	@Override
 	public void setValue(String name, String value) {
 		configurationRepository.setValue(name, value);
+		if(name.equals(ConfigurationRepository.LOG_LEVEL)) {
+			if(StringUtils.isBlank(value))
+				org.apache.log4j.Logger.getRootLogger().setLevel(getContext().getDefaultLogLevel());
+			else
+				org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(value));
+		}
 	}
 
 	@Override
@@ -1136,8 +1144,20 @@ public class ClientServiceImpl implements ClientService {
 					}
 				}
 
+				StringBuilder errorCauseText = new StringBuilder();
+				Throwable ex = e.getCause();
+				while(ex != null) {
+					if(!errorCauseText.toString().trim().equals("") && !errorCauseText.toString().trim().endsWith(".")) {
+						errorCauseText.append(". ");
+					}
+					if(ex.getMessage() != null)
+						errorCauseText.append(ex.getMessage());
+					ex = ex.getCause();
+				}
+				StringWriter trace = new StringWriter();
+				e.printStackTrace(new PrintWriter(trace));
 				context.sendMessage(new VPNConnection.Failed(String.format("/com/logonbox/vpn/%d", connection.getId()),
-						e.getMessage()));
+						e.getMessage(), errorCauseText.toString(), trace.toString()));
 
 				if (!(e instanceof UserCancelledException)) {
 					if (connection.isStayConnected()) {

@@ -157,10 +157,22 @@ public interface VPNConnection extends DBusInterface {
 	public class Failed extends DBusSignal {
 
 		private final String reason;
+		private final String cause;
+		private final String trace;
 
-		public Failed(String path, String reason) throws DBusException {
-			super(path, reason);
+		public Failed(String path, String reason, String cause, String trace) throws DBusException {
+			super(path, reason, cause, trace);
+			this.cause = cause;
+			this.trace = trace;
 			this.reason = reason;
+		}
+
+		public String getCause() {
+			return cause;
+		}
+
+		public String getTrace() {
+			return trace;
 		}
 
 		public String getReason() {
