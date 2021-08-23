@@ -52,6 +52,9 @@ public class DOMProcessor {
 			errorText = lastErrorMessage;
 		}
 
+
+		replacements.put("updatesEnabled", String.valueOf(vpn != null && vpn.isUpdatesEnabled()));
+		replacements.put("needsUpdating", String.valueOf(vpn != null && vpn.isNeedsUpdating()));
 		replacements.put("errorMessage", errorText);
 		replacements.put("errorCauseMessage", errorCauseText);
 		replacements.put("exception", exceptionText);
@@ -87,7 +90,7 @@ public class DOMProcessor {
 			replacements.put("lastHandshake",  DateFormat.getDateTimeInstance().format(new Date(connection.getLastHandshake())));			
 			replacements.put("usage",  MessageFormat.format(resources.getString("usageDetail"), Util.toHumanSize(connection.getRx()), Util.toHumanSize(connection.getTx())));
 		}
-		replacements.put("tracksServerVersion", String.valueOf(vpn.isTrackServerVersion()));
+		replacements.put("tracksServerVersion", vpn == null ? "true" : String.valueOf(vpn.isTrackServerVersion()));
 		replacements.put("trayConfigurable", String.valueOf(Client.get().isTrayConfigurable()));
 
 		this.documentElement = documentElement;

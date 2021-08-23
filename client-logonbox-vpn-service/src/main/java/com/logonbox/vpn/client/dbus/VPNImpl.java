@@ -59,6 +59,12 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 		assertRegistered();
 		return ctx.getClientService().isNeedsUpdating();
 	}
+	
+	@Override
+	public boolean isUpdatesEnabled() {
+		assertRegistered();
+		return ctx.getClientService().isUpdatesEnabled();
+	}
 
 	@Override
 	public boolean isGUINeedsUpdating() {

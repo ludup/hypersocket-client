@@ -16,6 +16,8 @@ public interface VPN extends DBusInterface {
 
 	String[] getConnections();
 
+	boolean isUpdatesEnabled();
+
 	boolean isNeedsUpdating();
 
 	boolean isGUINeedsUpdating();

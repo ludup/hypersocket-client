@@ -208,8 +208,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			String trayMode = memberOrDefault(o, "trayMode", String.class, null);
 			String logLevel = memberOrDefault(o, "logLevel", String.class, null);
 			String phase = memberOrDefault(o, "phase", String.class, null);
-			Boolean automaticUpdates = memberOrDefault(o, "automaticUpdates", Boolean.class, false);
-			UI.this.saveOptions(trayMode, phase, automaticUpdates, logLevel);
+			Boolean automaticUpdates = memberOrDefault(o, "automaticUpdates", Boolean.class, null);
+			Boolean ignoreLocalRoutes = memberOrDefault(o, "ignoreLocalRoutes", Boolean.class, null);
+			UI.this.saveOptions(trayMode, phase, automaticUpdates, logLevel, ignoreLocalRoutes);
 		}
 
 		public void showError(String error) {
@@ -394,12 +395,27 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	private Map<String, Object> beansForOptions() {
 		Map<String, Object> beans = new HashMap<>();
-		try {
-			Map<String, String> phases = context.getDBus().getVPN().getPhases();
-			beans.put("phases", phases.keySet().toArray(new String[0]));
-		} catch (Exception e) {
-			log.warn("Could not get phases.", e);
+		AbstractDBusClient dbus = context.getDBus();
+		VPN vpn = dbus.isBusAvailable() ? dbus.getVPN() : null;
+		if(vpn == null) {
 			beans.put("phases", new String[0]);
+			beans.put("phase", "");
+			beans.put("automaticUpdates", "true");
+			beans.put("ignoreLocalRoutes", "true");
+		}
+		else {
+			/* Configuration stored globally in service */
+			try {
+				Map<String, String> phases = vpn.getPhases();
+				beans.put("phases", phases.keySet().toArray(new String[0]));
+			} catch (Exception e) {
+				log.warn("Could not get phases.", e);
+			}
+			beans.put("phase", vpn.getValue(ConfigurationRepository.PHASE, ""));
+			beans.put("automaticUpdates", Boolean
+					.valueOf(vpn.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true")));
+			beans.put("ignoreLocalRoutes", Boolean
+					.valueOf(vpn.getValue(ConfigurationRepository.IGNORE_LOCAL_ROUTES, "true")));
 		}
 		beans.put("trayModes", new String[] { Configuration.TRAY_MODE_AUTO, Configuration.TRAY_MODE_COLOR,
 				Configuration.TRAY_MODE_DARK, Configuration.TRAY_MODE_LIGHT, Configuration.TRAY_MODE_OFF });
@@ -414,21 +430,13 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				org.apache.log4j.Level.FATAL.toString(),
 				org.apache.log4j.Level.OFF.toString()
 				});
-		try {
-			/* Per-user GUI specific */
-			Configuration config = Configuration.getDefault();
-			String trayMode = config.trayModeProperty().get();
-			beans.put("trayMode", trayMode);
-			beans.put("logLevel", config.logLevelProperty().get() == null ? "" : config.logLevelProperty().get());
 
-			/* Configuration stored globally in service */
-			beans.put("phase", context.getDBus().getVPN().getValue(ConfigurationRepository.PHASE, ""));
-			beans.put("automaticUpdates", Boolean
-					.valueOf(context.getDBus().getVPN().getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true")));
+		/* Per-user GUI specific */
+		Configuration config = Configuration.getDefault();
+		String trayMode = config.trayModeProperty().get();
+		beans.put("trayMode", trayMode);
+		beans.put("logLevel", config.logLevelProperty().get() == null ? "" : config.logLevelProperty().get());
 
-		} catch (Exception e) {
-			throw new IllegalStateException("Could not get beans.", e);
-		}
 		return beans;
 	}
 
@@ -1081,7 +1089,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
 	}
 
-	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates, String logLevel) {
+	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates, String logLevel, Boolean ignoreLocalRoutes) {
 		try {
 			/* Local per-user GUI specific configuration  */
 			Configuration config = Configuration.getDefault();
@@ -1106,6 +1114,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			if(automaticUpdates != null)
 				vpn.setValue(ConfigurationRepository.AUTOMATIC_UPDATES,
 						String.valueOf(automaticUpdates));
+			if(ignoreLocalRoutes != null)
+				vpn.setValue(ConfigurationRepository.IGNORE_LOCAL_ROUTES,
+						String.valueOf(ignoreLocalRoutes));
 			if(logLevel != null) {
 				vpn.setValue(ConfigurationRepository.LOG_LEVEL,
 						logLevel);
@@ -1257,7 +1268,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	private void processDOM() {
-		DOMProcessor processor = new DOMProcessor(context.getDBus().getVPN(), getSelectedConnection(), collections, lastErrorMessage, lastErrorCause, lastException,
+		DOMProcessor processor = new DOMProcessor(context.getDBus().isBusAvailable() ? context.getDBus().getVPN() : null, getSelectedConnection(), collections, lastErrorMessage, lastErrorCause, lastException,
 				branding, pageBundle, resources, webView.getEngine().getDocument().getDocumentElement(),
 				disconnectionReason);
 		processor.process();

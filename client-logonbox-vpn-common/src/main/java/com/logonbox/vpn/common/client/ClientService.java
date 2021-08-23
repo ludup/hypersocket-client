@@ -77,4 +77,6 @@ public interface ClientService  {
 	void registered(VPNFrontEnd frontEnd);
 
 	String getActiveInterface(Connection c);
+
+	boolean isUpdatesEnabled();
 }

@@ -151,15 +151,15 @@ public abstract class AbstractDBusClient implements DBusClient {
 			conn = DBusConnection.getConnection(busAddress);
 		} else {
 			if (sessionBus) {
-				getLog().info("Getting session bus.");
+				getLog().debug("Getting session bus.");
 				conn = DBusConnection.getConnection(DBusBusType.SESSION);
 			} else {
 				String fixedAddress = getServerDBusAddress();
 				if (fixedAddress == null) {
-					getLog().info("Getting system bus.");
+					getLog().debug("Getting system bus.");
 					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
 				} else {
-					getLog().info("Getting fixed bus " + fixedAddress);
+					getLog().debug("Getting fixed bus " + fixedAddress);
 					conn = DBusConnection.getConnection(fixedAddress);
 				}
 			}

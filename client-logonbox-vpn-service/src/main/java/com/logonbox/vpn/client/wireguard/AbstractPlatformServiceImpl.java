@@ -8,7 +8,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
@@ -17,18 +19,26 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.jgonian.ipmath.AbstractIp;
+import com.github.jgonian.ipmath.Ipv4;
+import com.github.jgonian.ipmath.Ipv4Range;
+import com.github.jgonian.ipmath.Ipv6;
+import com.github.jgonian.ipmath.Ipv6Range;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.ReauthorizeException;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.ClientService;
+import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.Keys;
@@ -46,6 +56,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	
 	private String interfacePrefix;
 	protected Path tempCommandDir;
+	protected LocalContext context;
 	
 	protected AbstractPlatformServiceImpl(String interfacePrefix) {
 		this.interfacePrefix = interfacePrefix;
@@ -157,9 +168,10 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 	}
 	
 	@Override
-	public final Collection<VPNSession> start(LocalContext ctx) {
+	public final Collection<VPNSession> start(LocalContext context) {
 		LOG.info(String.format("Starting platform services %s", getClass().getName()));
-		beforeStart(ctx);
+		this.context = context;
+		beforeStart(context);
 
 		/*
 		 * Look for wireguard already existing interfaces, checking if they are
@@ -182,11 +194,12 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 					if (publicKey != null) {
 						LOG.info(String.format("%s has public key of %s.", name, publicKey));
 						try {
-							ConnectionStatus status = ctx.getClientService().getStatusForPublicKey(publicKey);
+							ConnectionStatus status = context.getClientService().getStatusForPublicKey(publicKey);
 							Connection connection = status.getConnection();
 							LOG.info(String.format(
 									"Existing wireguard session on %s for %s, adding back to internal list", name, publicKey));
-							sessions.add(new VPNSession(connection, ctx, get(name)));
+							I ip = get(name);
+							sessions.add(configureExistingSession(context, connection, ip));
 						}
 						catch(Exception e) {
 							LOG.info(String.format(
@@ -202,7 +215,11 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				}
 			}
 		}
-		return onStart(ctx, sessions);
+		return onStart(context, sessions);
+	}
+
+	protected VPNSession configureExistingSession(LocalContext context, Connection connection, I ip) {
+		return new VPNSession(connection, context, ip);
 	}
 
 	@Override
@@ -350,6 +367,81 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 			pw.println("AllowedIPs = 0.0.0.0/0");
 		}	
 		else {
+			if(context.getClientService().getValue(ConfigurationRepository.IGNORE_LOCAL_ROUTES, "true").equals("true")) {
+				/* Filter out any routes that would cover the addresses of any interfaces
+				 * we already have
+				 */
+				Set<AbstractIp<?, ?>> localAddresses = new HashSet<>();
+				try {
+					for(Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements(); ) {
+						NetworkInterface ni = en.nextElement();
+						if(!ni.isLoopback() && ni.isUp()) { 
+							for(Enumeration<InetAddress> addrEn = ni.getInetAddresses(); addrEn.hasMoreElements(); ) {
+								InetAddress addr = addrEn.nextElement();
+								try {
+									localAddresses.add(IpUtil.parse(addr.getHostAddress()));
+								}
+								catch(IllegalArgumentException iae) {
+									// Ignore
+								}
+							}
+						}
+					}
+				}
+				catch(SocketException se) {
+					//
+				}
+
+				for(String route : new ArrayList<>(allowedIps)) {
+					try {
+						try {
+							Ipv4Range range = Ipv4Range.parseCidr(route);
+							for(AbstractIp<?, ?> laddr : localAddresses) {
+								if(laddr instanceof Ipv4 && range.contains((Ipv4)laddr)) {
+									// Covered by route. 
+									LOG.info(String.format("Filtering out route %s as it covers an existing local interface address.", route));
+									allowedIps.remove(route);
+									break;
+								}
+							}
+						}
+						catch(IllegalArgumentException iae) {
+							/* Single ipv4 address? */
+							Ipv4 routeIpv4 = Ipv4.of(route);
+							if(localAddresses.contains(routeIpv4)) {
+								// Covered by route. 
+								LOG.info(String.format("Filtering out route %s as it covers an existing local interface address.", route));
+								allowedIps.remove(route);
+								break;
+							}
+						}
+					}
+					catch(IllegalArgumentException iae) {
+						try {
+							Ipv6Range range = Ipv6Range.parseCidr(route);
+							for(AbstractIp<?, ?> laddr : localAddresses) {
+								if(laddr instanceof Ipv6 && range.contains((Ipv6)laddr)) {
+									// Covered by route. 
+									LOG.info(String.format("Filtering out route %s as it covers an existing local interface address.", route));
+									allowedIps.remove(route);
+									break;
+								}
+							}
+						}
+						catch(IllegalArgumentException iae2) {
+							/* Single ipv6 address? */
+							Ipv6 routeIpv6 = Ipv6.of(route);
+							if(localAddresses.contains(routeIpv6)) {
+								// Covered by route. 
+								LOG.info(String.format("Filtering out route %s as it covers an existing local interface address.", route));
+								allowedIps.remove(route);
+								break;
+							}
+						}
+					}
+				}
+			}
+			
 			String ignoreAddresses = System.getProperty("logonbox.vpn.ignoreAddresses", "");
 			if(ignoreAddresses.length() > 0) {
 				for(String ignoreAddress : ignoreAddresses.split(",")) {

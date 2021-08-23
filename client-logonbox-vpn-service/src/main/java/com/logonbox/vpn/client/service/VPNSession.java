@@ -2,16 +2,30 @@ package com.logonbox.vpn.client.service;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.jgonian.ipmath.AbstractIp;
+import com.github.jgonian.ipmath.Ipv4;
+import com.github.jgonian.ipmath.Ipv4Range;
+import com.github.jgonian.ipmath.Ipv6;
+import com.github.jgonian.ipmath.Ipv6Range;
 import com.logonbox.vpn.client.LocalContext;
+import com.logonbox.vpn.client.wireguard.IpUtil;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
+import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 

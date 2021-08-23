@@ -1,15 +1,13 @@
 package com.logonbox.vpn.client.wireguard.osx;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -21,6 +19,7 @@ import com.logonbox.vpn.client.wireguard.AbstractVirtualInetAddress;
 import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
 import com.logonbox.vpn.client.wireguard.IpUtil;
 import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
+import com.logonbox.vpn.client.wireguard.osx.OSXDNS.InterfaceDNS;
 import com.sshtools.forker.client.OSCommand;
 
 public class BrewOSXIP extends AbstractVirtualInetAddress {
@@ -37,13 +36,10 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 	private Set<String> addresses = new LinkedHashSet<>();
 	private boolean autoRoute4;
 	private boolean autoRoute6;
-	private boolean dnsSet;
 	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
 	private BrewOSXPlatformServiceImpl platform;
-	private Map<String, String> serviceDns = new HashMap<>();
-	private Map<String, String> serviceDnsSearch = new HashMap<>();
 
-	public BrewOSXIP(String name, BrewOSXPlatformServiceImpl platform) {		
+	public BrewOSXIP(String name, BrewOSXPlatformServiceImpl platform) throws IOException {		
 		super(name);
 		this.platform = platform;
 	}
@@ -65,48 +61,38 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 
 	@Override
 	public void delete() throws IOException {
-		OSCommand.adminCommand(debugCommandArgs("rm", "-f", "/var/run/wireguard/" + getName() + ".sock"));
+		OSCommand.adminCommand(debugCommandArgs("rm", "-f", getSocketFile().getAbsolutePath()));
+	}
+
+	protected File getSocketFile() {
+		return new File("/var/run/wireguard/" + getName() + ".sock");
 	}
 
 	public void dns(String[] dns) throws IOException {
 		if (dns == null || dns.length == 0) {
-			if (dnsSet)
-				unsetDns();
+			unsetDns();
 		} else {
 			DNSIntegrationMethod method = calcDnsMethod();
-			LOG.info(String.format("Setting DNS for %s (iface prefix %s) to %s using %s", getName(),
-					platform.resolvconfIfacePrefix(), String.join(", ", dns), method));
-			switch (method) {
-			case NETWORKSETUP:
-				collectNewServiceDns();
-				String[] dnsAddresses = IpUtil.filterAddresses(dns);
-				String[] dnsSearchDomains = IpUtil.filterNames(dns);
-				for(Map.Entry<String,String> serviceEn : new HashMap<>(serviceDns).entrySet()) {
-					List<String> args = new ArrayList<>(Arrays.asList("networksetup", "-setdnsservers", serviceEn.getKey()));
-					args.addAll(Arrays.asList(dnsAddresses));
-					checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs(args.toArray(new String[0]))));
-					dnsSet = true;
-					if(dnsSearchDomains.length == 0) {
-						checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-setsearchdomains", serviceEn.getKey(), "Empty")));
-					}
-					else {
-						args = new ArrayList<>(Arrays.asList("networksetup", "-setsearchdomains", serviceEn.getKey()));
-						args.addAll(Arrays.asList(dnsSearchDomains));
-						checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs(args.toArray(new String[0]))));
-					}
+			try {
+				LOG.info(String.format("Setting DNS for %s to %s using %s", getName(),
+						String.join(", ", dns), method));
+				switch (method) {
+				case NETWORKSETUP:
+					OSXDNS.get().changeDns(new InterfaceDNS(getName(), dns));
+					break;
+				default:
+					throw new UnsupportedOperationException(String.format("DNS integration method %s not supported.", method));
 				}
-				break;
-			default:
-				throw new UnsupportedOperationException(String.format("DNS integration method %s not supported.", method));
+			}
+			finally {
+				LOG.info("Done setting DNS");
 			}
 		}
 	}
 	
 	@Override
 	public void down() throws IOException {
-		if (dnsSet) {
-			unsetDns();
-		}
+		unsetDns();
 		/*
 		 * TODO
 		 * 
@@ -168,7 +154,7 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 
 	@Override
 	public boolean isUp() {
-		return true;
+		return getSocketFile().exists();
 	}
 
 	public DNSIntegrationMethod method() {
@@ -391,79 +377,21 @@ public class BrewOSXIP extends AbstractVirtualInetAddress {
 			return method;
 	}
 
-	private void checkForError(Iterable<String> output) throws IOException {
-		for(String line : output) {
-			if(line.contains("Error"))
-				throw new IOException(line);
-		}
-	}
-
-	private void collectNewServiceDns() throws IOException {
-		Set<String> foundServices = new HashSet<>();
-		for(String service : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-listallnetworkservices"))) {
-			if(service.startsWith("*")) {
-				service = service.substring(1);
-			}
-			else if(service.startsWith("An asterisk")) {
-				continue;
-			}
-			foundServices.add(service);
-			if(serviceDns.containsKey(service)) {
-				/* Already have */
-				continue;
-			}
-			
-			for(String out : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-getdnsservers", service))) {
-				if(out.indexOf(' ') != -1) {
-					/* Multi-word message indicating no Dns servers */
-					break;
-				}
-				else {
-					serviceDns.put(service, out);
-				}
- 			}
-			
-			for(String out : OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-getsearchdomains", service))) {
-				if(out.indexOf(' ') != -1) {
-					/* Multi-word message indicating no Dns servers */
-					break;
-				}
-				else {
-					serviceDnsSearch.put(service, out);
-				}
- 			}
-		}
-		
-		/* Remove anything that doesn't exist */
-		for(Map.Entry<String,String> serviceEn : new HashMap<>(serviceDns).entrySet()) {
-			if(!foundServices.contains(serviceEn.getKey())) {
-				serviceDns.remove(serviceEn.getKey());
-				serviceDnsSearch.remove(serviceEn.getKey());
-			}
-		}
-	}
-
 	private void unsetDns() throws IOException {
-		try {
+		if(OSXDNS.get().isSet(getName())) {
 			LOG.info(String.format("unsetting DNS for %s (iface prefix %s)", getName(), platform.resolvconfIfacePrefix()));
 			switch (calcDnsMethod()) {
 			case NETWORKSETUP:
-				for(Map.Entry<String,String> serviceEn : new HashMap<>(serviceDns).entrySet()) {
-					checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-setdnsservers", serviceEn.getKey(), serviceEn.getValue())));
-					checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-setsearchdomains", serviceEn.getKey(), serviceDnsSearch.get(serviceEn.getKey()))));
-				}
+				OSXDNS.get().popDns(getName());
 				break;
 			default:
 				throw new UnsupportedOperationException();
 			}
-		} finally {
-			dnsSet = false;
 		}
 	}
-
 	
 	private String[] debugCommandArgs(String... args) {
-		LOG.debug("Executing commands: " + String.join(" ", args));
+		LOG.info("Executing commands: " + String.join(" ", args));
 		return args;
 	}
 }

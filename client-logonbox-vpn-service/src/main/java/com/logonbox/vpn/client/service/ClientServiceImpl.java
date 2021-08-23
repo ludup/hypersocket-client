@@ -573,6 +573,18 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public void registered(VPNFrontEnd frontEnd) {
+
+		try {
+			/*
+			 * BPS - We need registration to wait until the client services are started up
+			 * or there will be weird hibernate transaction errors if the GUI connects while
+			 * the client is trying to connect
+			 */
+			startupLock.acquire();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
+		
 		log.info(String.format("Registered front-end %s as %s, %s, %s", frontEnd.getSource(), frontEnd.getUsername(),
 				frontEnd.isSupportsAuthorization() ? "supports auth" : "doesnt support auth",
 				frontEnd.isInteractive() ? "interactive" : "not interactive"));
@@ -603,17 +615,6 @@ public class ClientServiceImpl implements ClientService {
 				}
 			}, 6, TimeUnit.SECONDS);
 
-		}
-
-		try {
-			/*
-			 * BPS - We need registration to wait until the client services are started up
-			 * or there will be weird hibernate transaction errors if the GUI connects while
-			 * the client is trying to connect
-			 */
-			startupLock.acquire();
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
 		}
 
 		try {
@@ -810,19 +811,19 @@ public class ClientServiceImpl implements ClientService {
 			 * connections we can get LogonBox VPN server version from
 			 */
 			try {
-//				if (automaticUpdates)
-//					update(false);
-//				else {
-				update(true);
-				if (needsUpdate) {
-					/*
-					 * If updates are manual, don't try to connect until the GUI connects and does
-					 * it's update
-					 */
-					log.info("GUI Needs update, awaiting GUI to connect.");
-					return;
+				if (automaticUpdates)
+					update(false);
+				else {
+					update(true);
+					if (needsUpdate) {
+						/*
+						 * If updates are manual, don't try to connect until the GUI connects and does
+						 * it's update
+						 */
+						log.info("GUI Needs update, awaiting GUI to connect.");
+						return;
+					}
 				}
-//				}
 			} catch (Exception e) {
 				log.info(String.format("Extension versions not checked."), e);
 			}
@@ -887,16 +888,16 @@ public class ClientServiceImpl implements ClientService {
 
 		try {
 			updating = true;
-			if ("true".equals(System.getProperty("hypersocket.development.noUpdates"))) {
-				log.info("No updates to do.");
+			if (!isUpdatesEnabled()) {
+				log.info("Updates disabled.");
 				guiNeedsSeparateUpdate = false;
 			} else {
 
 				Collection<VPNFrontEnd> frontEnds = context.getFrontEnds();
-//				if(frontEnds.isEmpty()) {
-//					log.info("No front-ends, only check for updates for now.");
-//					checkOnly = true;
-//				}
+				if(frontEnds.isEmpty()) {
+					log.info("No front-ends, only check for updates for now.");
+					checkOnly = true;
+				}
 
 				if (checkOnly)
 					log.info("Checking for updates");
@@ -1203,5 +1204,11 @@ public class ClientServiceImpl implements ClientService {
 		connection.setUserPrivateKey(key.getBase64PrivateKey());
 		connection.setUserPublicKey(key.getBase64PublicKey());
 		log.info(String.format("Public key is %s", connection.getUserPublicKey()));
+	}
+
+	@Override
+	public boolean isUpdatesEnabled() {
+		/* TODO: Updates are disabled for now */
+		return "false".equals(System.getProperty("hypersocket.development.noUpdates", "true"));
 	}
 }

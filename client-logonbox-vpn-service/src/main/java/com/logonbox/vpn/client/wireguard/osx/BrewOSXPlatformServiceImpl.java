@@ -25,6 +25,7 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.OsUtil;
+import com.logonbox.vpn.client.wireguard.osx.OSXDNS.InterfaceDNS;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.StatusDetail;
 import com.sshtools.forker.client.OSCommand;
@@ -260,6 +261,12 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 			ip.getAddresses().add(addr.getAddress().toString());
 		}
 		return ip;
+	}
+
+	@Override
+	protected VPNSession configureExistingSession(LocalContext context, Connection connection, BrewOSXIP ip) {
+		OSXDNS.get().configure(new InterfaceDNS(ip.getName(), connection.getDns().toArray(new String[0])));
+		return super.configureExistingSession(context, connection, ip);
 	}
 
 	@Override

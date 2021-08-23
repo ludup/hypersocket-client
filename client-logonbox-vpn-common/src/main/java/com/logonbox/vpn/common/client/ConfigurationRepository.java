@@ -3,6 +3,7 @@ package com.logonbox.vpn.common.client;
 public interface ConfigurationRepository {
 
 	public final static String LOG_LEVEL = "logLevel";
+	public final static String IGNORE_LOCAL_ROUTES = "ignoreLocalRoutes";
 	public final static String AUTOMATIC_UPDATES = "automaticUpdates";
 	public final static String PHASE = "phase";
 

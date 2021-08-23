@@ -3,10 +3,20 @@ package com.logonbox.vpn.client.wireguard;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.github.jgonian.ipmath.AbstractIp;
 import com.github.jgonian.ipmath.Ipv4;
 import com.github.jgonian.ipmath.Ipv6;
 
 public class IpUtil {
+	
+	public static AbstractIp<?, ?> parse(String ip) {
+		try {
+			return Ipv4.of(ip);
+		}
+		catch(IllegalArgumentException iae) {
+			return Ipv6.of(ip);
+		}
+	}
 
 	public static String toIEEE802(byte[] mac) {
 		return mac == null ? null
