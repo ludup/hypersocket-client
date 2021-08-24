@@ -256,6 +256,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	final static ResourceBundle bundle = ResourceBundle.getBundle(UI.class.getName());
 
 	
+	@SuppressWarnings("unchecked")
 	static <T> T memberOrDefault(JSObject obj,  String member, Class<T> clazz, T def) {
 		try {
 			return (T) obj.getMember(member);
