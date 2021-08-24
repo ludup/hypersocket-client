@@ -149,7 +149,7 @@ public class OSXDNS {
 			newSrv.getServers().addAll(srvEn.getValue().getServers());
 			newSrv.getServers().addAll(dnsServers);
 			newSrv.getDomains().addAll(srvEn.getValue().getDomains());
-			newSrv.getServers().addAll(dnsDomains);
+			newSrv.getDomains().addAll(dnsDomains);
 			newServices.put(srvEn.getKey(), newSrv);
 		}
 
@@ -167,7 +167,7 @@ public class OSXDNS {
 				args.add("Empty");
 			else
 				args.addAll(srvEn.getValue().getDomains());
-			checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs("networksetup", "-setsearchdomains", srvEn.getKey(), "Empty")));
+			checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs(args.toArray(new String[0]))));
 		}
 		
 		currentServices = newServices;
