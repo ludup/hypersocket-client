@@ -13,21 +13,38 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.security.Security;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
+import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.prefs.Preferences;
 
+import javax.naming.InvalidNameException;
+import javax.naming.ldap.LdapName;
+import javax.naming.ldap.Rdn;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
@@ -51,12 +68,16 @@ import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.DialogPane;
 import javafx.scene.image.Image;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.paint.Color;
@@ -88,8 +109,7 @@ public class Client extends Application implements X509TrustManager {
 	static final boolean secureLocalHTTPService = System.getProperty("logonbox.vpn.secureLocalHTTPService", "true")
 			.equals("true");
 
-	static final boolean allowBranding = System.getProperty("logonbox.vpn.allowBranding", "true")
-			.equals("true");
+	static final boolean allowBranding = System.getProperty("logonbox.vpn.allowBranding", "true").equals("true");
 
 	/**
 	 * Matches the identifier in logonbox VPN server
@@ -101,6 +121,9 @@ public class Client extends Application implements X509TrustManager {
 	static Logger log = LoggerFactory.getLogger(Client.class);
 	static ResourceBundle BUNDLE = ResourceBundle.getBundle(Client.class.getName());
 	static UUID localWebServerCookie = UUID.randomUUID();
+	
+	static Set<String> ACCEPTED_CERTIFICATES = new HashSet<>();
+	static Preferences PERMANENTLY_ACCEPTED_CERTIFICATES = Preferences.userNodeForPackage(Configuration.class).node("certificates");
 
 	private ExecutorService opQueue = Executors.newSingleThreadExecutor();
 	private boolean waitingForExitChoice;
@@ -121,13 +144,13 @@ public class Client extends Application implements X509TrustManager {
 				cleanUp();
 			}
 		});
-		
+
 		Platform.setImplicitExit(false);
 		instance = this;
 		PropertyConfigurator.configureAndWatch(
 				System.getProperty("hypersocket.logConfiguration", "conf" + File.separator + "log4j.properties"));
 	}
-	
+
 	public AbstractDBusClient getDBus() {
 		return Main.getInstance();
 	}
@@ -156,9 +179,7 @@ public class Client extends Application implements X509TrustManager {
 	public void start(Stage primaryStage) throws Exception {
 		this.primaryStage = primaryStage;
 
-		if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
-			installAllTrustingCertificateVerifier();
-		}
+		installCertificateVerifier();
 
 		if (useLocalHTTPService) {
 			miniHttp = new MiniHttpServer(59999, 0, null);
@@ -251,7 +272,7 @@ public class Client extends Application implements X509TrustManager {
 		String[] sizeParts = Main.getInstance().getSize().toLowerCase().split("x");
 		BorderlessScene primaryScene = new BorderlessScene(primaryStage, StageStyle.TRANSPARENT, anchor,
 				Integer.parseInt(sizeParts[0]), Integer.parseInt(sizeParts[1]));
-		if(!Main.getInstance().isNoMove())
+		if (!Main.getInstance().isNoMove())
 			primaryScene.setMoveControl(node);
 		primaryScene.setSnapEnabled(false);
 		primaryScene.removeDefaultCSS();
@@ -287,27 +308,26 @@ public class Client extends Application implements X509TrustManager {
 		});
 
 		if (!Main.getInstance().isNoSystemTray()) {
-			if(Taskbar.isTaskbarSupported()) {
+			if (Taskbar.isTaskbarSupported()) {
 				tray = new AWTTaskbarTray(this);
-			}
-			else if(System.getProperty("logonbox.vpn.useAWTTray", "false").equals("true") || (
-					Util.isMacOs() && isHidpi()))
+			} else if (System.getProperty("logonbox.vpn.useAWTTray", "false").equals("true")
+					|| (Util.isMacOs() && isHidpi()))
 				tray = new AWTTray(this);
 			else
 				tray = new DorkBoxTray(this);
 		}
 		fc.setAvailable();
-		
-        final SplashScreen splash = SplashScreen.getSplashScreen();
-        if (splash != null) {
-        	splash.close();
-        }
+
+		final SplashScreen splash = SplashScreen.getSplashScreen();
+		if (splash != null) {
+			splash.close();
+		}
 	}
-	
+
 	public boolean isMinimizeAllowed() {
-		return tray == null || !(tray instanceof AWTTaskbarTray); 
+		return tray == null || !(tray instanceof AWTTaskbarTray);
 	}
-	
+
 	public boolean isTrayConfigurable() {
 		return tray != null && tray.isConfigurable();
 	}
@@ -324,11 +344,10 @@ public class Client extends Application implements X509TrustManager {
 		int active = 0;
 		try {
 			active = getDBus().getVPN().getActiveButNonPersistentConnections();
-		}
-		catch(Exception e) {
+		} catch (Exception e) {
 			exitApp();
 		}
-		
+
 		if (active > 0) {
 			Alert alert = new Alert(AlertType.CONFIRMATION);
 			alert.initModality(Modality.APPLICATION_MODAL);
@@ -368,7 +387,7 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	protected void cleanUp() {
-		if(tray != null) {
+		if (tray != null) {
 			try {
 				tray.close();
 			} catch (Exception e) {
@@ -386,10 +405,6 @@ public class Client extends Application implements X509TrustManager {
 		return opQueue;
 	}
 
-//	public Bridge getBridge() {
-//		return bridge;
-//	}
-
 	public void clearLoadQueue() {
 		opQueue.shutdownNow();
 		opQueue = Executors.newSingleThreadExecutor();
@@ -399,9 +414,12 @@ public class Client extends Application implements X509TrustManager {
 		return waitingForExitChoice;
 	}
 
-	protected void installAllTrustingCertificateVerifier() {
-		
-		log.warn("NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
+	protected void installCertificateVerifier() {
+
+		if (!isStrictSSL()) {
+			log.warn(
+					"NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
+		}
 
 		Security.insertProviderAt(new ClientTrustProvider(), 1);
 		Security.setProperty("ssl.TrustManagerFactory.algorithm", ClientTrustProvider.TRUST_PROVIDER_ALG);
@@ -416,15 +434,79 @@ public class Client extends Application implements X509TrustManager {
 		// Create all-trusting host name verifier
 		HostnameVerifier allHostsValid = new HostnameVerifier() {
 			@Override
-			public boolean verify(String hostname, SSLSession session) {
+			public synchronized boolean verify(String hostname, SSLSession session) {
 				log.debug(String.format("Verify hostname %s: %s", hostname, session));
-				return true;
+				if(!isStrictSSL())
+					return true;
+				
+				/* Already been accepted? */
+				String encodedKey;
+				try {
+					X509Certificate x509Certificate = (X509Certificate) session
+					        .getPeerCertificates()[0];
+					encodedKey = hash(x509Certificate.getPublicKey().getEncoded());
+				} catch (SSLPeerUnverifiedException e) {
+					throw new IllegalStateException("Failed to extract certificate.", e);
+				}
+				
+				try {
+					if(ACCEPTED_CERTIFICATES.contains(encodedKey) || PERMANENTLY_ACCEPTED_CERTIFICATES.getBoolean(encodedKey, false)) {
+						log.debug(String.format("Accepting certificate for hostname %s, it has previously been accepted: %s", hostname, session));
+						return true;
+					}
+					
+					verifyHostname(session);
+					return true;
+				}
+				catch(SSLPeerUnverifiedException sslpue) {
+					if(Platform.isFxApplicationThread()) {
+						boolean ok = promptForCertificate(AlertType.WARNING, BUNDLE.getString("certificate.invalidCertificate.title"), BUNDLE.getString("certificate.invalidCertificate.content"), encodedKey, hostname, sslpue.getMessage());
+						if(ok) {
+							ACCEPTED_CERTIFICATES.add(encodedKey);
+						}
+						return ok;
+					}
+					else {
+						AtomicBoolean res = new AtomicBoolean();
+						Semaphore sem = new Semaphore(1);
+						try {
+							sem.acquire();
+							Platform.runLater(() -> {
+								res.set(promptForCertificate(AlertType.WARNING, BUNDLE.getString("certificate.invalidCertificate.title"), BUNDLE.getString("certificate.invalidCertificate.content"), encodedKey, hostname, sslpue.getMessage()));
+								sem.release();
+							});
+							sem.acquire();
+							sem.release();
+							boolean ok = res.get();
+							if(ok) {
+								ACCEPTED_CERTIFICATES.add(encodedKey);
+							}
+							return ok;
+						}
+						catch(InterruptedException ie) {
+							return false;
+						}
+					}
+				}
 			}
 		};
 
 		// Install the all-trusting host verifier
 		HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
 	}
+	
+	public static String hash(byte[] in) 
+    {
+		try {
+	        MessageDigest md = MessageDigest.getInstance("SHA-1");
+	        md.update(in);
+	        byte[] bytes = md.digest();
+	        return Base64.getEncoder().encodeToString(bytes);
+		}
+		catch(Exception e) {
+			throw new IllegalStateException("Failed to hash.", e);
+		}
+    }
 
 	@Override
 	public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
@@ -433,24 +515,270 @@ public class Client extends Application implements X509TrustManager {
 
 	@Override
 	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+		if (!isStrictSSL()) {
+			return;
+		}
+
 		List<String> chainSubjectDN = new ArrayList<>();
 		for (X509Certificate c : chain) {
 			try {
-				if(log.isDebugEnabled())
+				if (log.isDebugEnabled())
 					log.debug(String.format("Validating: %s", c));
 				chainSubjectDN.add(c.getSubjectDN().toString());
 				c.checkValidity();
-			} catch (CertificateException ce) {
-				log.error("Certificate error. " + String.join(" -> ", chainSubjectDN), ce);
-				throw ce;
+			} catch(CertificateExpiredException | CertificateNotYetValidException ce) {
+				/* Already been accepted? */
+				String encodedKey = hash(c.getPublicKey().getEncoded());
+				if(ACCEPTED_CERTIFICATES.contains(encodedKey) || PERMANENTLY_ACCEPTED_CERTIFICATES.getBoolean(encodedKey, false)) {
+					log.debug(String.format("Accepting server certificate, it has previously been accepted."));
+					return;
+				}
+				String title = BUNDLE.getString(ce instanceof CertificateExpiredException ? "certificate.certificateExpired.title" : "certificate.certificateNotYetValid.title");
+				String content = BUNDLE.getString(ce instanceof CertificateExpiredException ? "certificate.certificateExpired.content" : "certificate.certificateNotYetValid.content");
+				if(Platform.isFxApplicationThread()) {
+					boolean ok = promptForCertificate(AlertType.WARNING, title, content, encodedKey, c.getSubjectDN().toString(), ce.getMessage());
+					if(ok) {
+						ACCEPTED_CERTIFICATES.add(encodedKey);
+					}
+					else
+						throw ce;
+				}
+				else {
+					AtomicBoolean res = new AtomicBoolean();
+					Semaphore sem = new Semaphore(1);
+					try {
+						sem.acquire();
+						Platform.runLater(() -> {
+							res.set(promptForCertificate(AlertType.WARNING, title, content, encodedKey, c.getSubjectDN().toString(), ce.getMessage()));
+							sem.release();
+						});
+						sem.acquire();
+						sem.release();
+						boolean ok = res.get();
+						if(ok) {
+							ACCEPTED_CERTIFICATES.add(encodedKey);
+						}
+						return;
+					}
+					catch(InterruptedException ie) {
+						throw ce;
+					}
+				}
+				
 			}
 		}
+	}
+
+
+	protected boolean promptForCertificate(AlertType alertType, String title, String content, String key, String hostname, String message) {
+		ButtonType reject = new ButtonType(BUNDLE.getString("certificate.confirm.reject"));
+		ButtonType accept = new ButtonType(BUNDLE.getString("certificate.confirm.accept"));
+		Alert alert = createAlertWithOptOut(alertType, title, BUNDLE.getString("certificate.confirm.header"), 
+				MessageFormat.format(content, hostname, message), BUNDLE.getString("certificate.confirm.savePermanently"), 
+                param -> { 
+                	if(param)
+                		PERMANENTLY_ACCEPTED_CERTIFICATES.putBoolean(key, true);
+                }, accept, reject);
+		alert.initModality(Modality.APPLICATION_MODAL);
+		Stage stage = getStage();
+		if(stage != null && stage.getOwner() != null)
+			alert.initOwner(stage);
+
+		alert.getButtonTypes().setAll(accept, reject);
+
+		
+		Optional<ButtonType> result = alert.showAndWait();
+		if (result.get() == reject) {
+			return false;
+		} else  {
+			return true;
+		}
+	}
+	
+	public static Alert createAlertWithOptOut(AlertType type, String title, String headerText, String message,
+			String optOutMessage, Consumer<Boolean> optOutAction, ButtonType... buttonTypes) {
+		Alert alert = new Alert(type);
+		alert.getDialogPane().applyCss();
+		Node graphic = alert.getDialogPane().getGraphic();
+		alert.setDialogPane(new DialogPane() {
+			@Override
+			protected Node createDetailsButton() {
+				CheckBox optOut = new CheckBox();
+				optOut.setText(optOutMessage);
+				optOut.setOnAction(e -> optOutAction.accept(optOut.isSelected()));
+				return optOut;
+			}
+		});
+		alert.getDialogPane().getButtonTypes().addAll(buttonTypes);
+		alert.getDialogPane().setContentText(message);
+		alert.getDialogPane().setExpandableContent(new Group());
+		alert.getDialogPane().setExpanded(true);
+		alert.getDialogPane().setGraphic(graphic);
+		alert.setTitle(title);
+		alert.setHeaderText(headerText);
+		return alert;
+	}
+	
+	protected boolean isStrictSSL() {
+		return "true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"));
 	}
 
 	@Override
 	public X509Certificate[] getAcceptedIssuers() {
 		X509Certificate[] NO_CERTS = new X509Certificate[0];
 		return NO_CERTS;
+	}
+	
+	public void verifyHostname(SSLSession sslSession)
+	        throws SSLPeerUnverifiedException {
+	    try {
+	        String hostname = sslSession.getPeerHost();
+	        X509Certificate serverCertificate = (X509Certificate) sslSession
+	                .getPeerCertificates()[0];
+
+	        Collection<List<?>> subjectAltNames = serverCertificate
+	                .getSubjectAlternativeNames();
+
+	        if (isIpv4Address(hostname)) {
+	            /*
+	             * IP addresses are not handled as part of RFC 6125. We use the
+	             * RFC 2818 (Section 3.1) behaviour: we try to find it in an IP
+	             * address Subject Alt. Name.
+	             */
+	            for (List<?> sanItem : subjectAltNames) {
+	                /*
+	                 * Each item in the SAN collection is a 2-element list. See
+	                 * <a href=
+	                 * "http://docs.oracle.com/javase/7/docs/api/java/security/cert/X509Certificate.html#getSubjectAlternativeNames%28%29"
+	                 * >X509Certificate.getSubjectAlternativeNames()</a>. The
+	                 * first element in each list is a number indicating the
+	                 * type of entry. Type 7 is for IP addresses.
+	                 */
+	                if ((sanItem.size() == 2)
+	                        && ((Integer) sanItem.get(0) == 7)
+	                        && (hostname.equalsIgnoreCase((String) sanItem
+	                                .get(1)))) {
+	                    return;
+	                }
+	            }
+	            throw new SSLPeerUnverifiedException(
+	                    MessageFormat.format(BUNDLE.getString("certificate.verify.error.noIpv4HostnameMatch"), hostname));
+	        } else {
+	            boolean anyDnsSan = false;
+	            for (List<?> sanItem : subjectAltNames) {
+	                /*
+	                 * Each item in the SAN collection is a 2-element list. See
+	                 * <a href=
+	                 * "http://docs.oracle.com/javase/7/docs/api/java/security/cert/X509Certificate.html#getSubjectAlternativeNames%28%29"
+	                 * >X509Certificate.getSubjectAlternativeNames()</a>. The
+	                 * first element in each list is a number indicating the
+	                 * type of entry. Type 2 is for DNS names.
+	                 */
+	                if ((sanItem.size() == 2)
+	                        && ((Integer) sanItem.get(0) == 2)) {
+	                    anyDnsSan = true;
+	                    if (matchHostname(hostname, (String) sanItem.get(1))) {
+	                        return;
+	                    }
+	                }
+	            }
+
+	            /*
+	             * If there were not any DNS Subject Alternative Name entries,
+	             * we fall back on the Common Name in the Subject DN.
+	             */
+	            if (!anyDnsSan) {
+	                String commonName = getCommonName(serverCertificate);
+	                if (commonName != null
+	                        && matchHostname(hostname, commonName)) {
+	                    return;
+	                }
+	            }
+
+	            throw new SSLPeerUnverifiedException(
+	                    MessageFormat.format(BUNDLE.getString("certificate.verify.error.noSanHostnameMatch"), hostname));
+	        }
+	    } catch (CertificateParsingException e) {
+	        /*
+	         * It's quite likely this exception would have been thrown in the
+	         * trust manager before this point anyway.
+	         */
+
+            throw new SSLPeerUnverifiedException(
+                    MessageFormat.format(BUNDLE.getString("certificate.verify.error.failedToParse"), e.getMessage()));
+	    }
+	}
+
+	public boolean isIpv4Address(String hostname) {
+	    String[] ipSections = hostname.split("\\.");
+	    if (ipSections.length != 4) {
+	        return false;
+	    }
+	    for (String ipSection : ipSections) {
+	        try {
+	            int num = Integer.parseInt(ipSection);
+	            if (num < 0 || num > 255) {
+	                return false;
+	            }
+	        } catch (NumberFormatException e) {
+	            return false;
+	        }
+	    }
+	    return true;
+	}
+
+	public boolean matchHostname(String hostname, String certificateName) {
+	    if (hostname.equalsIgnoreCase(certificateName)) {
+	        return true;
+	    }
+	    /*
+	     * Looking for wildcards, only on the left-most label.
+	     */
+	    String[] certificateNameLabels = certificateName.split(".");
+	    String[] hostnameLabels = certificateName.split(".");
+	    if (certificateNameLabels.length != hostnameLabels.length) {
+	        return false;
+	    }
+	    /*
+	     * TODO: It could also be useful to check whether there is a minimum
+	     * number of labels in the name, to protect against CAs that would issue
+	     * wildcard certificates too loosely (e.g. *.com).
+	     */
+	    /*
+	     * We check that whatever is not in the first label matches exactly.
+	     */
+	    for (int i = 1; i < certificateNameLabels.length; i++) {
+	        if (!hostnameLabels[i].equalsIgnoreCase(certificateNameLabels[i])) {
+	            return false;
+	        }
+	    }
+	    /*
+	     * We allow for a wildcard in the first label.
+	     */
+	    if (certificateNameLabels.length > 0 && "*".equals(certificateNameLabels[0])) {
+	        // TODO match wildcard that are only part of the label.
+	        return true;
+	    }
+	    return false;
+	}
+
+	public String getCommonName(X509Certificate cert) {
+	    try {
+	        LdapName ldapName = new LdapName(cert.getSubjectX500Principal()
+	                .getName());
+	        /*
+	         * Looking for the "most specific CN" (i.e. the last).
+	         */
+	        String cn = null;
+	        for (Rdn rdn : ldapName.getRdns()) {
+	            if ("CN".equalsIgnoreCase(rdn.getType())) {
+	                cn = rdn.getValue().toString();
+	            }
+	        }
+	        return cn;
+	    } catch (InvalidNameException e) {
+	        return null;
+	    }
 	}
 
 	public void open() {
@@ -480,7 +808,8 @@ public class Client extends Application implements X509TrustManager {
 			tmpFile = new File(new File(System.getProperty("java.io.tmpdir")),
 					System.getProperty("user.name") + "-lbvpn-jfx.css");
 		else
-			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")).getParentFile(), "lbvpn-jfx.css");
+			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")).getParentFile(),
+					"lbvpn-jfx.css");
 		return tmpFile;
 	}
 
@@ -490,7 +819,8 @@ public class Client extends Application implements X509TrustManager {
 			tmpFile = new File(new File(System.getProperty("java.io.tmpdir")),
 					System.getProperty("user.name") + "-lbvpn-web.css");
 		else
-			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")).getParentFile(), "lbvpn-web.css");
+			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")).getParentFile(),
+					"lbvpn-web.css");
 		return tmpFile;
 	}
 
@@ -551,7 +881,7 @@ public class Client extends Application implements X509TrustManager {
 		/* Create new JavaFX custom styles */
 		writeJavaFXCSS(branding);
 		File tmpFile = getCustomJavaFXCSSFile();
-		if(log.isDebugEnabled())
+		if (log.isDebugEnabled())
 			log.debug(String.format("Using custom JavaFX stylesheet %s", tmpFile));
 		ss.add(0, toUri(tmpFile).toExternalForm());
 
@@ -565,7 +895,7 @@ public class Client extends Application implements X509TrustManager {
 		File tmpFile = getCustomLocalWebCSSFile();
 		tmpFile.getParentFile().mkdirs();
 		String url = toUri(tmpFile).toExternalForm();
-		if(log.isDebugEnabled())
+		if (log.isDebugEnabled())
 			log.debug(String.format("Writing local web style sheet to %s", url));
 		String cbg = branding == null ? BrandingInfo.DEFAULT_BACKGROUND : branding.getResource().getBackground();
 		String cfg = branding == null ? BrandingInfo.DEFAULT_FOREGROUND : branding.getResource().getForeground();
@@ -590,7 +920,7 @@ public class Client extends Application implements X509TrustManager {
 		try {
 			File tmpFile = getCustomJavaFXCSSFile();
 			String url = toUri(tmpFile).toExternalForm();
-			if(log.isDebugEnabled())
+			if (log.isDebugEnabled())
 				log.debug(String.format("Writing JavafX style sheet to %s", url));
 			PrintWriter pw = new PrintWriter(new FileOutputStream(tmpFile));
 			try {
