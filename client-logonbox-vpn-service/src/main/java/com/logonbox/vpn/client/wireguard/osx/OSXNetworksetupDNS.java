@@ -16,13 +16,14 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.wireguard.IpUtil;
 import com.sshtools.forker.client.OSCommand;
+import static com.logonbox.vpn.client.wireguard.OsUtil.debugCommandArgs;
 
-public class OSXDNS {
-	final static Logger LOG = LoggerFactory.getLogger(OSXDNS.class);
+public class OSXNetworksetupDNS {
+	final static Logger LOG = LoggerFactory.getLogger(OSXNetworksetupDNS.class);
 	
-	private final static OSXDNS INSTANCE = new OSXDNS();
+	private final static OSXNetworksetupDNS INSTANCE = new OSXNetworksetupDNS();
 	
-	private OSXDNS() {
+	private OSXNetworksetupDNS() {
 		try {
 			collectNewServiceDns();
 		} catch (IOException e) {
@@ -30,7 +31,7 @@ public class OSXDNS {
 		}
 	}
 	
-	public static OSXDNS get() {
+	public static OSXNetworksetupDNS get() {
 		return INSTANCE;
 	}
 	
@@ -92,7 +93,7 @@ public class OSXDNS {
 		 * the default discovered services. This is to deal with existing
 		 * wireguard sessions when the service is first started, for 
 		 * example after the service has crashed. We don't
-		 * want {@link OSXDNS} thinking that the addresses were default.  
+		 * want {@link OSXNetworksetupDNS} thinking that the addresses were default.  
 		 */
 		if(interfaceDns.containsKey(dns.getIface()))
 			throw new IllegalArgumentException(String.format("DNS for interface %s already pushed.", dns.getIface()));
@@ -146,10 +147,10 @@ public class OSXDNS {
 		Map<String, OSXService> newServices = new HashMap<>();
 		for(Map.Entry<String, OSXService> srvEn : defaultServices.entrySet()) {
 			OSXService newSrv = new OSXService(srvEn.getKey());
-			newSrv.getServers().addAll(srvEn.getValue().getServers());
 			newSrv.getServers().addAll(dnsServers);
-			newSrv.getDomains().addAll(srvEn.getValue().getDomains());
+			newSrv.getServers().addAll(srvEn.getValue().getServers());
 			newSrv.getDomains().addAll(dnsDomains);
+			newSrv.getDomains().addAll(srvEn.getValue().getDomains());
 			newServices.put(srvEn.getKey(), newSrv);
 		}
 
@@ -169,6 +170,9 @@ public class OSXDNS {
 				args.addAll(srvEn.getValue().getDomains());
 			checkForError(OSCommand.runCommandAndCaptureOutput(debugCommandArgs(args.toArray(new String[0]))));
 		}
+
+		OSCommand.adminCommand("dscacheutil", "-flushcache");
+		OSCommand.adminCommand("killall", "-HUP", "mDNSResponder");
 		
 		currentServices = newServices;
 	}
@@ -238,8 +242,4 @@ public class OSXDNS {
 		}
 	}
 	
-	private String[] debugCommandArgs(String... args) {
-		LOG.info("Executing commands: " + String.join(" ", args));
-		return args;
-	}
 }

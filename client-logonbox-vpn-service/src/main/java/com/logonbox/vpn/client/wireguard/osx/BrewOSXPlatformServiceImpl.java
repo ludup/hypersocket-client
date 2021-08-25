@@ -25,8 +25,9 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.OsUtil;
-import com.logonbox.vpn.client.wireguard.osx.OSXDNS.InterfaceDNS;
+import com.logonbox.vpn.client.wireguard.osx.OSXNetworksetupDNS.InterfaceDNS;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.logonbox.vpn.common.client.StatusDetail;
 import com.sshtools.forker.client.OSCommand;
 
@@ -150,6 +151,7 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 					String name = a[0].trim();
 					if (!wireguardOnly || (wireguardOnly && name.startsWith(getInterfacePrefix()))) {
 						l.add(lastLink = new BrewOSXIP(name, this));
+						configureVirtualAddress(lastLink);
 						state = IpAddressState.MAC;
 					}
 				} else if (lastLink != null) {
@@ -265,7 +267,17 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 
 	@Override
 	protected VPNSession configureExistingSession(LocalContext context, Connection connection, BrewOSXIP ip) {
-		OSXDNS.get().configure(new InterfaceDNS(ip.getName(), connection.getDns().toArray(new String[0])));
+		switch(dnsMethod()) {
+		case SCUTIL_COMPATIBLE:
+			/* Should still be in correct state. State is also lost at reboot (good thing!) */
+			break;
+		case NETWORKSETUP:
+			OSXNetworksetupDNS.get().configure(new InterfaceDNS(ip.getName(), connection.getDns().toArray(new String[0])));
+			break;
+		default:
+			// Should not happen
+			throw new UnsupportedOperationException();
+		}
 		return super.configureExistingSession(context, connection, ip);
 	}
 
@@ -431,5 +443,10 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 	@Override
 	public void runHook(VPNSession session, String hookScript) throws IOException {
 		runHookViaPipeToShell(session, OsUtil.getPathOfCommandInPathOrFail("bash").toString(), "-c", hookScript);
+	}
+
+	@Override
+	public DNSIntegrationMethod dnsMethod() {
+		return DNSIntegrationMethod.SCUTIL_COMPATIBLE;
 	}
 }

@@ -59,7 +59,7 @@ public interface Resolve1Manager extends DBusInterface {
 		}
 
 		static  byte[] intToBytes(int myInteger){
-		    return ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(myInteger).array();
+		    return ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(myInteger).array();
 		}
 	}
 
@@ -131,4 +131,9 @@ public interface Resolve1Manager extends DBusInterface {
 	 * @param index index
 	 */
 	void RevertLink(int index);
+
+	/**
+	 *  Flush caches
+	 */
+	void FlushCaches();
 }

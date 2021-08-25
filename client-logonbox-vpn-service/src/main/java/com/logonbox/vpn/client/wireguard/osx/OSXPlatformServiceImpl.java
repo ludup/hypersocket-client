@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.sshtools.forker.client.OSCommand;
 
 public class OSXPlatformServiceImpl extends AbstractPlatformServiceImpl<OSXIP> {
@@ -48,6 +49,11 @@ public class OSXPlatformServiceImpl extends AbstractPlatformServiceImpl<OSXIP> {
 	protected OSXIP onConnect(VPNSession logonBoxVPNSession, Connection configuration)
 			throws IOException {
 		throw new UnsupportedOperationException("TODO");
+	}
+
+	@Override
+	public DNSIntegrationMethod dnsMethod() {
+		return DNSIntegrationMethod.SCUTIL_COMPATIBLE;
 	}
 
 }

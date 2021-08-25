@@ -39,7 +39,7 @@
 	</div>
 
 	<script type="text/javascript">
-		$(function() { 
+        function uiReady() {
 			$('#name').attr('placeholder', connection.getDefaultDisplayName());
 			$('#connectAtStartup').prop('checked', connection.isConnectAtStartup());
 			$("#editConnectionForm").submit(function(event) { 
@@ -50,7 +50,7 @@
 				});
 				event.preventDefault();
 			});
-		});
+		};
 	</script>
 </body>
 </html>

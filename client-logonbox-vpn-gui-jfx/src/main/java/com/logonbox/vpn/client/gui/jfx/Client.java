@@ -259,6 +259,7 @@ public class Client extends Application implements X509TrustManager {
 		UI fc = openScene(UI.class, null);
 		Scene scene = fc.getScene();
 		Parent node = scene.getRoot();
+		node.styleProperty().set("-fx-border-color: -fx-lbvpn-background;");
 
 		applyColors(null, node);
 
@@ -277,7 +278,6 @@ public class Client extends Application implements X509TrustManager {
 		primaryScene.setSnapEnabled(false);
 		primaryScene.removeDefaultCSS();
 		primaryScene.setResizable(!Main.getInstance().isNoMove());
-		primaryStage.setAlwaysOnTop(Main.getInstance().isAlwaysOnTop());
 
 		// Finalise and show
 		Configuration cfg = Configuration.getDefault();
@@ -300,6 +300,7 @@ public class Client extends Application implements X509TrustManager {
 		primaryStage.yProperty().addListener((c, o, n) -> cfg.yProperty().set(n.intValue()));
 		primaryStage.widthProperty().addListener((c, o, n) -> cfg.wProperty().set(n.intValue()));
 		primaryStage.heightProperty().addListener((c, o, n) -> cfg.hProperty().set(n.intValue()));
+		primaryStage.setAlwaysOnTop(Main.getInstance().isAlwaysOnTop());
 
 		primaryStage.onCloseRequestProperty().set(we -> {
 			if (!Main.getInstance().isNoClose())

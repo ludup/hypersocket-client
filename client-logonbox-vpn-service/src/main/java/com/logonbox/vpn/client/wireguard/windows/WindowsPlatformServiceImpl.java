@@ -36,6 +36,7 @@ import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.client.wireguard.windows.service.NetworkConfigurationService;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.client.impl.jna.win32.Kernel32;
 import com.sshtools.forker.common.XAdvapi32;
@@ -122,6 +123,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 						String description = args[1].trim();
 						if(description.equals("WireGuard Tunnel")) {
 							WindowsIP vaddr = new WindowsIP(name, description, this);
+							configureVirtualAddress(vaddr);
 							ips.add(vaddr);
 							break;
 						}
@@ -231,6 +233,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			LOG.info(String.format("No existing unused interfaces, creating new one (%s) for public key .", name,
 					configuration.getUserPublicKey()));
 			ip = new WindowsIP(name, "Wintun Userspace Tunnel", this);
+			configureVirtualAddress(ip);
 			LOG.info(String.format("Created %s", name));
 		} else
 			LOG.info(String.format("Using %s", ip.getName()));
@@ -634,5 +637,10 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	@Override
 	public void runHook(VPNSession session, String hookScript) throws IOException {
 		runHookViaPipeToShell(session, OsUtil.getPathOfCommandInPathOrFail("cmd.exe").toString(), "/c", hookScript);
+	}
+
+	@Override
+	public DNSIntegrationMethod dnsMethod() {
+		return DNSIntegrationMethod.NETSH;
 	}
 }

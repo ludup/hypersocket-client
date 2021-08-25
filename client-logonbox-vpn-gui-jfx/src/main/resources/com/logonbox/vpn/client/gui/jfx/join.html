@@ -35,13 +35,13 @@
 	</div>
 
 	<script type="text/javascript">
-		$(function() {
+        function uiReady() {
 			$('#connect').off('click').on('click', function(event) {
 				$('#connect').buttonLoader('start');
 				event.preventDefault();
 				bridge.connect();
 			});
-		});
+		};
 	</script>
 </body>
 </html>

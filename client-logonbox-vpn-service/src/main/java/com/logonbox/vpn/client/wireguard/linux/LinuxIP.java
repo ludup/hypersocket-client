@@ -10,9 +10,11 @@ import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringTokenizer;
@@ -20,24 +22,33 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.freedesktop.dbus.DBusPath;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
 import org.freedesktop.dbus.exceptions.DBusException;
+import org.freedesktop.dbus.interfaces.Properties;
+import org.freedesktop.dbus.types.UInt32;
+import org.freedesktop.dbus.types.Variant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.jgonian.ipmath.Ipv4;
+import com.logonbox.vpn.client.dbus.NetworkManager;
+import com.logonbox.vpn.client.dbus.NetworkManager.Ipv6Address;
 import com.logonbox.vpn.client.dbus.Resolve1Manager;
 import com.logonbox.vpn.client.wireguard.AbstractVirtualInetAddress;
-import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
 import com.logonbox.vpn.client.wireguard.IpUtil;
-import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
+import com.logonbox.vpn.common.client.Util;
 import com.sshtools.forker.client.EffectiveUserFactory;
 import com.sshtools.forker.client.ForkerBuilder;
 import com.sshtools.forker.client.ForkerProcess;
 import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.common.IO;
 
-public class LinuxIP extends AbstractVirtualInetAddress {
+public class LinuxIP extends AbstractVirtualInetAddress<LinuxPlatformServiceImpl> {
+	private static final String NETWORK_MANAGER_BUS_NAME = "org.freedesktop.NetworkManager";
+
 	enum IpAddressState {
 		HEADER, IP, MAC
 	}
@@ -53,12 +64,9 @@ public class LinuxIP extends AbstractVirtualInetAddress {
 	private Set<String> addresses = new LinkedHashSet<>();
 
 	private boolean dnsSet;
-	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
-	private LinuxPlatformServiceImpl platform;
 
-	public LinuxIP(String name, LinuxPlatformServiceImpl platform) {		
-		super(name);
-		this.platform = platform;
+	public LinuxIP(String name, LinuxPlatformServiceImpl platform) {
+		super(platform, name);
 	}
 
 	public void addAddress(String address) throws IOException {
@@ -88,8 +96,11 @@ public class LinuxIP extends AbstractVirtualInetAddress {
 		} else {
 			DNSIntegrationMethod method = calcDnsMethod();
 			LOG.info(String.format("Setting DNS for %s (iface prefix %s) to %s using %s", getName(),
-					platform.resolvconfIfacePrefix(), String.join(", ", dns), method));
+					getPlatform().resolvconfIfacePrefix(), String.join(", ", dns), method));
 			switch (method) {
+			case NETWORK_MANAGER:
+				updateNetworkManager(dns);
+				break;
 			case RESOLVCONF:
 				updateResolvConf(dns);
 				break;
@@ -99,10 +110,14 @@ public class LinuxIP extends AbstractVirtualInetAddress {
 			case RAW:
 				updateResolvDotConf(dns);
 				break;
+			case NONE:
+				break;
 			default:
 				/* TODO */
 				throw new UnsupportedOperationException();
 			}
+
+			dnsSet = true;
 		}
 	}
 
@@ -141,15 +156,6 @@ public class LinuxIP extends AbstractVirtualInetAddress {
 	@Override
 	public boolean isUp() {
 		return true;
-	}
-
-	public DNSIntegrationMethod method() {
-		return method;
-	}
-
-	public VirtualInetAddress method(DNSIntegrationMethod method) {
-		this.method = method;
-		return this;
 	}
 
 	public void removeAddress(String address) throws IOException {
@@ -283,18 +289,17 @@ public class LinuxIP extends AbstractVirtualInetAddress {
 			OSCommand.adminCommand("ip", "link", "set", "mtu", String.valueOf(tmtu), "up", "dev", getName());
 		}
 	}
-	
+
 	private int getIndexForName() throws IOException {
-		for(String line : OSCommand.runCommandAndCaptureOutput("ip", "addr")) {
+		for (String line : OSCommand.runCommandAndCaptureOutput("ip", "addr")) {
 			line = line.trim();
 			String[] args = line.split(":");
-			if(args.length > 1) {
+			if (args.length > 1) {
 				try {
 					int idx = Integer.parseInt(args[0].trim());
-					if(args[1].trim().equals(getName()))
+					if (args[1].trim().equals(getName()))
 						return idx;
-				}
-				catch(Exception e) {
+				} catch (Exception e) {
 				}
 			}
 		}
@@ -331,68 +336,141 @@ public class LinuxIP extends AbstractVirtualInetAddress {
 		}
 	}
 
-	private DNSIntegrationMethod calcDnsMethod() {
-		if (method == DNSIntegrationMethod.AUTO) {
-			File f = new File("/etc/resolv.conf");
-			try {
-				String p = f.getCanonicalFile().getAbsolutePath();
-				if (p.equals(f.getAbsolutePath())) {
-					return DNSIntegrationMethod.RAW;
-				} else if (p.equals("/run/NetworkManager/resolv.conf")) {
-					return DNSIntegrationMethod.NETWORK_MANAGER;
-				} else if (p.equals("/run/systemd/resolve/stub-resolv.conf")) {
-					return DNSIntegrationMethod.SYSTEMD;
-				} else if (p.equals("/run/resolvconf/resolv.conf")) {
-					return DNSIntegrationMethod.RESOLVCONF;
-				}
-			} catch (IOException ioe) {
-			}
-			return DNSIntegrationMethod.RAW;
-		} else
-			return method;
-	}
-
 	private void unsetDns() throws IOException {
 		try {
-			LOG.info(String.format("unsetting DNS for %s (iface prefix %s)", getName(), platform.resolvconfIfacePrefix()));
-			switch (calcDnsMethod()) {
-			case RESOLVCONF:
-				OSCommand.adminCommand("resolvconf", "-d", platform.resolvconfIfacePrefix() + getName(), "-f");
-				break;
-			case SYSTEMD:
-				updateSystemd(null);
-				break;
-			case RAW:
-				updateResolvDotConf(null);
-				break;
-			default:
-				throw new UnsupportedOperationException();
+			if (dnsSet) {
+				LOG.info(String.format("unsetting DNS for %s (iface prefix %s)", getName(),
+						getPlatform().resolvconfIfacePrefix()));
+				switch (calcDnsMethod()) {
+				case NETWORK_MANAGER:
+					updateNetworkManager(null);
+					break;
+				case RESOLVCONF:
+					OSCommand.adminCommand("resolvconf", "-d", getPlatform().resolvconfIfacePrefix() + getName(), "-f");
+					break;
+				case SYSTEMD:
+					updateSystemd(null);
+					break;
+				case RAW:
+					updateResolvDotConf(null);
+					break;
+				case NONE:
+					break;
+				default:
+					throw new UnsupportedOperationException();
+				}
 			}
 		} finally {
 			dnsSet = false;
 		}
 	}
-	
-	private void updateSystemd(String[] dns) throws IOException {
-		try(
-			DBusConnection conn = DBusConnection.getConnection(DBusBusType.SYSTEM)) {
-			Resolve1Manager mgr = conn.getRemoteObject("org.freedesktop.resolve1", "/org/freedesktop/resolve1", Resolve1Manager.class);
-			int index = getIndexForName(); // TODO
-			if(dns == null)
-				mgr.RevertLink(index);
-			else {
-				mgr.SetLinkDNS(index, Arrays.asList(IpUtil.filterAddresses(dns)).stream().map((addr) -> new Resolve1Manager.SetLinkDNSStruct(addr)).collect(Collectors.toList()));
-				mgr.SetLinkDomains(index, Arrays.asList(IpUtil.filterNames(dns)).stream().map((addr) -> new Resolve1Manager.SetLinkDomainsStruct(addr, true)).collect(Collectors.toList()));
+
+	private void updateNetworkManager(String[] dns) throws IOException {
+		
+		/* This will be using split DNS if the backend is systemd or dnsmasq, or
+		 * compatible for default backend.
+		 * 
+		 * TODO we need to check the backend in use if NetworkManager is chosen
+		 * to know if we can do split DNS. 
+		 * 
+		 * https://wiki.gnome.org/Projects/NetworkManager/DNS
+		 */
+		try (DBusConnection conn = DBusConnection.getConnection(DBusBusType.SYSTEM)) {
+			LOG.info("Updating DNS via NetworkManager");
+			NetworkManager mgr = conn.getRemoteObject(NETWORK_MANAGER_BUS_NAME, "/org/freedesktop/NetworkManager",
+					NetworkManager.class);
+			DBusPath path = mgr.GetDeviceByIpIface(getName());
+			if (path == null)
+				throw new IOException(String.format("No interface %s", getName()));
+
+			LOG.info(String.format("DBus device path is %s", path.getPath()));
+
+			Properties props = conn.getRemoteObject(NETWORK_MANAGER_BUS_NAME, path.getPath(), Properties.class);
+			Map<String, Variant<?>> propsMap = props.GetAll("org.freedesktop.NetworkManager.Device");
+			@SuppressWarnings("unchecked")
+			List<DBusPath> availableConnections = (List<DBusPath>) propsMap.get("AvailableConnections").getValue();
+			for (DBusPath availableConnectionPath : availableConnections) {
+				NetworkManager.Settings.Connection settings = conn.getRemoteObject(NETWORK_MANAGER_BUS_NAME,
+						availableConnectionPath.getPath(), NetworkManager.Settings.Connection.class);
+				Map<String, Map<String, Variant<?>>> settingsMap = settings.GetSettings();
+
+				if(LOG.isDebugEnabled()) {
+					for (Map.Entry<String, Map<String, Variant<?>>> en : settingsMap.entrySet()) {
+						LOG.debug("  " + en.getKey());
+						for (Map.Entry<String, Variant<?>> en2 : en.getValue().entrySet()) {
+							LOG.debug("    " + en2.getKey() + " = " + en2.getValue().getValue());
+						}
+					}
+				}
+				
+				Map<String, Map<String, Variant<?>>> newSettingsMap = new HashMap<>(settingsMap);
+
+				if (settingsMap.containsKey("ipv4")
+						&& "manual".equals(settingsMap.get("ipv4").get("method").getValue())) {
+					Map<String, Variant<?>> ipv4Map = new HashMap<>(settingsMap.get("ipv4"));
+					ipv4Map.put("dns-search", new Variant<String[]>(IpUtil.filterNames(dns)));
+					ipv4Map.put("dns",
+							new Variant<UInt32[]>(Arrays.asList(IpUtil.filterIpV4Addresses(dns)).stream()
+									.map((addr) -> ipv4AddressToUInt32(addr)).collect(Collectors.toList())
+									.toArray(new UInt32[0])));
+					newSettingsMap.put("ipv4", ipv4Map);
+				}
+				if (settingsMap.containsKey("ipv6")
+						&& "manual".equals(settingsMap.get("ipv6").get("method").getValue())) {
+					Map<String, Variant<?>> ipv6Map = new HashMap<>(settingsMap.get("ipv6"));
+					ipv6Map.put("dns-search", new Variant<String[]>(IpUtil.filterNames(dns)));
+					ipv6Map.put("dns",
+							new Variant<Ipv6Address[]>(Arrays.asList(IpUtil.filterIpV6Addresses(dns)).stream()
+									.map((addr) -> ipv6AddressToStruct(addr)).collect(Collectors.toList())
+									.toArray(new Ipv6Address[0])));
+					newSettingsMap.put("ipv6", ipv6Map);
+				}
+
+				settings.Update(newSettingsMap);
+				settings.Save();
 			}
-			
-		} catch(DBusException dbe) {
+		} catch (DBusException dbe) {
+			throw new IOException("Failed to connect to system bus.", dbe);
+		}
+	}
+
+	private UInt32 ipv4AddressToUInt32(String address) {
+		Ipv4 ipv4 = Ipv4.of(address);
+		int ipv4val = ipv4.asBigInteger().intValue();
+		return new UInt32(Util.byteSwap(ipv4val));
+	}
+
+	private Ipv6Address ipv6AddressToStruct(String address) {
+		/* TODO */
+		throw new UnsupportedOperationException("TODO");
+	}
+
+	private void updateSystemd(String[] dns) throws IOException {
+		try (DBusConnection conn = DBusConnection.getConnection(DBusBusType.SYSTEM)) {
+			Resolve1Manager mgr = conn.getRemoteObject("org.freedesktop.resolve1", "/org/freedesktop/resolve1",
+					Resolve1Manager.class);
+			int index = getIndexForName(); // TODO
+			if (dns == null) {
+				LOG.info(String.format("Reverting DNS via SystemD. Index is %d", index));
+				mgr.RevertLink(index);
+			} else {
+				LOG.info(String.format("Setting DNS via SystemD. Index is %d", index));
+				mgr.SetLinkDNS(index, Arrays.asList(IpUtil.filterAddresses(dns)).stream()
+						.map((addr) -> new Resolve1Manager.SetLinkDNSStruct(addr)).collect(Collectors.toList()));
+				mgr.SetLinkDomains(index,
+						Arrays.asList(IpUtil.filterNames(dns)).stream()
+								.map((addr) -> new Resolve1Manager.SetLinkDomainsStruct(addr, false))
+								.collect(Collectors.toList()));
+			}
+
+		} catch (DBusException dbe) {
 			throw new IOException("Failed to connect to system bus.", dbe);
 		}
 	}
 
 	private void updateResolvConf(String[] dns) throws IOException {
-		ForkerBuilder b = new ForkerBuilder("resolvconf", "-a", platform.resolvconfIfacePrefix() + getName(), "-m", "0",
-				"-x");
+		ForkerBuilder b = new ForkerBuilder("resolvconf", "-a", getPlatform().resolvconfIfacePrefix() + getName(), "-m",
+				"0", "-x");
 		b.redirectErrorStream(true);
 		b.io(IO.IO);
 		b.effectiveUser(EffectiveUserFactory.getDefault().administrator());
@@ -409,7 +487,6 @@ public class LinuxIP extends AbstractVirtualInetAddress {
 		}
 		if (StringUtils.isNotBlank(res) || v != 0)
 			throw new IOException(String.format("Failed to set DNS. Exit %d. %s", v, res));
-		dnsSet = true;
 	}
 
 	private void updateResolvDotConf(String[] dns) {

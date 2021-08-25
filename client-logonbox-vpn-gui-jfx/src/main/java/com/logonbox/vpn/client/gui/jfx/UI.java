@@ -35,6 +35,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 
@@ -60,6 +61,7 @@ import com.logonbox.vpn.common.client.AbstractDBusClient.BusLifecycleListener;
 import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.logonbox.vpn.common.client.Keys;
 import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.api.Branding;
@@ -207,10 +209,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		public void saveOptions(JSObject o) {
 			String trayMode = memberOrDefault(o, "trayMode", String.class, null);
 			String logLevel = memberOrDefault(o, "logLevel", String.class, null);
+			String dnsIntegrationMethod = memberOrDefault(o, "dnsIntegrationMethod", String.class, null);
 			String phase = memberOrDefault(o, "phase", String.class, null);
 			Boolean automaticUpdates = memberOrDefault(o, "automaticUpdates", Boolean.class, null);
 			Boolean ignoreLocalRoutes = memberOrDefault(o, "ignoreLocalRoutes", Boolean.class, null);
-			UI.this.saveOptions(trayMode, phase, automaticUpdates, logLevel, ignoreLocalRoutes);
+			UI.this.saveOptions(trayMode, phase, automaticUpdates, logLevel, ignoreLocalRoutes, dnsIntegrationMethod);
 		}
 
 		public void showError(String error) {
@@ -259,9 +262,13 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	@SuppressWarnings("unchecked")
 	static <T> T memberOrDefault(JSObject obj,  String member, Class<T> clazz, T def) {
 		try {
-			return (T) obj.getMember(member);
+			Object o = obj.getMember(member);
+			if(o == null) {
+				return null;
+			}
+			return clazz.isAssignableFrom(o.getClass()) ? (T) o : def;
 		}
-		catch(Exception ex) {
+		catch(Exception | Error ex) {
 			return def;
 		}
 	}
@@ -403,21 +410,28 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			beans.put("phase", "");
 			beans.put("automaticUpdates", "true");
 			beans.put("ignoreLocalRoutes", "true");
+			beans.put("dnsIntegrationMethods", DNSIntegrationMethod.AUTO.name());
 		}
 		else {
-			/* Configuration stored globally in service */
 			try {
 				Map<String, String> phases = vpn.getPhases();
 				beans.put("phases", phases.keySet().toArray(new String[0]));
 			} catch (Exception e) {
 				log.warn("Could not get phases.", e);
 			}
+			
+			/* Configuration stored globally in service */
 			beans.put("phase", vpn.getValue(ConfigurationRepository.PHASE, ""));
+			beans.put("dnsIntegrationMethod", vpn.getValue(ConfigurationRepository.DNS_INTEGRATION_METHOD, DNSIntegrationMethod.AUTO.name()));
+			
+			/* Store locally in preference */
 			beans.put("automaticUpdates", Boolean
 					.valueOf(vpn.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true")));
 			beans.put("ignoreLocalRoutes", Boolean
 					.valueOf(vpn.getValue(ConfigurationRepository.IGNORE_LOCAL_ROUTES, "true")));
 		}
+		
+		/* Option collections */
 		beans.put("trayModes", new String[] { Configuration.TRAY_MODE_AUTO, Configuration.TRAY_MODE_COLOR,
 				Configuration.TRAY_MODE_DARK, Configuration.TRAY_MODE_LIGHT, Configuration.TRAY_MODE_OFF });
 		beans.put("logLevels", new String[] {
@@ -431,6 +445,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				org.apache.log4j.Level.FATAL.toString(),
 				org.apache.log4j.Level.OFF.toString()
 				});
+		beans.put("dnsIntegrationMethods", Arrays.asList(DNSIntegrationMethod.valuesForOs()).
+				stream().map(DNSIntegrationMethod::name).collect(Collectors.toUnmodifiableList()).toArray(new String[0]));
+		
 
 		/* Per-user GUI specific */
 		Configuration config = Configuration.getDefault();
@@ -1090,7 +1107,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
 	}
 
-	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates, String logLevel, Boolean ignoreLocalRoutes) {
+	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates, String logLevel, Boolean ignoreLocalRoutes, String dnsIntegrationMethod) {
 		try {
 			/* Local per-user GUI specific configuration  */
 			Configuration config = Configuration.getDefault();
@@ -1121,6 +1138,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			if(logLevel != null) {
 				vpn.setValue(ConfigurationRepository.LOG_LEVEL,
 						logLevel);
+			}
+			if(dnsIntegrationMethod != null) {
+				vpn.setValue(ConfigurationRepository.DNS_INTEGRATION_METHOD,
+						dnsIntegrationMethod);
 			}
 			
 			/* Update selection */
@@ -1265,6 +1286,12 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		jsobj.setMember("pageBundle", pageBundle);
 		engine
 				.executeScript("console.log = function(message)\n" + "{\n" + "    bridge.log(message);\n" + "};");
+		try {
+			engine.executeScript("uiReady();");
+		}
+		catch(Exception e) {
+			log.debug(String.format("Page %s failed to execute uiReady() functions.", htmlPage), e);
+		}
 
 	}
 

@@ -28,6 +28,7 @@ import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.logonbox.vpn.common.client.StatusDetail;
 import com.sshtools.forker.client.OSCommand;
 
@@ -112,6 +113,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 					String name = a[1].trim();
 					if (!wireguardOnly || (wireguardOnly && name.startsWith(getInterfacePrefix()))) {
 						l.add(lastLink = new LinuxIP(name, this));
+						configureVirtualAddress(lastLink);
 						state = IpAddressState.MAC;
 					}
 				} else if (lastLink != null) {
@@ -300,11 +302,12 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		try {
 			dns(configuration, ip);
 		} catch (IOException | RuntimeException ioe) {
-			try {
-				doDisconnect(ip, session);
-			} catch (Exception e) {
-			}
-			throw ioe;
+//			try {
+//				doDisconnect(ip, session);
+//			} catch (Exception e) {
+//			}
+//			throw ioe;
+			log.error("TODO TEMPORARY FALL THROUGH:", ioe);
 		}
 
 		/* Set the routes */
@@ -312,11 +315,12 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 			log.info(String.format("Setting routes for %s", ip.getName()));
 			setRoutes(session, ip);
 		} catch (IOException | RuntimeException ioe) {
-			try {
-				doDisconnect(ip, session);
-			} catch (Exception e) {
-			}
-			throw ioe;
+//			try {
+//				doDisconnect(ip, session);
+//			} catch (Exception e) {
+//			}
+//			throw ioe;
+			log.error("TODO TEMPORARY FALL THROUGH:", ioe);
 		}
 
 		return ok;
@@ -363,5 +367,24 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	@Override
 	public void runHook(VPNSession session, String hookScript) throws IOException {
 		runHookViaPipeToShell(session, OsUtil.getPathOfCommandInPathOrFail("bash").toString(), "-c", hookScript);
+	}
+
+	@Override
+	public DNSIntegrationMethod dnsMethod() {
+		File f = new File("/etc/resolv.conf");
+		try {
+			String p = f.getCanonicalFile().getAbsolutePath();
+			if (p.equals(f.getAbsolutePath())) {
+				return DNSIntegrationMethod.RAW;
+			} else if (p.equals("/run/NetworkManager/resolv.conf")) {
+				return DNSIntegrationMethod.NETWORK_MANAGER;
+			} else if (p.equals("/run/systemd/resolve/stub-resolv.conf")) {
+				return DNSIntegrationMethod.SYSTEMD;
+			} else if (p.equals("/run/resolvconf/resolv.conf")) {
+				return DNSIntegrationMethod.RESOLVCONF;
+			}
+		} catch (IOException ioe) {
+		}
+		return DNSIntegrationMethod.RAW;
 	}
 }

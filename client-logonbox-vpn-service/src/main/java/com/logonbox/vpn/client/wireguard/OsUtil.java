@@ -10,8 +10,12 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 import org.apache.commons.lang3.SystemUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OsUtil {
+	public final static Logger LOG = LoggerFactory.getLogger(OsUtil.class);
+
 
 	public static boolean doesCommandExist(String command) {
 		return getPathOfCommandInPath(command) != null;
@@ -36,5 +40,10 @@ public class OsUtil {
 				return wg;
 		}
 		return null;
+	}
+
+	public static String[] debugCommandArgs(String... args) {
+		LOG.info("Executing commands: " + String.join(" ", args));
+		return args;
 	}
 }

@@ -22,6 +22,34 @@ public class IpUtil {
 		return mac == null ? null
 				: String.format("%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	}
+	
+	public static String[] filterIpV4Addresses(String[] address) {
+		List<String> l = new ArrayList<>();
+		if (address != null) {
+			for (String a : address) {
+				try {
+					Ipv4.of(a);
+					l.add(a);
+				} catch (IllegalArgumentException iae) {
+				}
+			}
+		}
+		return l.toArray(new String[0]);
+	}
+	
+	public static String[] filterIpV6Addresses(String[] address) {
+		List<String> l = new ArrayList<>();
+		if (address != null) {
+			for (String a : address) {
+				try {
+					Ipv6.of(a);
+					l.add(a);
+				} catch (IllegalArgumentException iae) {
+				}
+			}
+		}
+		return l.toArray(new String[0]);
+	}
 
 	public static String[] filterAddresses(String[] address) {
 		List<String> l = new ArrayList<>();

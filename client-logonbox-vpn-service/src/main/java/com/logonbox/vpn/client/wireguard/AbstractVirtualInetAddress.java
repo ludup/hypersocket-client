@@ -2,7 +2,9 @@ package com.logonbox.vpn.client.wireguard;
 
 import java.util.Objects;
 
-public abstract class AbstractVirtualInetAddress implements VirtualInetAddress {
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
+
+public abstract class AbstractVirtualInetAddress<P extends PlatformService<?>> implements VirtualInetAddress<P> {
 
 	public final static String TABLE_AUTO = "auto";
 	public final static String TABLE_OFF = "off";
@@ -11,15 +13,25 @@ public abstract class AbstractVirtualInetAddress implements VirtualInetAddress {
 	private String name;
 	private String peer;
 	private String table = TABLE_AUTO;
+	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
+	private P platform;
 
-	public AbstractVirtualInetAddress() {
+	public AbstractVirtualInetAddress(P platform) {
 		super();
+		this.platform = platform;
 	}
 
-	public AbstractVirtualInetAddress(String name) {
+	public AbstractVirtualInetAddress(P platform, String name) {
 		super();
 		this.name = name;
+		this.platform = platform;
 	}
+
+	@Override
+	public P getPlatform() {
+		return platform;
+	}
+	
 
 	@Override
 	public final int hashCode() {
@@ -37,7 +49,7 @@ public abstract class AbstractVirtualInetAddress implements VirtualInetAddress {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		AbstractVirtualInetAddress other = (AbstractVirtualInetAddress) obj;
+		AbstractVirtualInetAddress<?> other = (AbstractVirtualInetAddress<?>) obj;
 		if (name == null) {
 			if (other.name != null)
 				return false;
@@ -88,4 +100,22 @@ public abstract class AbstractVirtualInetAddress implements VirtualInetAddress {
 		this.table = table;
 	}
 
+
+	@Override
+	public final DNSIntegrationMethod method() {
+		return method;
+	}
+
+	@Override
+	public final VirtualInetAddress<P> method(DNSIntegrationMethod method) {
+		this.method = method;
+		return this;
+	}
+
+	protected final DNSIntegrationMethod calcDnsMethod() {
+		if (method() == DNSIntegrationMethod.AUTO) {
+			return platform.dnsMethod();
+		} else
+			return method();
+	}
 }

@@ -4,9 +4,10 @@ import java.io.IOException;
 
 import com.logonbox.vpn.client.wireguard.AbstractVirtualInetAddress;
 
-public class OSXIP extends AbstractVirtualInetAddress {
+public class OSXIP extends AbstractVirtualInetAddress<OSXPlatformServiceImpl> {
 
-	public OSXIP() {
+	public OSXIP(OSXPlatformServiceImpl platform) {
+		super(platform);
 	}
 
 	@Override

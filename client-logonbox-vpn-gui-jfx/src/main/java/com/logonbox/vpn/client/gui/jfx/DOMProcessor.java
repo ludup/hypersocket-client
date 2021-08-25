@@ -91,7 +91,8 @@ public class DOMProcessor {
 			replacements.put("usage",  MessageFormat.format(resources.getString("usageDetail"), Util.toHumanSize(connection.getRx()), Util.toHumanSize(connection.getTx())));
 		}
 		replacements.put("tracksServerVersion", vpn == null ? "true" : String.valueOf(vpn.isTrackServerVersion()));
-		replacements.put("trayConfigurable", String.valueOf(Client.get().isTrayConfigurable()));
+//		replacements.put("trayConfigurable", String.valueOf(Client.get().isTrayConfigurable()));
+		replacements.put("trayConfigurable", String.valueOf(false));
 
 		this.documentElement = documentElement;
 		this.pageBundle = pageBundle;

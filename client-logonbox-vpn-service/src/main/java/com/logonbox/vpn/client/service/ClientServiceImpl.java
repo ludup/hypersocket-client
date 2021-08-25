@@ -784,7 +784,7 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	public void start() throws Exception {
-		Boolean
+		boolean automaticUpdates = Boolean
 				.valueOf(configurationRepository.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"));
 
 		/*

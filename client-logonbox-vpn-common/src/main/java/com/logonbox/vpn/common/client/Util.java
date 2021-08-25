@@ -31,6 +31,11 @@ public class Util {
 		}
 		return digit;
 	}
+	
+	public static int byteSwap(int a) {
+		return ((a & 0xff000000) >>> 24) | ((a & 0x00ff0000) >>> 8) | ((a & 0x0000ff00) << 8)
+				| ((a & 0x000000ff) << 24);
+	}
 
 	/**
 	 * Parse a space separated string into a list, treating portions quotes with

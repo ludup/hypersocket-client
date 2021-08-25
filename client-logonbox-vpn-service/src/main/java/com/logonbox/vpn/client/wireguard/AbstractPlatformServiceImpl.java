@@ -41,6 +41,7 @@ import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.logonbox.vpn.common.client.Keys;
 import com.logonbox.vpn.common.client.StatusDetail;
 import com.logonbox.vpn.common.client.Util;
@@ -48,7 +49,7 @@ import com.sshtools.forker.client.EffectiveUserFactory.DefaultEffectiveUserFacto
 import com.sshtools.forker.client.ForkerBuilder;
 import com.sshtools.forker.client.OSCommand;
 
-public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> implements PlatformService<I> {
+public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress<?>> implements PlatformService<I> {
 
 	protected static final int MAX_INTERFACES = Integer.parseInt(System.getProperty("logonbox.vpn.maxInterfaces", "250"));
 
@@ -96,12 +97,13 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 		return vpn;
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public final void disconnect(VPNSession session) throws IOException {
-		doDisconnect(session.getIp(), session);
+		doDisconnect((I) session.getIp(), session);
 	}
 
-	protected void doDisconnect(VirtualInetAddress ip, VPNSession session) throws IOException {
+	protected void doDisconnect(I ip, VPNSession session) throws IOException {
 		try {
 			try {
 				ip.down();
@@ -146,6 +148,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 				NetworkInterface nif = nifEn.nextElement();
 				if ((wireguardInterface && isWireGuardInterface(nif)) || (!wireguardInterface && isMatchesPrefix(nif))) {
 					I vaddr = createVirtualInetAddress(nif);
+					configureVirtualAddress(vaddr);
 					if (vaddr != null)
 						ips.add(vaddr);
 				}
@@ -154,6 +157,16 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 			throw new IllegalStateException("Failed to get interfaces.", e);
 		}
 		return ips;
+	}
+
+	protected void configureVirtualAddress(I vaddr) {
+		try {
+			vaddr.method(DNSIntegrationMethod.valueOf(context.getClientService().getValue(ConfigurationRepository.DNS_INTEGRATION_METHOD, DNSIntegrationMethod.AUTO.name())));
+		}
+		catch(Exception e) {
+			LOG.error("Failed to set DNS integeration method, reverting to AUTO.", e);
+			vaddr.method(DNSIntegrationMethod.AUTO);
+		}
 	}
 
 	@Override
@@ -243,7 +256,7 @@ public abstract class AbstractPlatformServiceImpl<I extends VirtualInetAddress> 
 
 	protected abstract I createVirtualInetAddress(NetworkInterface nif) throws IOException;
 
-	protected void dns(Connection configuration, VirtualInetAddress ip) throws IOException {
+	protected void dns(Connection configuration, I ip) throws IOException {
 		if(configuration.getDns().isEmpty()) {
 			if(configuration.isRouteAll())
 				LOG.warn("No DNS servers configured for this connection and all traffic is being routed through the VPN. DNS is unlikely to work.");
