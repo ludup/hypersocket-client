@@ -50,6 +50,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.freedesktop.dbus.utils.Util;
 import org.kordamp.bootstrapfx.BootstrapFX;
@@ -309,7 +310,7 @@ public class Client extends Application implements X509TrustManager {
 		});
 
 		if (!Main.getInstance().isNoSystemTray()) {
-			if (Taskbar.isTaskbarSupported()) {
+			if (Taskbar.isTaskbarSupported() && SystemUtils.IS_OS_MAC_OSX) {
 				tray = new AWTTaskbarTray(this);
 			} else if (System.getProperty("logonbox.vpn.useAWTTray", "false").equals("true")
 					|| (Util.isMacOs() && isHidpi()))
@@ -570,7 +571,6 @@ public class Client extends Application implements X509TrustManager {
 		}
 	}
 
-
 	protected boolean promptForCertificate(AlertType alertType, String title, String content, String key, String hostname, String message) {
 		ButtonType reject = new ButtonType(BUNDLE.getString("certificate.confirm.reject"));
 		ButtonType accept = new ButtonType(BUNDLE.getString("certificate.confirm.accept"));
@@ -615,6 +615,7 @@ public class Client extends Application implements X509TrustManager {
 		alert.getDialogPane().setExpandableContent(new Group());
 		alert.getDialogPane().setExpanded(true);
 		alert.getDialogPane().setGraphic(graphic);
+		alert.getDialogPane().resize(500, 500);
 		alert.setTitle(title);
 		alert.setHeaderText(headerText);
 		return alert;
