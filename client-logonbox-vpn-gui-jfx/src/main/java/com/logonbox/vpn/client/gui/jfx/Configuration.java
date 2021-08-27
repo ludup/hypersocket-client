@@ -9,7 +9,9 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.logonbox.vpn.common.client.Connection;
 
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -33,6 +35,7 @@ public class Configuration {
 	private IntegerProperty h = new SimpleIntegerProperty();
 	private IntegerProperty x = new SimpleIntegerProperty();
 	private IntegerProperty y = new SimpleIntegerProperty();
+	private BooleanProperty saveCookies = new SimpleBooleanProperty();
 
 	//
 	private final static Configuration DEFAULT_INSTANCE = new Configuration(
@@ -137,6 +140,10 @@ public class Configuration {
 		saveCredentialsConnections.set(node.get("saveCredentialsConnections", ""));
 		saveCredentialsConnections
 				.addListener(new StringPreferenceUpdateChangeListener(node, "saveCredentialsConnections"));
+		
+		saveCookies.set(node.getBoolean("saveCookies", true));
+		saveCookies
+				.addListener(new BooleanPreferenceUpdateChangeListener(node, "saveCookies"));
 
 		
 	}
@@ -155,6 +162,10 @@ public class Configuration {
 		String creds = saveCredentialsConnections.get();
 		saveCredentialsConnections.set(String.join(",",
 				new HashSet<>(StringUtils.isBlank(creds) ? Collections.emptyList() : Arrays.asList(creds.split(",")))));
+	}
+	
+	public BooleanProperty saveCookiesProperty() {
+		return saveCookies;
 	}
 
 	public IntegerProperty wProperty() {

@@ -77,6 +77,15 @@
 							data-i18n="ignoreLocalRoutesHelp" class="form-text text-muted">Help</small>
 					</p>
 				</div>
+                <div class="form-check mt-3">
+                    <input type="checkbox" class="form-check-input"
+                        id="saveCookies" /> <label for="saveCookies"
+                        data-i18n="saveCookies">Save Logon Cookies</label>
+                    <p>
+                        <small id="saveCookiesHelp"
+                            data-i18n="saveCookiesHelp" class="form-text text-muted">Help</small>
+                    </p>
+                </div>
 				<button id="save" type="submit" class="btn btn-primary"
 					data-i18n="save">Save</button>
 			</form>
@@ -90,6 +99,7 @@
 				}
 			}
 
+            $('#saveCookies').prop('checked', saveCookies);
 			for (var i = 0; i < logLevels.length; i++) {
 				$('#logLevel').append('<option ' + (logLevels[i] == logLevel ? 'selected="selected"' : '') + ' value="' + logLevels[i] + '">' + pageBundle.getString('logLevel.' + logLevels[i]) + '</option>');
 			}
@@ -116,7 +126,8 @@
 				$('#save').buttonLoader('start');
 				var ser = {
 					logLevel : $('#logLevel').val(),
-					dnsIntegrationMethod : $('#dnsIntegrationMethod').val()
+					dnsIntegrationMethod : $('#dnsIntegrationMethod').val(),
+	                saveCookies: $('#saveCookies').is(':checked')
 				};
 				if ($('#trayMode').length) {
 					ser['trayMode'] = $('#trayMode').val();

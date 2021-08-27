@@ -9,6 +9,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.net.CookieHandler;
+import java.net.CookieManager;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -131,6 +133,8 @@ public class Client extends Application implements X509TrustManager {
 	private Stage primaryStage;
 	private MiniHttpServer miniHttp;
 	private Tray tray;
+
+	private CookieHandler originalCookieHander;
 	private static Client instance;
 
 	public static Client get() {
@@ -179,6 +183,10 @@ public class Client extends Application implements X509TrustManager {
 	@Override
 	public void start(Stage primaryStage) throws Exception {
 		this.primaryStage = primaryStage;
+		
+		this.originalCookieHander = CookieHandler.getDefault();
+		updateCookieHandlerState();
+		Configuration.getDefault().saveCookiesProperty().addListener((e) -> updateCookieHandlerState());
 
 		installCertificateVerifier();
 
@@ -567,6 +575,21 @@ public class Client extends Application implements X509TrustManager {
 					}
 				}
 				
+			}
+		}
+	}
+	
+	protected void updateCookieHandlerState() {
+		boolean isPersistJar = !(CookieHandler.getDefault() instanceof CookieManager);
+		boolean wantsPeristJar = Configuration.getDefault().saveCookiesProperty().get();
+		if(isPersistJar != wantsPeristJar) {
+			if(wantsPeristJar) {
+				log.info("Using Webkit cookie manager");
+				CookieHandler.setDefault(originalCookieHander);
+			}
+			else {
+				log.info("Using in memory cookie manager");
+				CookieHandler.setDefault(new CookieManager());
 			}
 		}
 	}

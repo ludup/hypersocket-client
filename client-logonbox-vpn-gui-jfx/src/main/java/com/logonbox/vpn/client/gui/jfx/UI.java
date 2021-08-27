@@ -11,6 +11,7 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.net.CookieHandler;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -213,7 +214,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			String phase = memberOrDefault(o, "phase", String.class, null);
 			Boolean automaticUpdates = memberOrDefault(o, "automaticUpdates", Boolean.class, null);
 			Boolean ignoreLocalRoutes = memberOrDefault(o, "ignoreLocalRoutes", Boolean.class, null);
-			UI.this.saveOptions(trayMode, phase, automaticUpdates, logLevel, ignoreLocalRoutes, dnsIntegrationMethod);
+			Boolean saveCookies = memberOrDefault(o, "saveCookies", Boolean.class, null);
+			UI.this.saveOptions(trayMode, phase, automaticUpdates, logLevel, ignoreLocalRoutes, dnsIntegrationMethod, saveCookies);
 		}
 
 		public void showError(String error) {
@@ -454,6 +456,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		String trayMode = config.trayModeProperty().get();
 		beans.put("trayMode", trayMode);
 		beans.put("logLevel", config.logLevelProperty().get() == null ? "" : config.logLevelProperty().get());
+		beans.put("saveCookies", config.saveCookiesProperty().get());
 
 		return beans;
 	}
@@ -1107,7 +1110,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
 	}
 
-	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates, String logLevel, Boolean ignoreLocalRoutes, String dnsIntegrationMethod) {
+	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates, String logLevel, Boolean ignoreLocalRoutes, String dnsIntegrationMethod, Boolean saveCookies) {
 		try {
 			/* Local per-user GUI specific configuration  */
 			Configuration config = Configuration.getDefault();
@@ -1121,6 +1124,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					org.apache.log4j.Logger.getRootLogger().setLevel(Main.getInstance().getDefaultLogLevel());
 				else
 					org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(logLevel));
+			}
+			
+			if(saveCookies != null) {
+				config.saveCookiesProperty().set(saveCookies);
 			}
 
 			/* Update configuration stored globally in service */
@@ -1174,6 +1181,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			pageBundle = null;
 			try {
 
+				CookieHandler cookieHandler = java.net.CookieHandler.getDefault();
 				if (htmlPage.startsWith("http://") || htmlPage.startsWith("https://")) {
 
 					/* Set the device UUID cookie for all web access */
@@ -1182,7 +1190,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 						Map<String, List<String>> headers = new LinkedHashMap<String, List<String>>();
 						headers.put("Set-Cookie", Arrays.asList(String.format("%s=%s", Client.DEVICE_IDENTIFIER,
 								context.getDBus().getVPN().getUUID())));
-						java.net.CookieHandler.getDefault().put(uri.resolve("/"), headers);
+						cookieHandler.put(uri.resolve("/"), headers);
 					} catch (Exception e) {
 						throw new IllegalStateException("Failed to set cookie.", e);
 					}
@@ -1228,7 +1236,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					Map<String, List<String>> headers = new LinkedHashMap<String, List<String>>();
 					headers.put("Set-Cookie", Arrays
 							.asList(String.format("%s=%s", Client.LOCBCOOKIE, Client.localWebServerCookie.toString())));
-					java.net.CookieHandler.getDefault().put(uri.resolve("/"), headers);
+					cookieHandler.put(uri.resolve("/"), headers);
 
 					if (LOG.isDebugEnabled())
 						LOG.debug(String.format("Loading location %s", loc));
