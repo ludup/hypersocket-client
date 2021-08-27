@@ -183,11 +183,6 @@ public class Client extends Application implements X509TrustManager {
 	@Override
 	public void start(Stage primaryStage) throws Exception {
 		this.primaryStage = primaryStage;
-		
-		this.originalCookieHander = CookieHandler.getDefault();
-		updateCookieHandlerState();
-		Configuration.getDefault().saveCookiesProperty().addListener((e) -> updateCookieHandlerState());
-
 		installCertificateVerifier();
 
 		if (useLocalHTTPService) {
@@ -332,6 +327,11 @@ public class Client extends Application implements X509TrustManager {
 		if (splash != null) {
 			splash.close();
 		}
+		
+		this.originalCookieHander = CookieHandler.getDefault();
+		updateCookieHandlerState();
+		Configuration.getDefault().saveCookiesProperty().addListener((e) -> updateCookieHandlerState());
+
 	}
 
 	public boolean isMinimizeAllowed() {
