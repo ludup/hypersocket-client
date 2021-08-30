@@ -141,7 +141,7 @@ public class Configuration {
 		saveCredentialsConnections
 				.addListener(new StringPreferenceUpdateChangeListener(node, "saveCredentialsConnections"));
 		
-		saveCookies.set(node.getBoolean("saveCookies", true));
+		saveCookies.set(node.getBoolean("saveCookies", false));
 		saveCookies
 				.addListener(new BooleanPreferenceUpdateChangeListener(node, "saveCookies"));
 
