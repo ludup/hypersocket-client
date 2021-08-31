@@ -350,8 +350,10 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		} else {
 			if (address == null) {
 				if (SystemUtils.IS_OS_UNIX && !tcpBus) {
+					log.info("Using UNIX domain socket bus");
 					address = DirectConnection.createDynamicSession();
 				} else {
+					log.info("Using TCP bus");
 					address = DirectConnection.createDynamicTCPSession();
 				}
 			}
@@ -388,8 +390,10 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			 * TODO secure this a bit. at least use a group permission
 			 */
 			if( ( Platform.isLinux() || Util.isMacOs() ) && busAddress.getBusType().equals(AddressBusTypes.UNIX)) {
-				Path path = Paths.get(busAddress.getPath());
-				Files.setPosixFilePermissions(path, new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
+				if(StringUtils.isNotBlank(busAddress.getPath())) {
+					Path path = Paths.get(busAddress.getPath());
+					Files.setPosixFilePermissions(path, new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
+				}
 			}
 		}
 		log.info(String.format("Requesting name from Bus %s", address));
