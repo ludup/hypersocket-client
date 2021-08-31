@@ -213,7 +213,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		vpn = conn.getRemoteObject(BUS_NAME, ROOT_OBJECT_PATH, VPN.class);
 		ExtensionPlace place = ExtensionPlace.getDefault();
 		getLog().info("Registering with DBus.");
-		vpn.register(System.getProperty("user.name"), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
+		vpn.register(getEffectiveUser(), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
 				place.getUrls().stream().map(placeUrl -> placeUrl.toExternalForm()).collect(Collectors.toList())
 						.toArray(new String[0]),
 				supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()), target.name());
@@ -230,6 +230,10 @@ public abstract class AbstractDBusClient implements DBusClient {
 				}
 			}
 		}, 5, 5, TimeUnit.SECONDS);
+	}
+
+	protected String getEffectiveUser() {
+		return System.getProperty("user.name");
 	}
 
 	private Map<String, String> toStringMap(Map<String, File> bootstrapArchives) {

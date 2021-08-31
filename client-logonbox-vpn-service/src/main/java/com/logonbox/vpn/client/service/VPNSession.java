@@ -26,6 +26,15 @@ public class VPNSession implements Closeable {
 	private LocalContext localContext;
 	private Connection connection;
 	private ScheduledFuture<?> task;
+	private boolean reconnect;
+
+	public boolean isReconnect() {
+		return reconnect;
+	}
+
+	public void setReconnect(boolean reconnect) {
+		this.reconnect = reconnect;
+	}
 
 	public LocalContext getLocalContext() {
 		return localContext;

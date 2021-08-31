@@ -29,8 +29,12 @@ public class Create extends AbstractConnectionCommand implements Callable<Intege
 	private boolean background;
 
 	@Option(names = { "-c",
-			"--connect-at-startup" }, description = "Have this connection activate when the service starts.")
-	private boolean connectAtStartup;
+			"--connect-at-startup" }, description = "Have this connection activate when the service starts.", defaultValue = "true")
+	private boolean connectAtStartup = true;
+
+	@Option(names = { "-s",
+			"--stay-connected" }, description = "Stay connected.", defaultValue = "true")
+	private boolean stayConnected = true;
 
 	@Option(names = { "-n", "--dont-connect-now" }, description = "Just create the connection, don't connect yet.")
 	private boolean dontConnectNow;
@@ -54,7 +58,7 @@ public class Create extends AbstractConnectionCommand implements Callable<Intege
 			return 1;
 		}
 
-		connectionId = cli.getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup);
+		connectionId = cli.getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup, background);
 		if (!dontConnectNow) {
 			VPNConnection connection = cli.getVPNConnection(connectionId);
 			DBusSigHandler<Authorize> sigHandler = new DBusSigHandler<VPNConnection.Authorize>() {

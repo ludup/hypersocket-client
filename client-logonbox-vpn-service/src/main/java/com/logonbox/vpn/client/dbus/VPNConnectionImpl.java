@@ -398,4 +398,16 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 		return ctx.getClientService().getStatus(connection.getId()).getDetail().getTx();
 	}
 
+	@Override
+	public boolean isStayConnected() {
+		assertRegistered();
+		return connection.isStayConnected();
+	}
+
+	@Override
+	public void setStayConnected(boolean stayConnected) {
+		assertRegistered();
+		connection.setStayConnected(stayConnected);
+	}
+
 }

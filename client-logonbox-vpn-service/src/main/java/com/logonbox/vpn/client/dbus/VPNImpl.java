@@ -202,7 +202,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
-	public long createConnection(String uri, boolean connectAtStartup) {
+	public long createConnection(String uri, boolean connectAtStartup, boolean stayConnected) {
 		assertRegistered();
 		ConnectionImpl connection = new ConnectionImpl();
 		try {
@@ -214,6 +214,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 			VPNFrontEnd fe = ctx.getFrontEnd(DBusConnection.getCallInfo().getSource());
 			connection.setOwner(fe == null ? System.getProperty("user.name") : fe.getUsername());
 			connection.setConnectAtStartup(connectAtStartup);
+			connection.setStayConnected(stayConnected);
 			return ctx.getClientService().create(connection).getId();
 		}
 	}
@@ -280,5 +281,15 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 			}
 		}
 		return active;
+	}
+
+	@Override
+	public long getMaxMemory() {
+		return Runtime.getRuntime().maxMemory();
+	}
+
+	@Override
+	public long getFreeMemory() {
+		return Runtime.getRuntime().freeMemory();
 	}
 }

@@ -15,6 +15,10 @@ public interface VPN extends DBusInterface {
 	String[] getMissingPackages();
 
 	String[] getConnections();
+	
+	long getMaxMemory();
+	
+	long getFreeMemory();
 
 	boolean isUpdatesEnabled();
 
@@ -44,7 +48,7 @@ public interface VPN extends DBusInterface {
 
 	long getConnectionIdForURI(String uri);
 
-	long createConnection(String uri, boolean connectAtStartup);
+	long createConnection(String uri, boolean connectAtStartup, boolean stayConnected);
 
 	int getNumberOfConnections();
 

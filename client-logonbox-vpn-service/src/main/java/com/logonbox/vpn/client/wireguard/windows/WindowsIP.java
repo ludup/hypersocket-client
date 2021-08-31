@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.wireguard.AbstractVirtualInetAddress;
 import com.logonbox.vpn.client.wireguard.IpUtil;
+import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.services.Service;
@@ -27,13 +28,12 @@ public class WindowsIP extends AbstractVirtualInetAddress<WindowsPlatformService
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsIP.class);
 
-	private WindowsPlatformServiceImpl platform;
 	private Object lock = new Object();
 	private String displayName;
 	private Set<String> domainsAdded = new LinkedHashSet<String>();
 	
 	public WindowsIP(String name, String displayName, WindowsPlatformServiceImpl platform) {
-		super(platform, name);
+		super(platform, name); 
 		this.displayName = displayName;
 	}
 
@@ -43,7 +43,7 @@ public class WindowsIP extends AbstractVirtualInetAddress<WindowsPlatformService
 			if (isUp()) {
 				down();
 			}
-			platform.uninstall(getServiceName());
+			getPlatform().uninstall(getServiceName());
 		}
 	}
 
@@ -133,22 +133,33 @@ public class WindowsIP extends AbstractVirtualInetAddress<WindowsPlatformService
 						String.join(", ", dns), method));
 				switch (method) {
 				case NETSH:
-					String[] dnsAddresses = IpUtil.filterAddresses(dns);
+					/* Ipv4 */
+					String[] dnsAddresses = IpUtil.filterIpV4Addresses(dns);
 					if(dnsAddresses.length > 2) {
 						LOG.warn("Windows only supports a maximum of 2 DNS servers. %d were supplied, the last %d will be ignored.", dnsAddresses.length, dnsAddresses.length - 2);
 					}
-					if(dnsAddresses.length > 1) {
-						OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", dnsAddresses[0], "secondary");	
-					} 
-					else if(dnsAddresses.length < 2) {
-						OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", "none", "secondary");	
-					}
+
+					OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv4", "delete", "dnsservers", getName(), "all"));
 					if(dnsAddresses.length > 0) {
-						OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", dnsAddresses[0], "primary");	
+						OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv4", "add", "dnsserver", getName(), dnsAddresses[0], "index=1", "no"));	
 					} 
-					else if(dnsAddresses.length < 1) {
-						OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", getName(), "static", "none", "primary");	
+					if(dnsAddresses.length > 1) {
+						OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv4", "add", "dnsserver", getName(), dnsAddresses[1], "index=2", "no"));	
+					} 
+
+					/* Ipv6 */
+					dnsAddresses = IpUtil.filterIpV6Addresses(dns);
+					if(dnsAddresses.length > 2) {
+						LOG.warn("Windows only supports a maximum of 2 DNS servers. %d were supplied, the last %d will be ignored.", dnsAddresses.length, dnsAddresses.length - 2);
 					}
+
+					OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv6", "delete", "dnsservers", getName(), "all"));
+					if(dnsAddresses.length > 0) {
+						OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv6", "add", "dnsserver", getName(), dnsAddresses[0], "index=1", "no"));	
+					} 
+					if(dnsAddresses.length > 1) {
+						OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv6", "add", "dnsserver", getName(), dnsAddresses[1], "index=2", "no"));	
+					} 
 
 					String[] dnsNames = IpUtil.filterNames(dns);
 					String currentDomains = null;
@@ -160,7 +171,7 @@ public class WindowsIP extends AbstractVirtualInetAddress<WindowsPlatformService
 					catch(Exception e) {
 						//
 					}
-					Set<String> newDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
+					Set<String> newDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains.split(",")));
 					for(String dnsName : dnsNames) {
 						if(!newDomainList.contains(dnsName)) {
 							LOG.info(String.format("Adding domain %s to search", dnsName));

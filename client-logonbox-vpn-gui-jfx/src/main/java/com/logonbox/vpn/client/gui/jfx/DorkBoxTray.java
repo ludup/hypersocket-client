@@ -10,6 +10,8 @@ import java.util.Objects;
 import javax.swing.JMenu;
 
 import org.kordamp.ikonli.fontawesome.FontAwesome;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.common.client.AbstractDBusClient.BusLifecycleListener;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
@@ -24,6 +26,9 @@ import javafx.application.Platform;
 
 public class DorkBoxTray extends AbstractTray implements AutoCloseable, Tray, BusLifecycleListener {
 
+
+	final static Logger log = LoggerFactory.getLogger(DorkBoxTray.class);
+	
 	private static final int DEFAULT_ICON_SIZE = 48;
 	private List<Entry> menuEntries = new ArrayList<>();
 	private SystemTray systemTray;
@@ -57,8 +62,10 @@ public class DorkBoxTray extends AbstractTray implements AutoCloseable, Tray, Bu
 	protected void queueGuiOp(Runnable r) {
 		if (com.sun.jna.Platform.isMac()) {
 			Platform.runLater(r);
-		} else
+		} else if(!context.getOpQueue().isShutdown())
 			context.getOpQueue().execute(r);
+		else
+			log.debug("Ignoring request to queue task, queue is shutdown.");
 	}
 
 	public void reload() {

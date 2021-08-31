@@ -30,6 +30,10 @@ public interface VPNConnection extends DBusInterface {
 
 	boolean isConnectAtStartup();
 
+	boolean isStayConnected();
+
+	void setStayConnected(boolean stayConnected);
+
 	void delete();
 
 	void disconnect(String reason);

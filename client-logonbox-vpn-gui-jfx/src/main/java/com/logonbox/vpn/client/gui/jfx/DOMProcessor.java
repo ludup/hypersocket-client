@@ -52,12 +52,36 @@ public class DOMProcessor {
 			errorText = lastErrorMessage;
 		}
 
-
+		/* VPN service */
 		replacements.put("updatesEnabled", String.valueOf(vpn != null && vpn.isUpdatesEnabled()));
 		replacements.put("needsUpdating", String.valueOf(vpn != null && vpn.isNeedsUpdating()));
+		long vpnFreeMemory = vpn == null ? 0 : vpn.getFreeMemory();
+		long vpnMaxMemory = vpn == null ? 0 : vpn.getMaxMemory();
+		replacements.put("serviceFreeMemory",  Util.toHumanSize(vpnFreeMemory));
+		replacements.put("serviceMaxMemory",  Util.toHumanSize(vpnMaxMemory));
+		replacements.put("serviceUsedMemory",  Util.toHumanSize(vpnMaxMemory - vpnFreeMemory));
+		
+		/* General */
+		long freeMemory = Runtime.getRuntime().freeMemory();
+		replacements.put("freeMemory",  Util.toHumanSize(freeMemory));
+		long maxMemory = Runtime.getRuntime().maxMemory();
+		replacements.put("maxMemory",  Util.toHumanSize(maxMemory));
+		replacements.put("usedMemory",  Util.toHumanSize(maxMemory - freeMemory));
 		replacements.put("errorMessage", errorText);
 		replacements.put("errorCauseMessage", errorCauseText);
 		replacements.put("exception", exceptionText);
+		String version = HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-gui-jfx");
+		replacements.put("clientVersion",  version);
+		replacements.put("snapshot",  String.valueOf(version.indexOf("-SNAPSHOT") != -1));
+		replacements.put("brand", MessageFormat.format(resources.getString("brand"),
+			(branding == null || branding.getResource() == null
+						|| StringUtils.isBlank(branding.getResource().getName()) ? "LogonBox"
+								: branding.getResource().getName())));
+		replacements.put("tracksServerVersion", vpn == null ? "true" : String.valueOf(vpn.isTrackServerVersion()));
+//		replacements.put("trayConfigurable", String.valueOf(Client.get().isTrayConfigurable()));
+		replacements.put("trayConfigurable", String.valueOf(false));
+		
+		/* Connection */
 		replacements.put("displayName", connection == null ? "" : connection.getDisplayName());
 		replacements.put("name", connection == null || connection.getName() == null ? "" : connection.getName());
 		replacements.put("server", connection == null ? "" : connection.getHostname());
@@ -70,11 +94,7 @@ public class DOMProcessor {
 		replacements.put("address", connection == null ? "" : connection.getAddress());
 		replacements.put("usernameHint", connection == null ? "" : connection.getUsernameHint());
 		replacements.put("connectAtStartup", connection == null ? "false" : String.valueOf(connection.isConnectAtStartup()));
-		replacements.put("clientVersion",  HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-gui-jfx"));
-		replacements.put("brand", MessageFormat.format(resources.getString("brand"),
-			(branding == null || branding.getResource() == null
-						|| StringUtils.isBlank(branding.getResource().getName()) ? "LogonBox"
-								: branding.getResource().getName())));
+		replacements.put("stayConnected", connection == null ? "false" : String.valueOf(connection.isStayConnected()));
 		replacements.put("allowedIps", connection == null ? "" : String.join(", ", connection.getAllowedIps()));
 		replacements.put("dns", connection == null ? "" : String.join(", ", connection.getDns()));
 		replacements.put("persistentKeepalive", connection == null ? "" : String.valueOf(connection.getPersistentKeepalive()));
@@ -90,9 +110,6 @@ public class DOMProcessor {
 			replacements.put("lastHandshake",  DateFormat.getDateTimeInstance().format(new Date(connection.getLastHandshake())));			
 			replacements.put("usage",  MessageFormat.format(resources.getString("usageDetail"), Util.toHumanSize(connection.getRx()), Util.toHumanSize(connection.getTx())));
 		}
-		replacements.put("tracksServerVersion", vpn == null ? "true" : String.valueOf(vpn.isTrackServerVersion()));
-//		replacements.put("trayConfigurable", String.valueOf(Client.get().isTrayConfigurable()));
-		replacements.put("trayConfigurable", String.valueOf(false));
 
 		this.documentElement = documentElement;
 		this.pageBundle = pageBundle;

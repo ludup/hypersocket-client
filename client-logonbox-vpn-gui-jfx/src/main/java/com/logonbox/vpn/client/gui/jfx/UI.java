@@ -117,10 +117,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 		public void addConnection(JSObject o) throws URISyntaxException {
 			Boolean connectAtStartup = (Boolean) o.getMember("connectAtStartup");
+			Boolean stayConnected = (Boolean) o.getMember("stayConnected");
 			String server = (String) o.getMember("serverUrl");
 			if(StringUtils.isBlank(server))
 				throw new IllegalArgumentException(bundle.getString("error.invalidUri"));
-			UI.this.addConnection(connectAtStartup, server);
+			UI.this.addConnection(stayConnected, connectAtStartup, server);
 		}
 
 		public void authenticate() {
@@ -144,9 +145,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 		public void editConnection(JSObject o) {
 			Boolean connectAtStartup = (Boolean) o.getMember("connectAtStartup");
+			Boolean stayConnected = (Boolean) o.getMember("stayConnected");
 			String server = (String) o.getMember("serverUrl");
 			String name = (String) o.getMember("name");
-			UI.this.editConnection(connectAtStartup, name, server, getSelectedConnection());
+			UI.this.editConnection(connectAtStartup, stayConnected, name, server, getSelectedConnection());
 		}
 
 		public VPNConnection getConnection() {
@@ -751,14 +753,20 @@ public class UI extends AbstractController implements BusLifecycleListener {
 						disconnectionReason = sig.getReason();
 						maybeRunLater(() -> {
 							log.info("Disconnected " + sig.getId() + " (delete " + deleteOnDisconnect + ")");
-							VPNConnection connection = context.getDBus().getVPNConnection(sig.getId());
-							if(StringUtils.isBlank(disconnectionReason))
-								UI.this.notify(MessageFormat.format(bundle.getString("disconnectedNoReason"), connection.getDisplayName(), connection.getHostname()), ToastType.INFO);
-							else
-								UI.this.notify(MessageFormat.format(bundle.getString("disconnected"), connection.getDisplayName(), connection.getHostname(), disconnectionReason), ToastType.INFO);
+							VPNConnection connection = null;
+							try {
+								connection = context.getDBus().getVPNConnection(sig.getId());
+								if(StringUtils.isBlank(disconnectionReason))
+									UI.this.notify(MessageFormat.format(bundle.getString("disconnectedNoReason"), connection.getDisplayName(), connection.getHostname()), ToastType.INFO);
+								else
+									UI.this.notify(MessageFormat.format(bundle.getString("disconnected"), connection.getDisplayName(), connection.getHostname(), disconnectionReason), ToastType.INFO);
+							}
+							catch(Exception  e) {
+								log.error("Failed to get connection, delete not possible.");
+							}
 							
 							connections.refresh();
-							if (deleteOnDisconnect) {
+							if (connection != null && deleteOnDisconnect) {
 								try {
 									doDelete(connection);
 									initUi(connection);
@@ -817,11 +825,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		});
 	}
 
-	protected void addConnection(Boolean connectAtStartup, String unprocessedUri) throws URISyntaxException {
+	protected void addConnection(Boolean stayConnected, Boolean connectAtStartup, String unprocessedUri) throws URISyntaxException {
 		URI uriObj = Util.getUri(unprocessedUri);
 		context.getOpQueue().execute(() -> {
 			try {
-				context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup);
+				context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup, stayConnected);
 			} catch (Exception e) {
 				showError("Failed to add connection.", e);
 			}
@@ -961,7 +969,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		return false;
 	}
 
-	protected void editConnection(Boolean connectAtStartup, String name, String server, VPNConnection connection) {
+	protected void editConnection(Boolean connectAtStartup, Boolean stayConnected, String name, String server, VPNConnection connection) {
 		try {
 			URI uriObj = Util.getUri(server);
 
@@ -970,6 +978,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			connection
 					.setPort(uriObj.getPort() < 1 ? (uriObj.getScheme().equals("https") ? 443 : 80) : uriObj.getPort());
 			connection.setConnectAtStartup(connectAtStartup);
+			connection.setStayConnected(stayConnected);
 			if (!connection.isTransient())
 				connection.save();
 
@@ -1323,7 +1332,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				if (connectionId == -1) {
 					if (Main.getInstance().isCreateIfDoesntExist()) {
 						/* No existing configuration */
-						context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), true);
+						context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), true, true);
 					} else {
 						showError(MessageFormat.format(bundle.getString("error.uriProvidedDoesntExist"), uriObj));
 					}

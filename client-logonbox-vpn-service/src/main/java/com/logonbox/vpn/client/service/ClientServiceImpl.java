@@ -765,20 +765,23 @@ public class ClientServiceImpl implements ClientService {
 		return newConnection;
 	}
 
-	public void scheduleConnect(Connection c) {
-		checkValidConnect(c);
-		if (log.isInfoEnabled()) {
-			log.info("Scheduling connect for connection id " + c.getId() + "/" + c.getHostname());
-		}
-
-		Integer reconnectSeconds = Integer.valueOf(configurationRepository.getValue("client.reconnectInSeconds", "5"));
-
-		Connection connection = connectionRepository.getConnection(c.getId());
-		if (connection == null) {
-			log.warn("Ignoring a scheduled connection that no longer exists, probably deleted.");
-		} else {
-			VPNSession job = createJob(c);
-			job.setTask(timer.schedule(() -> doConnect(job), reconnectSeconds, TimeUnit.SECONDS));
+	public void scheduleConnect(Connection c, boolean reconnect) {
+		synchronized (activeSessions) {
+			checkValidConnect(c);
+			if (log.isInfoEnabled()) {
+				log.info("Scheduling connect for connection id " + c.getId() + "/" + c.getHostname());
+			}
+	
+			Integer reconnectSeconds = Integer.valueOf(configurationRepository.getValue("client.reconnectInSeconds", "5"));
+	
+			Connection connection = connectionRepository.getConnection(c.getId());
+			if (connection == null) {
+				log.warn("Ignoring a scheduled connection that no longer exists, probably deleted.");
+			} else {
+				VPNSession job = createJob(c);
+				job.setReconnect(reconnect);
+				job.setTask(timer.schedule(() -> doConnect(job), reconnectSeconds, TimeUnit.SECONDS));
+			}
 		}
 
 	}
@@ -1046,9 +1049,10 @@ public class ClientServiceImpl implements ClientService {
 	private void checkConnectionsAlive() {
 		synchronized (activeSessions) {
 			for (Map.Entry<Connection, VPNSession> sessionEn : new HashMap<>(activeSessions).entrySet()) {
+				Connection connection = sessionEn.getKey();
 				try {
-					if (connectingSessions.containsKey(sessionEn.getKey())
-							|| getContext().getPlatformService().isAlive(sessionEn.getValue(), sessionEn.getKey())) {
+					if (connectingSessions.containsKey(connection)
+							|| getContext().getPlatformService().isAlive(sessionEn.getValue(), connection)) {
 						/* If still 'connecting' or completely alive, skip to next session */
 						continue;
 					}
@@ -1059,11 +1063,20 @@ public class ClientServiceImpl implements ClientService {
 				/* Kill the dead session */
 				log.info(String.format(
 						"Session with public key %s hasn't had a valid handshake for %d seconds, disconnecting.",
-						sessionEn.getKey().getUserPublicKey(), ClientService.HANDSHAKE_TIMEOUT));
+						connection.getUserPublicKey(), ClientService.HANDSHAKE_TIMEOUT));
 				try {
-					disconnect(sessionEn.getKey(), null);
+					disconnect(connection, null);
 				} catch (Exception e) {
 					log.warn("Failed to disconnect dead session. State may be incorrect.", e);
+				} finally {
+					if(connection.isStayConnected()) {
+						try {
+							scheduleConnect(connection, true);
+						}
+						catch(Exception e) {
+							e.printStackTrace();
+						}
+					}
 				}
 			}
 		}
@@ -1161,11 +1174,11 @@ public class ClientServiceImpl implements ClientService {
 						e.getMessage(), errorCauseText.toString(), trace.toString()));
 
 				if (!(e instanceof UserCancelledException)) {
-					if (connection.isStayConnected()) {
+					if (connection.isStayConnected() && job.isReconnect()) {
 						if (log.isInfoEnabled()) {
 							log.info("Stay connected is set, so scheduling new connection to " + connection);
 						}
-						scheduleConnect(connection);
+						scheduleConnect(connection, false);
 						return;
 					}
 				}

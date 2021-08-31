@@ -122,7 +122,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	private boolean noRegistrationRequired;
 
 	@Option(names = { "-t",
-			"--tcp-bus" }, description = "Force use of TCP DBus service. Usually it is enabled by default for anything other than Linux.")
+			"--tcp-bus" }, description = "Force use of TCP DBus service. Usually it is enabled by default for Windows only.")
 	private boolean tcpBus;
 
 	@Option(names = { "-u",

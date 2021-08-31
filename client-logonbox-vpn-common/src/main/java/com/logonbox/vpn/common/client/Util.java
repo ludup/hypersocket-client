@@ -2,6 +2,8 @@ package com.logonbox.vpn.common.client;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.text.CharacterIterator;
+import java.text.StringCharacterIterator;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -108,17 +110,18 @@ public class Util {
 		return uri;
 	}
 
-	public static String toHumanSize(long l) {
-		if(l < 1024) {
-			return String.format("%dB", l);
-		}
-		else if(l < 1048576)
-			return String.format("%dKiB", l / 1024);
-		else if(l < 1073741824)
-			return String.format("%dMiB", l / 1024 / 1024);
-		else if(l < 1073741824 * 1024)
-			return String.format("%dGiB", l / 1024 / 1024 / 1024);
-		else 
-			return String.format("%dTiB", l / 1024 / 1024 / 1024 / 1024);
+	public static String toHumanSize(long bytes) {
+		long absB = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
+	    if (absB < 1024) {
+	        return bytes + " B";
+	    }
+	    long value = absB;
+	    CharacterIterator ci = new StringCharacterIterator("KMGTPE");
+	    for (int i = 40; i >= 0 && absB > 0xfffccccccccccccL >> i; i -= 10) {
+	        value >>= 10;
+	        ci.next();
+	    }
+	    value *= Long.signum(bytes);
+	    return String.format("%.1f %ciB", value / 1024.0, ci.current());
 	}
 }

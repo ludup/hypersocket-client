@@ -38,9 +38,8 @@ a {
     text-decoration: none !important;
 }
 
-.btn-primary {
+.btn-primary, .btn-primary:active, .btn-primary:hover {
 	color: ${lbvpnForeground} !important;
 	background: ${lbvpnBackground} !important;
 	border-color: ${lbvpnAccent} !important;
 }
-
