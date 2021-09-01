@@ -99,10 +99,10 @@
 				}
 			}
 
-            /*$('#saveCookies').prop('checked', saveCookies);
+            /*$('#saveCookies').prop('checked', saveCookies);*/
 			for (var i = 0; i < logLevels.length; i++) {
 				$('#logLevel').append('<option ' + (logLevels[i] == logLevel ? 'selected="selected"' : '') + ' value="' + logLevels[i] + '">' + pageBundle.getString('logLevel.' + logLevels[i]) + '</option>');
-			}*/
+			}
 
 			for (var i = 0; i < dnsIntegrationMethods.length; i++) {
 				$('#dnsIntegrationMethod').append('<option ' + (dnsIntegrationMethods[i] == dnsIntegrationMethod ? 'selected="selected"' : '') + ' value="' + dnsIntegrationMethods[i] + '">' + pageBundle.getString('dnsIntegrationMethod.' + dnsIntegrationMethods[i]) + '</option>');
