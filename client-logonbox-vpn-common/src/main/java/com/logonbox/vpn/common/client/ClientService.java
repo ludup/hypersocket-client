@@ -1,5 +1,6 @@
 package com.logonbox.vpn.common.client;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
@@ -79,4 +80,6 @@ public interface ClientService  {
 	String getActiveInterface(Connection c);
 
 	boolean isUpdatesEnabled();
+	
+	IOException getConnectionError(Connection connection);
 }

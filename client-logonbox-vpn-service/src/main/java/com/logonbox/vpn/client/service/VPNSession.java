@@ -22,7 +22,7 @@ public class VPNSession implements Closeable {
 	static Logger log = LoggerFactory.getLogger(VPNSession.class);
 
 	private List<String> allows = new ArrayList<>();
-	private VirtualInetAddress ip;
+	private VirtualInetAddress<?> ip;
 	private LocalContext localContext;
 	private Connection connection;
 	private ScheduledFuture<?> task;
@@ -48,7 +48,7 @@ public class VPNSession implements Closeable {
 		this(connection, localContext, null);
 	}
 
-	public VPNSession(Connection connection, LocalContext localContext, VirtualInetAddress ip) {
+	public VPNSession(Connection connection, LocalContext localContext, VirtualInetAddress<?> ip) {
 		this.localContext = localContext;
 		this.connection = connection;
 		this.ip = ip;
@@ -86,10 +86,11 @@ public class VPNSession implements Closeable {
 		ConnectionStatus connection = cctx.getClientService().getStatus(this.connection.getId());
 		Connection vpnConnection = connection.getConnection();
 		if (log.isInfoEnabled()) {
-			log.info(String.format("Connected to %s", vpnConnection.getUri(true)));
+			log.info(String.format("Connecting to %s", vpnConnection.getUri(true)));
 		}
-		if(!vpnConnection.isAuthorized())
-			throw new ReauthorizeException("New connection.");
+		if(!vpnConnection.isAuthorized()) {
+			throw new ReauthorizeException("Requires authorization.");
+		}
 		
 		String preUp = vpnConnection.getPreUp();
 		if(StringUtils.isNotBlank(preUp)) {
@@ -97,7 +98,20 @@ public class VPNSession implements Closeable {
 			runHook(preUp);  
 		}
 		
-		ip = getLocalContext().getPlatformService().connect(this, vpnConnection);
+		try {
+			ip = getLocalContext().getPlatformService().connect(this, vpnConnection);
+		}
+		catch(ReauthorizeException re) {
+			/* Probe for the reason we did not get a handshake by testing
+			 * the HTTP service.			 * 
+			 */
+			IOException ioe = cctx.getClientService().getConnectionError(vpnConnection);
+			if(ioe instanceof ReauthorizeException)
+				throw re;
+			else
+				throw ioe;
+		}
+		
 		String postUp = vpnConnection.getPostUp();
 		if(StringUtils.isNotBlank(postUp)) {
 			log.info("Running post-up commands.", postUp);
@@ -110,7 +124,7 @@ public class VPNSession implements Closeable {
 
 	}
 
-	public VirtualInetAddress getIp() {
+	public VirtualInetAddress<?> getIp() {
 		return ip;
 	}
 

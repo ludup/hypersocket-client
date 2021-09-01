@@ -26,6 +26,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +39,7 @@ import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.extensions.JsonExtensionUpdate;
 import com.hypersocket.json.version.Version;
+import com.hypersocket.utils.HttpUtilsHolder;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.dbus.VPNConnectionImpl;
 import com.logonbox.vpn.client.service.updates.ClientUpdater;
@@ -186,6 +189,7 @@ public class ClientServiceImpl implements ClientService {
 	@Override
 	public void deauthorize(Connection connection) {
 		synchronized (activeSessions) {
+			log.info(String.format("De-authorizing connection %s", connection.getDisplayName()));
 			connection.deauthorize();
 			ScheduledFuture<?> f = authorizingClients.remove(connection);
 			if (f != null)
@@ -1064,12 +1068,21 @@ public class ClientServiceImpl implements ClientService {
 				log.info(String.format(
 						"Session with public key %s hasn't had a valid handshake for %d seconds, disconnecting.",
 						connection.getUserPublicKey(), ClientService.HANDSHAKE_TIMEOUT));
+				
+				/* Try to work out why .... we can only do this with LogonBox VPN
+				 * because the HTTP service should be there as well. If there is an
+				 * internet outage, or a problem on the server, then we can use
+				 * this HTTP channel to try and get a little more info as to
+				 * why we have no received a handshake for a while.
+				 */
+				IOException reason = getConnectionError(connection);
+				
 				try {
-					disconnect(connection, null);
+					disconnect(connection, reason instanceof ReauthorizeException ? "Re-authorize required" : reason.getMessage());
 				} catch (Exception e) {
 					log.warn("Failed to disconnect dead session. State may be incorrect.", e);
 				} finally {
-					if(connection.isStayConnected()) {
+					if(!(reason instanceof ReauthorizeException && connection.isStayConnected())) {
 						try {
 							scheduleConnect(connection, true);
 						}
@@ -1080,6 +1093,27 @@ public class ClientServiceImpl implements ClientService {
 				}
 			}
 		}
+	}
+
+	@Override
+	public IOException getConnectionError(Connection connection) {
+
+		try(CloseableHttpClient httpclient = HttpClients.createDefault()) {
+			String uri = connection.getUri(false) + "/api/server/ping";
+			log.info(String.format("Testing if a connection to %s should be retried using %s.", connection.getName(), uri));
+			String content = HttpUtilsHolder.getInstance().doHttpGetContent(uri, true, new HashMap<>());
+			
+			/* The Http service appears to be there, so this is likely an
+			 * invalidated session. 
+			 */
+			log.info("Error is not retryable, invalidate configuration. " + content);
+			return new ReauthorizeException("Your configuration has been invalidated, and you will need to sign-on again.");
+
+		} catch (IOException ex) {
+			/* Decide what's happening based on the error. */
+			log.info("Error is retryable.", ex);
+			return ex;
+		} 
 	}
 
 	private void checkValidConnect(Connection c) {
@@ -1133,7 +1167,7 @@ public class ClientServiceImpl implements ClientService {
 
 				failedToConnect(connection, e);
 				if (e instanceof ReauthorizeException) {
-					log.info(String.format("Requesting reauthorization for %s", connection.getUri(true)));
+					log.info(String.format("Requested  reauthorization for %s", connection.getUri(true)));
 					try {
 						/*
 						 * The connection did not get it's first handshake in a timely manner. We don't
@@ -1174,11 +1208,12 @@ public class ClientServiceImpl implements ClientService {
 						e.getMessage(), errorCauseText.toString(), trace.toString()));
 
 				if (!(e instanceof UserCancelledException)) {
+					log.info(String.format("Connnection not cancelled by user. Reconnect is %s, stay connected is %s", job.isReconnect(), connection.isStayConnected()));
 					if (connection.isStayConnected() && job.isReconnect()) {
 						if (log.isInfoEnabled()) {
 							log.info("Stay connected is set, so scheduling new connection to " + connection);
 						}
-						scheduleConnect(connection, false);
+						scheduleConnect(connection, true);
 						return;
 					}
 				}
