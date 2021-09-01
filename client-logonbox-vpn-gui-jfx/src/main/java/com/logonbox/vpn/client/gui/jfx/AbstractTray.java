@@ -204,6 +204,13 @@ public abstract class AbstractTray implements AutoCloseable, Tray, BusLifecycleL
 							reload();
 						}
 					});
+			connection.addSigHandler(VPNConnection.TemporarilyOffline.class,
+					new DBusSigHandler<VPNConnection.TemporarilyOffline>() {
+						@Override
+						public void handle(VPNConnection.TemporarilyOffline sig) {
+							reload();
+						}
+					});
 			connection.addSigHandler(VPNConnection.Disconnecting.class,
 					new DBusSigHandler<VPNConnection.Disconnecting>() {
 						@Override

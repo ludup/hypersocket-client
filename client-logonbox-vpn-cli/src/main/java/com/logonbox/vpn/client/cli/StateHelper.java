@@ -11,11 +11,12 @@ import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 import com.logonbox.vpn.common.client.dbus.VPNConnection.Authorize;
+import com.logonbox.vpn.common.client.dbus.VPNConnection.Connected;
+import com.logonbox.vpn.common.client.dbus.VPNConnection.Connecting;
 import com.logonbox.vpn.common.client.dbus.VPNConnection.Disconnected;
 import com.logonbox.vpn.common.client.dbus.VPNConnection.Disconnecting;
 import com.logonbox.vpn.common.client.dbus.VPNConnection.Failed;
-import com.logonbox.vpn.common.client.dbus.VPNConnection.Connecting;
-import com.logonbox.vpn.common.client.dbus.VPNConnection.Connected;
+import com.logonbox.vpn.common.client.dbus.VPNConnection.TemporarilyOffline;
 
 public class StateHelper implements Closeable {
 
@@ -28,6 +29,7 @@ public class StateHelper implements Closeable {
 	private DBusSigHandler<Failed> failedSigHandler;
 	private DBusSigHandler<Disconnected> disconnectedSigHandler;
 	private DBusSigHandler<Disconnecting> disconnectingSigHandler;
+	private DBusSigHandler<TemporarilyOffline> temporarilyOfflineSigHandler;
 	private Object lock = new Object();
 	private boolean interrupt;
 
@@ -81,6 +83,13 @@ public class StateHelper implements Closeable {
 				authorizeSigHandler = new DBusSigHandler<VPNConnection.Authorize>() {
 					@Override
 					public void handle(VPNConnection.Authorize sig) {
+						stateChange();
+					}
+				});
+		bus.addSigHandler(VPNConnection.TemporarilyOffline.class, connection,
+				temporarilyOfflineSigHandler = new DBusSigHandler<VPNConnection.TemporarilyOffline>() {
+					@Override
+					public void handle(VPNConnection.TemporarilyOffline sig) {
 						stateChange();
 					}
 				});
@@ -165,6 +174,7 @@ public class StateHelper implements Closeable {
 			bus.removeSigHandler(VPNConnection.Failed.class, failedSigHandler);
 			bus.removeSigHandler(VPNConnection.Disconnected.class, disconnectedSigHandler);
 			bus.removeSigHandler(VPNConnection.Disconnecting.class, disconnectingSigHandler);
+			bus.removeSigHandler(VPNConnection.TemporarilyOffline.class, temporarilyOfflineSigHandler);
 		} catch (DBusException dbe) {
 			throw new IOException("Failed to remove signal handlers.", dbe);
 		}

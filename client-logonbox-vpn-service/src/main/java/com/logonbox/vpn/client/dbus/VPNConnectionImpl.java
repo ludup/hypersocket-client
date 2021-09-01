@@ -7,6 +7,7 @@ import org.freedesktop.dbus.annotations.DBusInterfaceName;
 
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
 @DBusInterfaceName("com.logonbox.vpn.Connection")
@@ -408,6 +409,11 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 	public void setStayConnected(boolean stayConnected) {
 		assertRegistered();
 		connection.setStayConnected(stayConnected);
+	}
+
+	@Override
+	public boolean isTemporarilyOffline() {
+		return ctx.getClientService().getStatus(connection.getId()).getStatus() == ConnectionStatus.Type.TEMPORARILY_OFFLINE;
 	}
 
 }

@@ -124,6 +124,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public void register(String username, boolean interactive, String id, String dirPath, String[] urls,
 			boolean supportsAuthorization, Map<String, String> archives, String target) {
+		log.info(String.format("Register client %s", id));
 		VPNFrontEnd frontEnd = null;
 		String source = DBusConnection.getCallInfo().getSource();
 		if(ctx.hasFrontEnd(source)) {

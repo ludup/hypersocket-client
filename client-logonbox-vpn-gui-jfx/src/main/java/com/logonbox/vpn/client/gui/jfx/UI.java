@@ -744,6 +744,20 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				});
 			}
 		});
+		
+		/* Temporarily offline */
+		bus.addSigHandler(VPNConnection.TemporarilyOffline.class, connection,
+				new DBusSigHandler<VPNConnection.TemporarilyOffline>() {
+					@Override
+					public void handle(VPNConnection.TemporarilyOffline sig) {
+						disconnectionReason = sig.getReason();
+						maybeRunLater(() -> {
+							log.info("Temporarily offline " + sig.getId());
+							connections.refresh();
+							selectPageForState(false, false);
+						});
+					}
+				});
 
 		/* Disconnected */
 		bus.addSigHandler(VPNConnection.Disconnected.class, connection,
@@ -1742,13 +1756,17 @@ public class UI extends AbstractController implements BusLifecycleListener {
 							setHtmlPage("index.html");
 					} else {
 						Type status = Type.valueOf(sel.getStatus());
-						if (connectIfDisconnected && status != Type.DISCONNECTED && !sel.isAuthorized()) {
+						if (connectIfDisconnected && status != Type.DISCONNECTED && status != Type.TEMPORARILY_OFFLINE && !sel.isAuthorized()) {
 							log.info(String.format("Not authorized, requesting authorize"));
 							authorize(sel);
 						} else if (status == Type.CONNECTING || status == Type.AUTHORIZING) {
 							/* We have a connection, a peer configuration and are connected! */
 							log.info(String.format("Joining"));
 							setHtmlPage("joining.html", force);
+						} else if (status == Type.TEMPORARILY_OFFLINE) {
+							/* We are connected, but the server (peer) appears offline */
+							log.info(String.format("Temporarily Offline"));
+							setHtmlPage("temporarilyOffline.html", force);
 						} else if (status == Type.CONNECTED) {
 							/* We have a connection, a peer configuration and are connected! */
 							log.info(String.format("Ready, so showing join UI"));
@@ -1757,7 +1775,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 							log.info(String.format("Disconnecting, so showing leaving UI"));
 							setHtmlPage("leaving.html", force);
 						} else {
-							log.info(String.format("Disconnected, so showing join UI"));
+							
+							log.info("Disconnected, so showing join UI");
 							setHtmlPage("join.html", force);
 						}
 					}

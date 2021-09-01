@@ -30,6 +30,8 @@ public interface VPNConnection extends DBusInterface {
 
 	boolean isConnectAtStartup();
 
+	boolean isTemporarilyOffline();
+
 	boolean isStayConnected();
 
 	void setStayConnected(boolean stayConnected);
@@ -177,6 +179,24 @@ public interface VPNConnection extends DBusInterface {
 
 		public String getTrace() {
 			return trace;
+		}
+
+		public String getReason() {
+			return reason;
+		}
+
+		public long getId() {
+			return Long.parseLong(getPath().substring(getPath().lastIndexOf('/') + 1));
+		}
+	}
+
+	public static class TemporarilyOffline extends DBusSignal {
+
+		private final String reason;
+
+		public TemporarilyOffline(String path, String reason) throws DBusException {
+			super(path, reason);
+			this.reason = reason;
 		}
 
 		public String getReason() {

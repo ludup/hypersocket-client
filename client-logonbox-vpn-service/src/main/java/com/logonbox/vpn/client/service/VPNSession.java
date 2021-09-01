@@ -103,7 +103,7 @@ public class VPNSession implements Closeable {
 		}
 		catch(ReauthorizeException re) {
 			/* Probe for the reason we did not get a handshake by testing
-			 * the HTTP service.			 * 
+			 * the HTTP service.
 			 */
 			IOException ioe = cctx.getClientService().getConnectionError(vpnConnection);
 			if(ioe instanceof ReauthorizeException)

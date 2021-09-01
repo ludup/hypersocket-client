@@ -69,26 +69,27 @@ public class ClientServiceImpl implements ClientService {
 			.parseInt(System.getProperty("logonbox.vpn.authorizeTimeout", "180"));
 	private static final int PHASES_TIMEOUT = 3600 * 24;
 	private static final long PING_TIMEOUT = TimeUnit.SECONDS.toMillis(30);
-
 	private static final long UPDATE_SERVER_POLL_INTERVAL = TimeUnit.MINUTES.toMillis(10);
 
 	protected Map<Connection, VPNSession> activeSessions = new HashMap<>();
 	protected Map<Connection, ScheduledFuture<?>> authorizingClients = new HashMap<>();
-	protected Set<Connection> disconnectingClients = new HashSet<>();
 	protected Map<Connection, VPNSession> connectingSessions = new HashMap<>();
-	private AtomicLong transientConnectionId = new AtomicLong();
+	protected Set<Connection> disconnectingClients = new HashSet<>();
+	protected Set<Connection> temporarilyOffline = new HashSet<>();
+	
 	private int appsToUpdate;
+	private ConfigurationRepository configurationRepository;
 
+	private ConnectionRepository connectionRepository;
 	private LocalContext context;
 	private boolean guiNeedsSeparateUpdate;
 	private boolean needsUpdate;
+	private JsonExtensionPhaseList phaseList;
+	private long phasesLastRetrieved = 0;
 	private Semaphore startupLock = new Semaphore(1);
 	private ScheduledExecutorService timer;
+	private AtomicLong transientConnectionId = new AtomicLong();
 	private boolean updating;
-	private long phasesLastRetrieved = 0;
-	private JsonExtensionPhaseList phaseList;
-	private ConfigurationRepository configurationRepository;
-	private ConnectionRepository connectionRepository;
 
 	public ClientServiceImpl(LocalContext context, ConnectionRepository connectionRepository,
 			ConfigurationRepository configurationRepository) {
@@ -122,55 +123,17 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public String getDeviceName() {
-		String hostname = SystemUtils.getHostName();
-		if (StringUtils.isBlank(hostname)) {
-			try {
-				hostname = InetAddress.getLocalHost().getHostName();
-			} catch (Exception e) {
-				hostname = "Unknown Host";
-			}
-		}
-		String os = System.getProperty("os.name");
-		if (SystemUtils.IS_OS_WINDOWS) {
-			os = "Windows";
-		} else if (SystemUtils.IS_OS_LINUX) {
-			os = "Linux";
-		} else if (SystemUtils.IS_OS_MAC_OSX) {
-			os = "Mac OSX";
-		}
-		return os + " " + hostname;
-	}
-
-	@Override
 	public void authorized(Connection connection) {
 		synchronized (activeSessions) {
 			if (!authorizingClients.containsKey(connection)) {
 				throw new IllegalStateException("No authorization request.");
 			}
+			log.info(String.format("Authorized %s", connection.getDisplayName()));
 			authorizingClients.remove(connection).cancel(false);
+			temporarilyOffline.remove(connection);
 		}
 		save(connection);
 		connect(connection);
-	}
-
-	@Override
-	public Connection connect(String owner, String uri) {
-		synchronized (activeSessions) {
-			if (hasStatus(owner, uri)) {
-				Connection connection = getStatus(owner, uri).getConnection();
-				connect(connection);
-				return connection;
-			}
-		}
-
-		/* New temporary connection */
-		ConnectionImpl connection = new ConnectionImpl();
-		connection.setId(transientConnectionId.decrementAndGet());
-		connection.updateFromUri(uri);
-		connection.setConnectAtStartup(false);
-		connect(connection);
-		return connection;
 	}
 
 	@Override
@@ -182,8 +145,48 @@ public class ClientServiceImpl implements ClientService {
 			}
 
 			VPNSession task = createJob(c);
+			temporarilyOffline.remove(c);
 			task.setTask(timer.schedule(() -> doConnect(task), 1, TimeUnit.MILLISECONDS));
 		}
+	}
+
+	@Override
+	public Connection connect(String owner, String uri) {
+		synchronized (activeSessions) {
+			if (hasStatus(owner, uri)) {
+				Connection connection = getStatus(owner, uri).getConnection();
+				connect(connection);
+				return connection;
+			}
+
+			/* New temporary connection */
+			ConnectionImpl connection = new ConnectionImpl();
+			connection.setId(transientConnectionId.decrementAndGet());
+			connection.updateFromUri(uri);
+			connection.setConnectAtStartup(false);
+			connect(connection);
+			return connection;
+		}
+	}
+
+	@Override
+	public Connection create(Connection connection) {
+		try {
+			context.sendMessage(new VPN.ConnectionAdding("/com/logonbox/vpn"));
+		} catch (DBusException e) {
+			throw new IllegalStateException("Failed to create.", e);
+		}
+
+		generateKeys(connection);
+		Connection newConnection = doSave(connection);
+		try {
+			context.getConnection().exportObject(String.format("/com/logonbox/vpn/%d", connection.getId()),
+					new VPNConnectionImpl(context, connection));
+			context.sendMessage(new VPN.ConnectionAdded("/com/logonbox/vpn", connection.getId()));
+		} catch (DBusException e) {
+			throw new IllegalStateException("Failed to create.", e);
+		}
+		return newConnection;
 	}
 
 	@Override
@@ -191,12 +194,42 @@ public class ClientServiceImpl implements ClientService {
 		synchronized (activeSessions) {
 			log.info(String.format("De-authorizing connection %s", connection.getDisplayName()));
 			connection.deauthorize();
+			temporarilyOffline.remove(connection);
 			ScheduledFuture<?> f = authorizingClients.remove(connection);
 			if (f != null)
 				f.cancel(false);
 		}
 		save(connection);
 
+	}
+
+	@Override
+	public void delete(Connection connection) {
+		try {
+			try {
+				context.sendMessage(new VPN.ConnectionRemoving("/com/logonbox/vpn", connection.getId()));
+				synchronized (activeSessions) {
+					if (getStatusType(connection) == Type.CONNECTED) {
+						if (StringUtils.isNotBlank(connection.getUserPublicKey())) {
+							VirtualInetAddress<?> addr = getContext().getPlatformService()
+									.getByPublicKey(connection.getPublicKey());
+							if (addr != null) {
+								addr.delete();
+							}
+						}
+						disconnect(connection, null);
+					}
+				}
+			} catch (Exception e) {
+				throw new IllegalStateException("Failed to disconnect.", e);
+			}
+			connectionRepository.delete(connection);
+			context.sendMessage(new VPN.ConnectionRemoved("/com/logonbox/vpn", connection.getId()));
+			context.getConnection().unExportObject(String.format("/com/logonbox/vpn/%d", connection.getId()));
+
+		} catch (DBusException e) {
+			throw new IllegalStateException("Failed to delete.", e);
+		}
 	}
 
 	@Override
@@ -209,6 +242,7 @@ public class ClientServiceImpl implements ClientService {
 		boolean disconnect = false;
 		VPNSession wireguardSession = null;
 		synchronized (activeSessions) {
+			temporarilyOffline.remove(c);
 			if (!disconnectingClients.contains(c)) {
 				if (authorizingClients.containsKey(c)) {
 					if (log.isInfoEnabled()) {
@@ -291,17 +325,9 @@ public class ClientServiceImpl implements ClientService {
 		}
 	}
 
-	private ScheduledFuture<?> cancelAuthorize(Connection c) {
-		ScheduledFuture<?> s = authorizingClients.remove(c);
-		if (s != null) {
-			log.info(String.format("Removed authorization timeout for %s", c.getUri(true)));
-			s.cancel(false);
-		}
-		return s;
-	}
-
 	public void failedToConnect(Connection connection, Throwable jpe) {
 		synchronized (activeSessions) {
+			log.info(String.format("Failed to connect %s, removing state.", connection.getDisplayName()));
 			ScheduledFuture<?> f = authorizingClients.remove(connection);
 			if (f != null)
 				f.cancel(false);
@@ -309,8 +335,59 @@ public class ClientServiceImpl implements ClientService {
 		}
 	}
 
+	@Override
+	public String getActiveInterface(Connection c) {
+		synchronized (activeSessions) {
+			if (activeSessions.containsKey(c))
+				return activeSessions.get(c).getIp().getName();
+			return null;
+		}
+	}
+
+	@Override
+	public IOException getConnectionError(Connection connection) {
+
+		try(CloseableHttpClient httpclient = HttpClients.createDefault()) {
+			String uri = connection.getUri(false) + "/api/server/ping";
+			log.info(String.format("Testing if a connection to %s should be retried using %s.", connection.getDisplayName(), uri));
+			String content = HttpUtilsHolder.getInstance().doHttpGetContent(uri, true, new HashMap<>());
+			
+			/* The Http service appears to be there, so this is likely an
+			 * invalidated session. 
+			 */
+			log.info("Error is not retryable, invalidate configuration. " + content);
+			return new ReauthorizeException("Your configuration has been invalidated, and you will need to sign-on again.");
+
+		} catch (IOException ex) {
+			/* Decide what's happening based on the error. */
+			log.info("Error is retryable.", ex);
+			return ex;
+		} 
+	}
+
 	public LocalContext getContext() {
 		return context;
+	}
+
+	@Override
+	public String getDeviceName() {
+		String hostname = SystemUtils.getHostName();
+		if (StringUtils.isBlank(hostname)) {
+			try {
+				hostname = InetAddress.getLocalHost().getHostName();
+			} catch (Exception e) {
+				hostname = "Unknown Host";
+			}
+		}
+		String os = System.getProperty("os.name");
+		if (SystemUtils.IS_OS_WINDOWS) {
+			os = "Windows";
+		} else if (SystemUtils.IS_OS_LINUX) {
+			os = "Linux";
+		} else if (SystemUtils.IS_OS_MAC_OSX) {
+			os = "Mac OSX";
+		}
+		return os + " " + hostname;
 	}
 
 	@Override
@@ -350,21 +427,31 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public boolean hasStatus(String owner, String uri) {
+	public ConnectionStatus getStatus(long id) {
 		synchronized (activeSessions) {
-			List<ConnectionStatus> status = getStatus(owner);
+			List<ConnectionStatus> status = getStatus(null);
 			for (ConnectionStatus s : status) {
-				if (s.getConnection().getUri(true).equals(uri)) {
-					return true;
-				}
-			}
-			for (ConnectionStatus s : status) {
-				if (s.getConnection().getUri(false).equals(uri)) {
-					return true;
+				if (s.getConnection().getId() == id) {
+					return s;
 				}
 			}
 		}
-		return false;
+		throw new IllegalStateException(String.format("Failed to get status for %d.", id));
+	}
+
+	@Override
+	public List<ConnectionStatus> getStatus(String owner) {
+
+		List<ConnectionStatus> ret = new ArrayList<ConnectionStatus>();
+		Collection<Connection> connections = connectionRepository.getConnections(owner);
+		List<Connection> added = new ArrayList<Connection>();
+		synchronized (activeSessions) {
+			addConnections(ret, connections, added);
+			addConnections(ret, activeSessions.keySet(), added);
+			addConnections(ret, connectingSessions.keySet(), added);
+		}
+		return ret;
+
 	}
 
 	@Override
@@ -386,19 +473,6 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public ConnectionStatus getStatus(long id) {
-		synchronized (activeSessions) {
-			List<ConnectionStatus> status = getStatus(null);
-			for (ConnectionStatus s : status) {
-				if (s.getConnection().getId() == id) {
-					return s;
-				}
-			}
-		}
-		throw new IllegalStateException(String.format("Failed to get status for %d.", id));
-	}
-
-	@Override
 	public ConnectionStatus getStatusForPublicKey(String publicKey) {
 		synchronized (activeSessions) {
 			List<ConnectionStatus> status = getStatus(null);
@@ -412,52 +486,10 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public void delete(Connection connection) {
-		try {
-			try {
-				context.sendMessage(new VPN.ConnectionRemoving("/com/logonbox/vpn", connection.getId()));
-				synchronized (activeSessions) {
-					if (getStatusType(connection) == Type.CONNECTED) {
-						if (StringUtils.isNotBlank(connection.getUserPublicKey())) {
-							VirtualInetAddress addr = getContext().getPlatformService()
-									.getByPublicKey(connection.getPublicKey());
-							if (addr != null) {
-								addr.delete();
-							}
-						}
-						disconnect(connection, null);
-					}
-				}
-			} catch (Exception e) {
-				throw new IllegalStateException("Failed to disconnect.", e);
-			}
-			connectionRepository.delete(connection);
-			context.sendMessage(new VPN.ConnectionRemoved("/com/logonbox/vpn", connection.getId()));
-			context.getConnection().unExportObject(String.format("/com/logonbox/vpn/%d", connection.getId()));
-
-		} catch (DBusException e) {
-			throw new IllegalStateException("Failed to delete.", e);
-		}
-	}
-
-	@Override
-	public List<ConnectionStatus> getStatus(String owner) {
-
-		List<ConnectionStatus> ret = new ArrayList<ConnectionStatus>();
-		Collection<Connection> connections = connectionRepository.getConnections(owner);
-		List<Connection> added = new ArrayList<Connection>();
-		synchronized (activeSessions) {
-			addConnections(ret, connections, added);
-			addConnections(ret, activeSessions.keySet(), added);
-			addConnections(ret, connectingSessions.keySet(), added);
-		}
-		return ret;
-
-	}
-
-	@Override
 	public Type getStatusType(Connection c) {
 		synchronized (activeSessions) {
+			if (temporarilyOffline.contains(c))
+				return Type.TEMPORARILY_OFFLINE;
 			if (authorizingClients.containsKey(c))
 				return Type.AUTHORIZING;
 			if (activeSessions.containsKey(c))
@@ -471,12 +503,8 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public String getActiveInterface(Connection c) {
-		synchronized (activeSessions) {
-			if (activeSessions.containsKey(c))
-				return activeSessions.get(c).getIp().getName();
-			return null;
-		}
+	public ScheduledExecutorService getTimer() {
+		return timer;
 	}
 
 	@Override
@@ -535,6 +563,29 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
+	public String getValue(String name, String defaultValue) {
+		return configurationRepository.getValue(name, defaultValue);
+	}
+
+	@Override
+	public boolean hasStatus(String owner, String uri) {
+		synchronized (activeSessions) {
+			List<ConnectionStatus> status = getStatus(owner);
+			for (ConnectionStatus s : status) {
+				if (s.getConnection().getUri(true).equals(uri)) {
+					return true;
+				}
+			}
+			for (ConnectionStatus s : status) {
+				if (s.getConnection().getUri(false).equals(uri)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	@Override
 	public boolean isGUINeedsUpdating() {
 		return guiNeedsSeparateUpdate;
 	}
@@ -550,6 +601,12 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
+	public boolean isUpdatesEnabled() {
+		/* TODO: Updates are disabled for now */
+		return "false".equals(System.getProperty("hypersocket.development.noUpdates", "true"));
+	}
+
+	@Override
 	public boolean isUpdating() {
 		return updating;
 	}
@@ -557,22 +614,6 @@ public class ClientServiceImpl implements ClientService {
 	@Override
 	public void ping() {
 		// Noop
-	}
-
-	@Override
-	public String getValue(String name, String defaultValue) {
-		return configurationRepository.getValue(name, defaultValue);
-	}
-
-	@Override
-	public void setValue(String name, String value) {
-		configurationRepository.setValue(name, value);
-		if(name.equals(ConfigurationRepository.LOG_LEVEL)) {
-			if(StringUtils.isBlank(value))
-				org.apache.log4j.Logger.getRootLogger().setLevel(getContext().getDefaultLogLevel());
-			else
-				org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(value));
-		}
 	}
 
 	@Override
@@ -708,21 +749,27 @@ public class ClientServiceImpl implements ClientService {
 			if (connection.isAuthorized())
 				throw new IllegalStateException("Already authorized.");
 
+
+			/*
+			 * Setup a timeout so that clients don't get stuck authorizing if nobody is
+			 * there to authorize.
+			 * 
+			 * Put into the map before the event so the status would be correct
+			 * if some client queried it.
+			 */
+			cancelAuthorize(connection);
+			log.info(String.format("Setting up authorize timeout for %s", connection.getDisplayName()));
+			authorizingClients.put(connection, timer.schedule(() -> {
+				disconnect(connection, "Authorization timeout.");
+			}, AUTHORIZE_TIMEOUT, TimeUnit.SECONDS));
+			
 			try {
+				log.info(String.format("Asking client to authorize %s", connection.getDisplayName()));
 				context.sendMessage(new VPNConnection.Authorize(
 						String.format("/com/logonbox/vpn/%d", connection.getId()), "/logonBoxVPNClient/"));
 			} catch (DBusException e) {
 				throw new IllegalStateException("Failed to send message.", e);
 			}
-
-			/*
-			 * Setup a timeout so that clients don't get stuck authorizing if nobody is
-			 * there to authorize
-			 */
-			cancelAuthorize(connection);
-			authorizingClients.put(connection, timer.schedule(() -> {
-				disconnect(connection, "Authorization timeout.");
-			}, AUTHORIZE_TIMEOUT, TimeUnit.SECONDS));
 		}
 	}
 
@@ -745,30 +792,6 @@ public class ClientServiceImpl implements ClientService {
 
 	}
 
-	Connection doSave(Connection c) {
-		// If a non-persistent connection is now being saved as a persistent
-		// one, then update our maps
-		boolean wasTransient = c.isTransient();
-		Connection newConnection = connectionRepository.save(c);
-
-		if (wasTransient) {
-			log.info(String.format("Saving non-persistent connection, now has ID %d", newConnection.getId()));
-		}
-
-		synchronized (activeSessions) {
-			if (activeSessions.containsKey(c)) {
-				activeSessions.put(newConnection, activeSessions.remove(c));
-			}
-			if (authorizingClients.containsKey(c)) {
-				authorizingClients.put(newConnection, authorizingClients.remove(c));
-			}
-			if (connectingSessions.containsKey(c)) {
-				connectingSessions.put(newConnection, connectingSessions.remove(c));
-			}
-		}
-		return newConnection;
-	}
-
 	public void scheduleConnect(Connection c, boolean reconnect) {
 		synchronized (activeSessions) {
 			checkValidConnect(c);
@@ -788,6 +811,17 @@ public class ClientServiceImpl implements ClientService {
 			}
 		}
 
+	}
+
+	@Override
+	public void setValue(String name, String value) {
+		configurationRepository.setValue(name, value);
+		if(name.equals(ConfigurationRepository.LOG_LEVEL)) {
+			if(StringUtils.isBlank(value))
+				org.apache.log4j.Logger.getRootLogger().setLevel(getContext().getDefaultLogLevel());
+			else
+				org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(value));
+		}
 	}
 
 	public void start() throws Exception {
@@ -865,17 +899,13 @@ public class ClientServiceImpl implements ClientService {
 		}
 	}
 
-	@Override
-	public ScheduledExecutorService getTimer() {
-		return timer;
-	}
-
 	public void stopService() {
 
 		synchronized (activeSessions) {
 			activeSessions.clear();
 			connectingSessions.clear();
 			authorizingClients.clear();
+			temporarilyOffline.clear();
 		}
 		timer.shutdown();
 	}
@@ -1028,6 +1058,30 @@ public class ClientServiceImpl implements ClientService {
 		return new VPNSession(c, getContext());
 	}
 
+	Connection doSave(Connection c) {
+		// If a non-persistent connection is now being saved as a persistent
+		// one, then update our maps
+		boolean wasTransient = c.isTransient();
+		Connection newConnection = connectionRepository.save(c);
+
+		if (wasTransient) {
+			log.info(String.format("Saving non-persistent connection, now has ID %d", newConnection.getId()));
+		}
+
+		synchronized (activeSessions) {
+			if (activeSessions.containsKey(c)) {
+				activeSessions.put(newConnection, activeSessions.remove(c));
+			}
+			if (authorizingClients.containsKey(c)) {
+				authorizingClients.put(newConnection, authorizingClients.remove(c));
+			}
+			if (connectingSessions.containsKey(c)) {
+				connectingSessions.put(newConnection, connectingSessions.remove(c));
+			}
+		}
+		return newConnection;
+	}
+
 	private void addConnections(List<ConnectionStatus> ret, Collection<Connection> connections,
 			List<Connection> added) {
 		for (Connection c : connections) {
@@ -1050,70 +1104,94 @@ public class ClientServiceImpl implements ClientService {
 		}
 	}
 
+	private ScheduledFuture<?> cancelAuthorize(Connection c) {
+		ScheduledFuture<?> s = authorizingClients.remove(c);
+		if (s != null) {
+			log.info(String.format("Removed authorization timeout for %s", c.getUri(true)));
+			s.cancel(false);
+		}
+		return s;
+	}
+
 	private void checkConnectionsAlive() {
 		synchronized (activeSessions) {
 			for (Map.Entry<Connection, VPNSession> sessionEn : new HashMap<>(activeSessions).entrySet()) {
 				Connection connection = sessionEn.getKey();
-				try {
-					if (connectingSessions.containsKey(connection)
-							|| getContext().getPlatformService().isAlive(sessionEn.getValue(), connection)) {
-						/* If still 'connecting' or completely alive, skip to next session */
-						continue;
-					}
-				} catch (IOException ioe) {
-					log.warn("Failed to test if session was alive. Assuming it isn't", ioe);
-				}
-
-				/* Kill the dead session */
-				log.info(String.format(
-						"Session with public key %s hasn't had a valid handshake for %d seconds, disconnecting.",
-						connection.getUserPublicKey(), ClientService.HANDSHAKE_TIMEOUT));
 				
-				/* Try to work out why .... we can only do this with LogonBox VPN
-				 * because the HTTP service should be there as well. If there is an
-				 * internet outage, or a problem on the server, then we can use
-				 * this HTTP channel to try and get a little more info as to
-				 * why we have no received a handshake for a while.
-				 */
-				IOException reason = getConnectionError(connection);
-				
-				try {
-					disconnect(connection, reason instanceof ReauthorizeException ? "Re-authorize required" : reason.getMessage());
-				} catch (Exception e) {
-					log.warn("Failed to disconnect dead session. State may be incorrect.", e);
-				} finally {
-					if(!(reason instanceof ReauthorizeException && connection.isStayConnected())) {
-						try {
-							scheduleConnect(connection, true);
+				if(temporarilyOffline.contains(connection)) {
+					/* Temporarily offline, are we still offline? */
+					try {
+						if (getContext().getPlatformService().isAlive(sessionEn.getValue(), connection)) {
+							/* If now completely alive again, remove from the list of 
+							 * temporarily offline connections and fire a connected event */
+							temporarilyOffline.remove(connection);
+							log.info(String.format("%s back online.", connection.getDisplayName()));
+							try {
+								context.sendMessage(
+										new VPNConnection.Connected(String.format("/com/logonbox/vpn/%d", connection.getId())));
+							} catch (DBusException e) {
+								throw new IllegalStateException("Failed to send event.", e);
+							}
+							
+							/* Next session */
+							continue;
 						}
-						catch(Exception e) {
-							e.printStackTrace();
+					} catch (IOException ioe) {
+						if(log.isDebugEnabled())
+							log.debug("Failed to test if session was alive. Assuming it isn't", ioe);
+					}
+					
+					if(log.isDebugEnabled())
+						log.debug(String.format("%s still temporarily offline.", connection.getDisplayName()));
+				}
+				else {
+
+					try {
+						if (!connection.isAuthorized() || authorizingClients.containsKey(connection) || connectingSessions.containsKey(connection)
+								|| getContext().getPlatformService().isAlive(sessionEn.getValue(), connection)) {
+							/* If not authorized, still 'connecting', 'authorizing', or completely alive, skip to next session */
+							continue;
+						}
+					} catch (IOException ioe) {
+						log.warn("Failed to test if session was alive. Assuming it isn't", ioe);
+					}
+
+					/* Kill the dead session */
+					log.info(String.format(
+							"Session with public key %s hasn't had a valid handshake for %d seconds, disconnecting.",
+							connection.getUserPublicKey(), ClientService.HANDSHAKE_TIMEOUT));
+					
+					/* Try to work out why .... we can only do this with LogonBox VPN
+					 * because the HTTP service should be there as well. If there is an
+					 * internet outage, or a problem on the server, then we can use
+					 * this HTTP channel to try and get a little more info as to
+					 * why we have no received a handshake for a while.
+					 */
+					IOException reason = getConnectionError(connection);
+					
+					if(reason instanceof ReauthorizeException) {
+						if(connection.isAuthorized())
+							deauthorize(connection);
+						disconnect(connection, "Re-authorize required");
+					}
+					else {
+						if(connection.isStayConnected()) {
+							log.info("Signalling temporarily offline.");
+							temporarilyOffline.add(connection);
+							try {
+								context.sendMessage(new VPNConnection.TemporarilyOffline(
+										String.format("/com/logonbox/vpn/%d", connection.getId()), reason.getMessage() == null ? "" : reason.getMessage()));
+							} catch (DBusException e) {
+								log.error("Failed to send message.", e);
+							}
+						}
+						else {
+							disconnect(connection, reason.getMessage());
 						}
 					}
 				}
 			}
 		}
-	}
-
-	@Override
-	public IOException getConnectionError(Connection connection) {
-
-		try(CloseableHttpClient httpclient = HttpClients.createDefault()) {
-			String uri = connection.getUri(false) + "/api/server/ping";
-			log.info(String.format("Testing if a connection to %s should be retried using %s.", connection.getName(), uri));
-			String content = HttpUtilsHolder.getInstance().doHttpGetContent(uri, true, new HashMap<>());
-			
-			/* The Http service appears to be there, so this is likely an
-			 * invalidated session. 
-			 */
-			log.info("Error is not retryable, invalidate configuration. " + content);
-			return new ReauthorizeException("Your configuration has been invalidated, and you will need to sign-on again.");
-
-		} catch (IOException ex) {
-			/* Decide what's happening based on the error. */
-			log.info("Error is retryable.", ex);
-			return ex;
-		} 
 	}
 
 	private void checkValidConnect(Connection c) {
@@ -1171,14 +1249,10 @@ public class ClientServiceImpl implements ClientService {
 					try {
 						/*
 						 * The connection did not get it's first handshake in a timely manner. We don't
-						 * know why it failed, it could be an invalidated session, or some other
-						 * transient problem with the path to the server, or perhaps the server itself
-						 * is have problems.
-						 * 
-						 * All we can do is request authorization again IF the GUI is open. If not, just
-						 * keep trying.
+						 * have determined that it is very likely it needs re-authorizing
 						 */
-						deauthorize(connection);
+						if(connection.isAuthorized())
+							deauthorize(connection);
 						requestAuthorize(connection);
 						return;
 					} catch (Exception e1) {
@@ -1226,37 +1300,11 @@ public class ClientServiceImpl implements ClientService {
 		}
 	}
 
-	@Override
-	public Connection create(Connection connection) {
-		try {
-			context.sendMessage(new VPN.ConnectionAdding("/com/logonbox/vpn"));
-		} catch (DBusException e) {
-			throw new IllegalStateException("Failed to create.", e);
-		}
-
-		generateKeys(connection);
-		Connection newConnection = doSave(connection);
-		try {
-			context.getConnection().exportObject(String.format("/com/logonbox/vpn/%d", connection.getId()),
-					new VPNConnectionImpl(context, connection));
-			context.sendMessage(new VPN.ConnectionAdded("/com/logonbox/vpn", connection.getId()));
-		} catch (DBusException e) {
-			throw new IllegalStateException("Failed to create.", e);
-		}
-		return newConnection;
-	}
-
 	private void generateKeys(Connection connection) {
 		log.info("Generating private key");
 		KeyPair key = Keys.genkey();
 		connection.setUserPrivateKey(key.getBase64PrivateKey());
 		connection.setUserPublicKey(key.getBase64PublicKey());
 		log.info(String.format("Public key is %s", connection.getUserPublicKey()));
-	}
-
-	@Override
-	public boolean isUpdatesEnabled() {
-		/* TODO: Updates are disabled for now */
-		return "false".equals(System.getProperty("hypersocket.development.noUpdates", "true"));
 	}
 }
