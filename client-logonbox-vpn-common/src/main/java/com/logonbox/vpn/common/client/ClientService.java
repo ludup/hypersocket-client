@@ -82,4 +82,6 @@ public interface ClientService  {
 	boolean isUpdatesEnabled();
 	
 	IOException getConnectionError(Connection connection);
+
+	boolean isUpdateChecksEnabled();
 }

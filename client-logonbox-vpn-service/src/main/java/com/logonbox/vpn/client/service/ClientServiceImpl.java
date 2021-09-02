@@ -607,6 +607,11 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
+	public boolean isUpdateChecksEnabled() {
+		return "false".equals(System.getProperty("hypersocket.development.noUpdateChecks", "false"));
+	}
+
+	@Override
 	public boolean isUpdating() {
 		return updating;
 	}
@@ -925,13 +930,17 @@ public class ClientServiceImpl implements ClientService {
 
 		try {
 			updating = true;
-			if (!isUpdatesEnabled()) {
+			if (!isUpdatesEnabled() && !isUpdateChecksEnabled()) {
 				log.info("Updates disabled.");
 				guiNeedsSeparateUpdate = false;
 			} else {
 
 				Collection<VPNFrontEnd> frontEnds = context.getFrontEnds();
-				if(frontEnds.isEmpty()) {
+				if(isUpdatesEnabled()) {
+					log.info("Only update checks enabled.");
+					checkOnly = true;
+				}
+				else if(frontEnds.isEmpty()) {
 					log.info("No front-ends, only check for updates for now.");
 					checkOnly = true;
 				}
