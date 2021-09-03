@@ -9,10 +9,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
-import java.net.CookieHandler;
-import java.net.CookieManager;
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.GeneralSecurityException;
@@ -27,7 +24,6 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +69,7 @@ import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -83,8 +80,10 @@ import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.DialogPane;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
 import javafx.stage.Modality;
 import javafx.stage.Screen;
@@ -265,7 +264,7 @@ public class Client extends Application implements X509TrustManager {
 		UI fc = openScene(UI.class, null);
 		Scene scene = fc.getScene();
 		Parent node = scene.getRoot();
-		node.styleProperty().set("-fx-border-color: -fx-lbvpn-background;");
+//		node.styleProperty().set("-fx-border-color: -fx-lbvpn-background;");
 
 		applyColors(null, node);
 
@@ -301,6 +300,9 @@ public class Client extends Application implements X509TrustManager {
 			primaryStage.setHeight(h);
 		}
 		primaryStage.setScene(primaryScene);
+		primaryStage.getScene().getRoot().setEffect(new DropShadow());
+		((Region)primaryStage.getScene().getRoot()).setPadding(new Insets(10,10,10,10));
+		primaryStage.getScene().setFill(Color.TRANSPARENT);
 		primaryStage.show();
 		primaryStage.xProperty().addListener((c, o, n) -> cfg.xProperty().set(n.intValue()));
 		primaryStage.yProperty().addListener((c, o, n) -> cfg.yProperty().set(n.intValue()));

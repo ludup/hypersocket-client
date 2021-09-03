@@ -128,7 +128,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 				 * if there are any updates for this version
 				 */
 				JsonExtensionUpdate v = cctx.getClientService().getUpdates();
-				Version remoteVersion = new Version(v.getResource().getLatestVersion());
+				Version remoteVersion = new Version(v.getResource().getCurrentVersion());
 				Version localVersion = new Version(getVersion());
 				if(remoteVersion.compareTo(localVersion) < 1) {
 					log.info(String.format("We are already on a version (%s) later or the same as the one available (%s).", localVersion, remoteVersion));
