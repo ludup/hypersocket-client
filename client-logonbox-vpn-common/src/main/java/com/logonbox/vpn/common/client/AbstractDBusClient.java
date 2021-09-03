@@ -140,31 +140,37 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	protected void init() throws Exception {
+		
 		if (vpn != null) {
 			getLog().debug("Call to init when already have bus.");
 			return;
 		}
 
-		String busAddress = this.busAddress;
-		if (StringUtils.isNotBlank(busAddress)) {
-			getLog().debug("Getting bus. " + this.busAddress);
-			conn = DBusConnection.getConnection(busAddress);
-		} else {
-			if (sessionBus) {
-				getLog().debug("Getting session bus.");
-				conn = DBusConnection.getConnection(DBusBusType.SESSION);
+		if(conn == null || !conn.isConnected()) {
+			String busAddress = this.busAddress;
+			if (StringUtils.isNotBlank(busAddress)) {
+				getLog().debug("Getting bus. " + this.busAddress);
+				conn = DBusConnection.getConnection(busAddress);
 			} else {
-				String fixedAddress = getServerDBusAddress();
-				if (fixedAddress == null) {
-					getLog().debug("Getting system bus.");
-					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
+				if (sessionBus) {
+					getLog().debug("Getting session bus.");
+					conn = DBusConnection.getConnection(DBusBusType.SESSION);
 				} else {
-					getLog().debug("Getting fixed bus " + fixedAddress);
-					conn = DBusConnection.getConnection(fixedAddress);
+					String fixedAddress = getServerDBusAddress();
+					if (fixedAddress == null) {
+						getLog().debug("Getting system bus.");
+						conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
+					} else {
+						getLog().debug("Getting fixed bus " + fixedAddress);
+						conn = DBusConnection.getConnection(fixedAddress);
+					}
 				}
 			}
+			getLog().info("Got bus connection.");
 		}
-		getLog().info("Got bus connection.");
+		else {
+			getLog().info("Already have bus connection.");
+		}
 
 		conn.addSigHandler(new DBusMatchRule((String) null, "org.freedesktop.DBus.Local", "Disconnected"),
 				new DBusSigHandler<Local.Disconnected>() {
@@ -210,13 +216,14 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	private void loadRemote() throws DBusException {
-		vpn = conn.getRemoteObject(BUS_NAME, ROOT_OBJECT_PATH, VPN.class);
+		VPN newVpn = conn.getRemoteObject(BUS_NAME, ROOT_OBJECT_PATH, VPN.class);
 		ExtensionPlace place = ExtensionPlace.getDefault();
-		getLog().info("Registering with DBus.");
-		vpn.register(getEffectiveUser(), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
+		getLog().info("Got remote object, registering with DBus.");
+		newVpn.register(getEffectiveUser(), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
 				place.getUrls().stream().map(placeUrl -> placeUrl.toExternalForm()).collect(Collectors.toList())
 						.toArray(new String[0]),
 				supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()), target.name());
+		vpn = newVpn;
 		busAvailable = true;
 		getLog().info("Registered with DBus.");
 		pingTask = scheduler.scheduleAtFixedRate(() -> {

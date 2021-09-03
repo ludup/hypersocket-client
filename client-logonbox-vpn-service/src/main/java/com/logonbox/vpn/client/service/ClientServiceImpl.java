@@ -36,6 +36,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hypersocket.extensions.AbstractExtensionUpdater;
 import com.hypersocket.extensions.ExtensionPlace;
 import com.hypersocket.extensions.ExtensionTarget;
+import com.hypersocket.extensions.JsonExtensionPhase;
 import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.extensions.JsonExtensionUpdate;
 import com.hypersocket.json.version.Version;
@@ -596,14 +597,51 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
+	public String getAvailableVersion() {
+		if (isTrackServerVersion()) {
+			if (getStatus(null).isEmpty()) {
+				/* We don't have any servers configured, so no version can 
+				 * yet be known
+				 */
+				return "";
+			}
+			else {
+				/* We have the version of the server we are connecting to, check
+				 * if there are any updates for this version
+				 */
+				try {
+					JsonExtensionUpdate v = getUpdates();
+					return v.getResource().getLatestVersion();
+				}
+				catch(IllegalStateException ise) {
+					return "";
+				}
+			}
+		} else {
+			JsonExtensionPhaseList v = getPhases();
+			String configuredPhase = getValue("phase", "");
+			JsonExtensionPhase phase = null;
+			if (!configuredPhase.equals("")) {
+				phase = v.getResultByName(configuredPhase);
+			}
+			if (phase == null) {
+				phase = v.getFirstResult();
+			}
+			if (phase == null) {
+				return "";
+			}
+			return phase.getVersion();
+		}
+	}
+
+	@Override
 	public boolean isTrackServerVersion() {
 		return "true".equalsIgnoreCase(System.getProperty("logonbox.vpn.updates.trackServerVersion", "true"));
 	}
 
 	@Override
 	public boolean isUpdatesEnabled() {
-		/* TODO: Updates are disabled for now */
-		return "false".equals(System.getProperty("hypersocket.development.noUpdates", "true"));
+		return "false".equals(System.getProperty("hypersocket.development.noUpdates", "false"));
 	}
 
 	@Override
@@ -923,6 +961,11 @@ public class ClientServiceImpl implements ClientService {
 		update(false);
 	}
 
+	@Override
+	public void checkForUpdate() {
+		update(true);
+	}
+
 	public void update(boolean checkOnly) {
 		appsToUpdate = 0;
 		needsUpdate = false;
@@ -936,7 +979,7 @@ public class ClientServiceImpl implements ClientService {
 			} else {
 
 				Collection<VPNFrontEnd> frontEnds = context.getFrontEnds();
-				if(isUpdatesEnabled()) {
+				if(!isUpdatesEnabled()) {
 					log.info("Only update checks enabled.");
 					checkOnly = true;
 				}
@@ -965,9 +1008,9 @@ public class ClientServiceImpl implements ClientService {
 				 * themselves are best placed to know what extensions it has and where they
 				 * stored.
 				 * 
-				 * However, it's possible the client is not yet running, so we only do this if
-				 * it is available. If this happens we may need to update the GUI as well when
-				 * it eventually
+				 * However, it's possible the GUI or CLI is not yet running, so we only do this if
+				 * it is available. If this happens we may need to update it as well when
+				 * it eventually starts
 				 */
 				for (VPNFrontEnd fe : frontEnds) {
 					if (!fe.isUpdated()) {

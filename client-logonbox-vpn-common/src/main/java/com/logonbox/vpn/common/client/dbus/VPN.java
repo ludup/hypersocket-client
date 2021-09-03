@@ -28,6 +28,8 @@ public interface VPN extends DBusInterface {
 
 	boolean isUpdating();
 
+	String getAvailableVersion();
+
 	String getUUID();
 
 	String getVersion();
@@ -43,6 +45,8 @@ public interface VPN extends DBusInterface {
 //	JsonExtensionUpdate getUpdates();
 
 	void update();
+
+	void checkForUpdate();
 
 	void cancelUpdate();
 
@@ -337,6 +341,7 @@ public interface VPN extends DBusInterface {
 		}
 
 	}
+
 
 
 }

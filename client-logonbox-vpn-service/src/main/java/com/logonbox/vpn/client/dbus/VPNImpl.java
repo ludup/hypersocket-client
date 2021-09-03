@@ -67,6 +67,12 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
+	public String getAvailableVersion() {
+		assertRegistered();
+		return ctx.getClientService().getAvailableVersion();
+	}
+
+	@Override
 	public boolean isGUINeedsUpdating() {
 		assertRegistered();
 		return ctx.getClientService().isGUINeedsUpdating();
@@ -112,6 +118,12 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 				ctx.getClientService().update();
 			}
 		}.start();
+	}
+
+	@Override
+	public void checkForUpdate() {
+		assertRegistered();
+		ctx.getClientService().checkForUpdate();
 	}
 
 	@Override

@@ -4,7 +4,8 @@
 		//start loading animation
 		if (action == 'start') {
 			if ($(self).attr("disabled") == "disabled") {
-				e.preventDefault();
+				//e.preventDefault();
+                // TODO what what this supposed to do!?
 			}
 			//disable buttons when loading state
 			$('.has-spinner').attr("disabled", "disabled");

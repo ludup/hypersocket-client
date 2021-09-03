@@ -60,6 +60,7 @@ public class DOMProcessor {
 		replacements.put("serviceFreeMemory",  Util.toHumanSize(vpnFreeMemory));
 		replacements.put("serviceMaxMemory",  Util.toHumanSize(vpnMaxMemory));
 		replacements.put("serviceUsedMemory",  Util.toHumanSize(vpnMaxMemory - vpnFreeMemory));
+		replacements.put("availableVersion",  vpn == null ? "" : MessageFormat.format(resources.getString("availableVersion"),  vpn.getAvailableVersion()));
 		
 		/* General */
 		long freeMemory = Runtime.getRuntime().freeMemory();

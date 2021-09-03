@@ -59,6 +59,8 @@ public interface ClientService  {
 
 	void update() ;
 
+	void checkForUpdate() ;
+
 	void deauthorize(Connection connection) ;
 
 	boolean hasStatus(String owner, String uri) ;
@@ -84,4 +86,6 @@ public interface ClientService  {
 	IOException getConnectionError(Connection connection);
 
 	boolean isUpdateChecksEnabled();
+
+	String getAvailableVersion();
 }

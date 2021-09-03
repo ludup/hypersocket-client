@@ -232,6 +232,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			UI.this.update();
 		}
 
+		public void checkForUpdate() {
+			UI.this.checkForUpdate();
+		}
+
 		public void openURL(String url) {
 			Client.get().getHostServices().showDocument(url);
 		}
@@ -1721,18 +1725,15 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			AbstractDBusClient bridge = context.getDBus();
 			if (mode == UIState.UPDATE) {
 				setHtmlPage("updating.html");
-
-				/* TODO: This is temporary until update system is stable */
-			} /* else if (bridge.isBusAvailable() && bridge.getVPN().isNeedsUpdating()) {
+			} else if (bridge.isBusAvailable() && bridge.getVPN().isUpdatesEnabled() && bridge.getVPN().isNeedsUpdating()) {
 				// An update is available
 				log.warn(String.format("Update is available"));
-				
 				if (Boolean.valueOf(
 						context.getDBus().getVPN().getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"))) {
 					update();
 				} else
 					setHtmlPage("updateAvailable.html");
-			} */ else {
+			} else {
 				if (bridge.isBusAvailable() && bridge.getVPN().getMissingPackages().length > 0) {
 					log.warn(String.format("Missing software packages"));
 					collections.put("packages", Arrays.asList(bridge.getVPN().getMissingPackages()));
@@ -1868,6 +1869,13 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		context.getOpQueue().execute(() -> {
 			context.getDBus().getVPN().update();
 		});
+	}
+
+	private void checkForUpdate() {
+		context.getDBus().getVPN().checkForUpdate();
+		if(context.getDBus().getVPN().isNeedsUpdating()) {
+			selectPageForState(false, true);
+		}
 	}
 
 	public static void maybeRunLater(Runnable r) {
