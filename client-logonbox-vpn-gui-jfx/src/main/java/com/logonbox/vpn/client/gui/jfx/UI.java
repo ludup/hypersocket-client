@@ -1727,11 +1727,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				setHtmlPage("updating.html");
 			} else if (bridge.isBusAvailable() && bridge.getVPN().isUpdatesEnabled() && bridge.getVPN().isNeedsUpdating()) {
 				// An update is available
-				log.warn(String.format("Update is available"));
-				if (Boolean.valueOf(
-						context.getDBus().getVPN().getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"))) {
-					update();
-				} else
+//				log.warn(String.format("Update is available"));
+//				if (Boolean.valueOf(
+//						context.getDBus().getVPN().getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"))) {
+//					update();
+//				} else
 					setHtmlPage("updateAvailable.html");
 			} else {
 				if (bridge.isBusAvailable() && bridge.getVPN().getMissingPackages().length > 0) {

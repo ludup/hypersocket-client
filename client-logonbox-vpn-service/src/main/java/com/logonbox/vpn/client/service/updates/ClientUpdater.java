@@ -15,6 +15,7 @@ import org.freedesktop.dbus.exceptions.DBusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.Version;
 import com.hypersocket.extensions.AbstractExtensionUpdater;
 import com.hypersocket.extensions.ExtensionHelper;
 import com.hypersocket.extensions.ExtensionPlace;
@@ -127,12 +128,20 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 				 * if there are any updates for this version
 				 */
 				JsonExtensionUpdate v = cctx.getClientService().getUpdates();
-				return ExtensionHelper.resolveExtensions(true,
-						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
-								+ "api/store/repos2",
-						new String[] { "logonbox-vpn-client" }, v.getResource().getCurrentVersion(),
-						HypersocketVersion.getSerial(), "LogonBox VPN Client", v.getResource().getCustomer(),
-						extensionPlace, true, null, getUpdateTargets());
+				Version remoteVersion = new Version(v.getResource().getLatestVersion());
+				Version localVersion = new Version(getVersion());
+				if(remoteVersion.compareTo(localVersion) < 1) {
+					log.info(String.format("We are already on a version (%s) later or the same as the one available (%s).", localVersion, remoteVersion));
+					return Collections.emptyMap();
+				}
+				else {
+					return ExtensionHelper.resolveExtensions(true,
+							FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
+									+ "api/store/repos2",
+							new String[] { "logonbox-vpn-client" }, v.getResource().getCurrentVersion(),
+							HypersocketVersion.getSerial(), "LogonBox VPN Client", v.getResource().getCustomer(),
+							extensionPlace, true, null, getUpdateTargets());
+				}
 			}
 		} else {
 			JsonExtensionPhaseList v = cctx.getClientService().getPhases();

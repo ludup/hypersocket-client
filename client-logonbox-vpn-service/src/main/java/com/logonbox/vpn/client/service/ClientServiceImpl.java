@@ -39,6 +39,7 @@ import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.extensions.JsonExtensionPhase;
 import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.extensions.JsonExtensionUpdate;
+import com.hypersocket.json.version.HypersocketVersion;
 import com.hypersocket.json.version.Version;
 import com.hypersocket.utils.HttpUtilsHolder;
 import com.logonbox.vpn.client.LocalContext;
@@ -611,7 +612,12 @@ public class ClientServiceImpl implements ClientService {
 				 */
 				try {
 					JsonExtensionUpdate v = getUpdates();
-					return v.getResource().getLatestVersion();
+					Version remoteVersion = new Version(v.getResource().getLatestVersion());
+					Version localVersion = new Version(HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS));
+					if(remoteVersion.compareTo(localVersion) < 1)
+						return "";
+					else
+						return v.getResource().getLatestVersion();
 				}
 				catch(IllegalStateException ise) {
 					return "";
