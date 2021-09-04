@@ -127,6 +127,12 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
+	public void deferUpdate() {
+		assertRegistered();
+		ctx.getClientService().deferUpdate();
+	}
+
+	@Override
 	public void deregister() {
 		String src = DBusConnection.getCallInfo().getSource();
 		log.info(String.format("De-register front-end %s", src));

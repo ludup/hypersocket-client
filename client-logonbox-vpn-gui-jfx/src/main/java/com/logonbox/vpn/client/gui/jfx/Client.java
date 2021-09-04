@@ -159,7 +159,7 @@ public class Client extends Application implements X509TrustManager {
 		alert.setHeaderText(headerText);
 		return alert;
 	}
-	
+    
 	public static Client get() {
 		return instance;
 	}

@@ -12,6 +12,7 @@
 <body>
 	<script src="jquery-3.5.1.min.js"></script>
 	<script src="bootstrap-5.0.2-dist/js/bootstrap.bundle.min.js"></script>
+    <script src="web.js"></script>
 	<div id="wrap" class="m-3">
         <div class="mb-3" id="alerts"></div>
 		<div id="main" class="container clear-top">
@@ -20,14 +21,16 @@
 					<div class="col-md-12">
 						<h3 data-i18n="updateAvailable">Update Available</h3>
 					</div>
+				</div>
+                <div class="row mt-3">
                     <div class="col-md-12">
-                        <small data-content="availableVersion">Available Version</small>
-                    </div>
+                        <i class="fa fa-cloud-download text-success fa-3x align-middle"></i>&nbsp;<small class="align-middle" data-content="availableVersion">Available Version</small>
+                    </div> 
+                </div>
+                <div class="row mt-3">
 					<div class="col-md-12">
-						<p><i class="fa fa-cloud-download text-success fs-1"></i></p>
-					</div>
-					<div class="col-md-12">
-						<button id="startUpdate" onclick="bridge.update();" type="button" class="btn btn-primary" data-i18n="update">Update</button>
+						<button id="startUpdate" type="button" class="btn btn-primary" data-i18n="update">Update</button>&nbsp;
+						<a id="deferUpdate" data-i18n="deferUpdate">Not now</a>
 					</div>
 				</div>
 			</div>
@@ -37,12 +40,20 @@
 
     <script type="text/javascript">
         function uiReady() {
+            $('#deferUpdate').off('click').on('click', function(event) {
+            	bridge.deferUpdate();
+            });
             $('#startUpdate').off('click').on('click', function(event) {
                 try {
+                	alert('x1');
                     $('#startUpdate').buttonLoader('start');
+                    alert('x2');
                     $('#alerts').empty();
+                    alert('x3');
                     bridge.update();
+                    alert('x4');
                 } catch (e) {
+                    alert('x5 ' + e);
                     $('#startUpdate').buttonLoader('stop');
                     $('#alerts').append($('<div class="alert alert-danger">' + e.getMessage() + '</div>'));
                 }

@@ -17,6 +17,7 @@ import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 
+import javafx.application.Application;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -136,7 +137,7 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	 *      the new bootstrap arrangement.
 	 */
 	public Integer call() throws Exception {
-		com.sun.javafx.application.LauncherImpl.launchApplication(Client.class, null, new String[0]);
+		Application.launch(Client.class, new String[0]);
 		return 0;
 	}
 	

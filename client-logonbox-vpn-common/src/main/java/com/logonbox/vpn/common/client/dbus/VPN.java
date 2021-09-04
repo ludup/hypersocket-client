@@ -67,6 +67,8 @@ public interface VPN extends DBusInterface {
 	int getActiveButNonPersistentConnections();
 
 	void deregister();
+	
+	void deferUpdate();
 
 //
 
@@ -341,6 +343,7 @@ public interface VPN extends DBusInterface {
 		}
 
 	}
+
 
 
 

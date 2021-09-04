@@ -8,8 +8,10 @@ import java.io.StringWriter;
 import java.net.InetAddress;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -72,13 +74,14 @@ public class ClientServiceImpl implements ClientService {
 	private static final int PHASES_TIMEOUT = 3600 * 24;
 	private static final long PING_TIMEOUT = TimeUnit.SECONDS.toMillis(30);
 	private static final long UPDATE_SERVER_POLL_INTERVAL = TimeUnit.MINUTES.toMillis(10);
+	private static final long VERSION_CHECK_TIMEOUT = TimeUnit.MINUTES.toMillis(10);
 
 	protected Map<Connection, VPNSession> activeSessions = new HashMap<>();
 	protected Map<Connection, ScheduledFuture<?>> authorizingClients = new HashMap<>();
 	protected Map<Connection, VPNSession> connectingSessions = new HashMap<>();
 	protected Set<Connection> disconnectingClients = new HashSet<>();
 	protected Set<Connection> temporarilyOffline = new HashSet<>();
-	
+
 	private int appsToUpdate;
 	private ConfigurationRepository configurationRepository;
 
@@ -92,6 +95,12 @@ public class ClientServiceImpl implements ClientService {
 	private ScheduledExecutorService timer;
 	private AtomicLong transientConnectionId = new AtomicLong();
 	private boolean updating;
+
+	private long deferUpdatesUntil;
+
+	private long lastAvailableVersionRetrieved;
+
+	private String lastAvailableVersion;
 
 	public ClientServiceImpl(LocalContext context, ConnectionRepository connectionRepository,
 			ConfigurationRepository configurationRepository) {
@@ -349,22 +358,25 @@ public class ClientServiceImpl implements ClientService {
 	@Override
 	public IOException getConnectionError(Connection connection) {
 
-		try(CloseableHttpClient httpclient = HttpClients.createDefault()) {
+		try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
 			String uri = connection.getUri(false) + "/api/server/ping";
-			log.info(String.format("Testing if a connection to %s should be retried using %s.", connection.getDisplayName(), uri));
+			log.info(String.format("Testing if a connection to %s should be retried using %s.",
+					connection.getDisplayName(), uri));
 			String content = HttpUtilsHolder.getInstance().doHttpGetContent(uri, true, new HashMap<>());
-			
-			/* The Http service appears to be there, so this is likely an
-			 * invalidated session. 
+
+			/*
+			 * The Http service appears to be there, so this is likely an invalidated
+			 * session.
 			 */
 			log.info("Error is not retryable, invalidate configuration. " + content);
-			return new ReauthorizeException("Your configuration has been invalidated, and you will need to sign-on again.");
+			return new ReauthorizeException(
+					"Your configuration has been invalidated, and you will need to sign-on again.");
 
 		} catch (IOException ex) {
 			/* Decide what's happening based on the error. */
 			log.info("Error is retryable.", ex);
 			return ex;
-		} 
+		}
 	}
 
 	public LocalContext getContext() {
@@ -523,8 +535,8 @@ public class ClientServiceImpl implements ClientService {
 				if (log.isDebugEnabled())
 					log.info(String.format("Trying %s.", url));
 				URLConnection urlConnection = url.openConnection();
-				urlConnection.setConnectTimeout((int)TimeUnit.SECONDS.toMillis(10));
-				urlConnection.setReadTimeout((int)TimeUnit.SECONDS.toMillis(10));
+				urlConnection.setConnectTimeout((int) TimeUnit.SECONDS.toMillis(10));
+				urlConnection.setReadTimeout((int) TimeUnit.SECONDS.toMillis(10));
 				try (InputStream in = urlConnection.getInputStream()) {
 					JsonExtensionUpdate extensionUpdate = mapper.readValue(in, JsonExtensionUpdate.class);
 					Version version = new Version(extensionUpdate.getResource().getCurrentVersion());
@@ -599,27 +611,34 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public String getAvailableVersion() {
+		if(lastAvailableVersion == null || lastAvailableVersionRetrieved < System.currentTimeMillis() - VERSION_CHECK_TIMEOUT) {
+			lastAvailableVersion = doGetAvailableVersion();
+			lastAvailableVersionRetrieved= System.currentTimeMillis();
+		}
+		return lastAvailableVersion;
+	}
+
+	protected String doGetAvailableVersion() {
 		if (isTrackServerVersion()) {
 			if (getStatus(null).isEmpty()) {
-				/* We don't have any servers configured, so no version can 
-				 * yet be known
+				/*
+				 * We don't have any servers configured, so no version can yet be known
 				 */
 				return "";
-			}
-			else {
-				/* We have the version of the server we are connecting to, check
-				 * if there are any updates for this version
+			} else {
+				/*
+				 * We have the version of the server we are connecting to, check if there are
+				 * any updates for this version
 				 */
 				try {
 					JsonExtensionUpdate v = getUpdates();
 					Version remoteVersion = new Version(v.getResource().getCurrentVersion());
 					Version localVersion = new Version(HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS));
-					if(remoteVersion.compareTo(localVersion) < 1)
+					if (remoteVersion.compareTo(localVersion) < 1)
 						return "";
 					else
 						return v.getResource().getCurrentVersion();
-				}
-				catch(IllegalStateException ise) {
+				} catch (IllegalStateException ise) {
 					return "";
 				}
 			}
@@ -678,7 +697,7 @@ public class ClientServiceImpl implements ClientService {
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}
-		
+
 		log.info(String.format("Registered front-end %s as %s, %s, %s", frontEnd.getSource(), frontEnd.getUsername(),
 				frontEnd.isSupportsAuthorization() ? "supports auth" : "doesnt support auth",
 				frontEnd.isInteractive() ? "interactive" : "not interactive"));
@@ -798,20 +817,19 @@ public class ClientServiceImpl implements ClientService {
 			if (connection.isAuthorized())
 				throw new IllegalStateException("Already authorized.");
 
-
 			/*
 			 * Setup a timeout so that clients don't get stuck authorizing if nobody is
 			 * there to authorize.
 			 * 
-			 * Put into the map before the event so the status would be correct
-			 * if some client queried it.
+			 * Put into the map before the event so the status would be correct if some
+			 * client queried it.
 			 */
 			cancelAuthorize(connection);
 			log.info(String.format("Setting up authorize timeout for %s", connection.getDisplayName()));
 			authorizingClients.put(connection, timer.schedule(() -> {
 				disconnect(connection, "Authorization timeout.");
 			}, AUTHORIZE_TIMEOUT, TimeUnit.SECONDS));
-			
+
 			try {
 				log.info(String.format("Asking client to authorize %s", connection.getDisplayName()));
 				context.sendMessage(new VPNConnection.Authorize(
@@ -847,9 +865,10 @@ public class ClientServiceImpl implements ClientService {
 			if (log.isInfoEnabled()) {
 				log.info("Scheduling connect for connection id " + c.getId() + "/" + c.getHostname());
 			}
-	
-			Integer reconnectSeconds = Integer.valueOf(configurationRepository.getValue("client.reconnectInSeconds", "5"));
-	
+
+			Integer reconnectSeconds = Integer
+					.valueOf(configurationRepository.getValue("client.reconnectInSeconds", "5"));
+
 			Connection connection = connectionRepository.getConnection(c.getId());
 			if (connection == null) {
 				log.warn("Ignoring a scheduled connection that no longer exists, probably deleted.");
@@ -865,8 +884,8 @@ public class ClientServiceImpl implements ClientService {
 	@Override
 	public void setValue(String name, String value) {
 		configurationRepository.setValue(name, value);
-		if(name.equals(ConfigurationRepository.LOG_LEVEL)) {
-			if(StringUtils.isBlank(value))
+		if (name.equals(ConfigurationRepository.LOG_LEVEL)) {
+			if (StringUtils.isBlank(value))
 				org.apache.log4j.Logger.getRootLogger().setLevel(getContext().getDefaultLogLevel());
 			else
 				org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(value));
@@ -885,7 +904,6 @@ public class ClientServiceImpl implements ClientService {
 		timer.scheduleAtFixedRate(() -> {
 			update(true);
 		}, UPDATE_SERVER_POLL_INTERVAL, UPDATE_SERVER_POLL_INTERVAL, TimeUnit.MILLISECONDS);
-
 
 		Collection<VPNSession> toStart = getContext().getPlatformService().start(getContext());
 		if (!toStart.isEmpty()) {
@@ -969,10 +987,21 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public void checkForUpdate() {
+		deferUpdatesUntil = 0;
+		update(true);
+	}
+
+	@Override
+	public void deferUpdate() {
+		long dayMs = TimeUnit.DAYS.toMillis(1);
+		deferUpdatesUntil = ( (System.currentTimeMillis() / dayMs) * dayMs ) + dayMs;
 		update(true);
 	}
 
 	public void update(boolean checkOnly) {
+		if (updating)
+			throw new IllegalStateException("Already updating.");
+
 		appsToUpdate = 0;
 		needsUpdate = false;
 		int updates = 0;
@@ -983,119 +1012,125 @@ public class ClientServiceImpl implements ClientService {
 				log.info("Updates disabled.");
 				guiNeedsSeparateUpdate = false;
 			} else {
-
-				Collection<VPNFrontEnd> frontEnds = context.getFrontEnds();
-				if(!isUpdatesEnabled()) {
-					log.info("Only update checks enabled.");
-					checkOnly = true;
-				}
-				else if(frontEnds.isEmpty()) {
-					log.info("No front-ends, only check for updates for now.");
-					checkOnly = true;
-				}
-
-				if (checkOnly)
-					log.info("Checking for updates");
-				else
-					log.info("Getting updates to apply");
-				guiNeedsSeparateUpdate = true;
-				List<ClientUpdater> updaters = new ArrayList<>();
-
-				/*
-				 * For the client service, we use the local 'extension place'
-				 */
-				appsToUpdate = 1;
-				ExtensionPlace defaultExt = ExtensionPlace.getDefault();
-				defaultExt.setDownloadAllExtensions(true);
-				updaters.add(new ClientUpdater(defaultExt, ExtensionTarget.CLIENT_SERVICE, context));
-
-				/*
-				 * For the GUI (and CLI), we get the extension place remotely, as the clients
-				 * themselves are best placed to know what extensions it has and where they
-				 * stored.
-				 * 
-				 * However, it's possible the GUI or CLI is not yet running, so we only do this if
-				 * it is available. If this happens we may need to update it as well when
-				 * it eventually starts
-				 */
-				for (VPNFrontEnd fe : frontEnds) {
-					if (!fe.isUpdated()) {
-						guiNeedsSeparateUpdate = false;
-						appsToUpdate++;
-						updaters.add(new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
-					}
-				}
-
-				try {
-					if (!checkOnly) {
-						context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
+				if (deferUpdatesUntil == 0 || System.currentTimeMillis() >= deferUpdatesUntil) {
+					deferUpdatesUntil = 0;
+					Collection<VPNFrontEnd> frontEnds = context.getFrontEnds();
+					if (!isUpdatesEnabled()) {
+						log.info("Only update checks enabled.");
+						checkOnly = true;
+					} else if (frontEnds.isEmpty()) {
+						log.info("No front-ends, only check for updates for now.");
+						checkOnly = true;
 					}
 
-					for (ClientUpdater update : updaters) {
-						if ((checkOnly && update.checkForUpdates()) || (!checkOnly && update.update())) {
-							updates++;
-							log.info(String.format("    %s (%s) - needs update", update.getExtensionPlace().getApp(),
-									update.getExtensionPlace().getDir()));
-						} else
-							log.info(String.format("    %s (%s) - no updates", update.getExtensionPlace().getApp(),
-									update.getExtensionPlace().getDir()));
+					if (checkOnly)
+						log.info("Checking for updates");
+					else
+						log.info("Getting updates to apply");
+					guiNeedsSeparateUpdate = true;
+					List<ClientUpdater> updaters = new ArrayList<>();
+
+					/*
+					 * For the client service, we use the local 'extension place'
+					 */
+					appsToUpdate = 1;
+					ExtensionPlace defaultExt = ExtensionPlace.getDefault();
+					defaultExt.setDownloadAllExtensions(true);
+					updaters.add(new ClientUpdater(defaultExt, ExtensionTarget.CLIENT_SERVICE, context));
+
+					/*
+					 * For the GUI (and CLI), we get the extension place remotely, as the clients
+					 * themselves are best placed to know what extensions it has and where they
+					 * stored.
+					 * 
+					 * However, it's possible the GUI or CLI is not yet running, so we only do this
+					 * if it is available. If this happens we may need to update it as well when it
+					 * eventually starts
+					 */
+					for (VPNFrontEnd fe : frontEnds) {
+						if (!fe.isUpdated()) {
+							guiNeedsSeparateUpdate = false;
+							appsToUpdate++;
+							updaters.add(new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
+						}
 					}
 
-					if (!checkOnly) {
-						if (updates > 0) {
-							log.info("Applying updates");
+					try {
+						if (!checkOnly) {
+							context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
+						}
 
-							/*
-							 * If when we started the update, the GUI wasn't attached, but it is now, then
-							 * instead of restarting immediately, try to update any client extensions too
-							 */
-							if (guiNeedsSeparateUpdate && !frontEnds.isEmpty()) {
-								appsToUpdate = 0;
-								for (VPNFrontEnd fe : frontEnds) {
-									if (!fe.isUpdated()) {
-										guiNeedsSeparateUpdate = false;
-										appsToUpdate++;
-										updaters.add(new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
+						for (ClientUpdater update : updaters) {
+							if ((checkOnly && update.checkForUpdates()) || (!checkOnly && update.update())) {
+								updates++;
+								log.info(String.format("    %s (%s) - needs update",
+										update.getExtensionPlace().getApp(), update.getExtensionPlace().getDir()));
+							} else
+								log.info(String.format("    %s (%s) - no updates", update.getExtensionPlace().getApp(),
+										update.getExtensionPlace().getDir()));
+						}
+
+						if (!checkOnly) {
+							if (updates > 0) {
+								log.info("Applying updates");
+
+								/*
+								 * If when we started the update, the GUI wasn't attached, but it is now, then
+								 * instead of restarting immediately, try to update any client extensions too
+								 */
+								if (guiNeedsSeparateUpdate && !frontEnds.isEmpty()) {
+									appsToUpdate = 0;
+									for (VPNFrontEnd fe : frontEnds) {
+										if (!fe.isUpdated()) {
+											guiNeedsSeparateUpdate = false;
+											appsToUpdate++;
+											updaters.add(new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
+										}
 									}
-								}
-								if (appsToUpdate == 0) {
-									/* Still nothing else to update, we are done */
+									if (appsToUpdate == 0) {
+										/* Still nothing else to update, we are done */
+										context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, ""));
+										log.info("Update complete, restarting.");
+										/* Delay restart to let signals be sent */
+										getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
+									} else {
+										context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
+										int updated = 0;
+										for (ClientUpdater update : updaters) {
+											if (update.update())
+												updated++;
+										}
+										context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", updated > 0, ""));
+										if (updated > 0) {
+											log.info("Update complete, restarting.");
+											/* Delay restart to let signals be sent */
+											getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
+										}
+									}
+								} else {
 									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, ""));
 									log.info("Update complete, restarting.");
 									/* Delay restart to let signals be sent */
 									getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
-								} else {
-									context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
-									int updated = 0;
-									for (ClientUpdater update : updaters) {
-										if (update.update())
-											updated++;
-									}
-									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", updated > 0, ""));
-									if (updated > 0) {
-										log.info("Update complete, restarting.");
-										/* Delay restart to let signals be sent */
-										getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
-									}
 								}
 							} else {
-								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, ""));
-								log.info("Update complete, restarting.");
-								/* Delay restart to let signals be sent */
-								getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
+								context.sendMessage(
+										new VPN.UpdateDone("/com/logonbox/vpn", false, "Nothing to update."));
 							}
-						} else {
-							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, "Nothing to update."));
 						}
+
+					} catch (IOException | DBusException e) {
+						if (log.isDebugEnabled()) {
+							log.error("Failed to execute update job.", e);
+						} else {
+							log.warn(String.format("Failed to execute update job. %s", e.getMessage()));
+						}
+						return;
 					}
 
-				} catch (IOException | DBusException e) {
-					if (log.isDebugEnabled()) {
-						log.error("Failed to execute update job.", e);
-					} else {
-						log.warn(String.format("Failed to execute update job. %s", e.getMessage()));
-					}
-					return;
+				}
+				else {
+					log.info(String.format("Updates deferred until %s", DateFormat.getDateTimeInstance().format(new Date(deferUpdatesUntil))));
 				}
 			}
 		} catch (Exception re) {
@@ -1175,39 +1210,44 @@ public class ClientServiceImpl implements ClientService {
 		synchronized (activeSessions) {
 			for (Map.Entry<Connection, VPNSession> sessionEn : new HashMap<>(activeSessions).entrySet()) {
 				Connection connection = sessionEn.getKey();
-				
-				if(temporarilyOffline.contains(connection)) {
+
+				if (temporarilyOffline.contains(connection)) {
 					/* Temporarily offline, are we still offline? */
 					try {
 						if (getContext().getPlatformService().isAlive(sessionEn.getValue(), connection)) {
-							/* If now completely alive again, remove from the list of 
-							 * temporarily offline connections and fire a connected event */
+							/*
+							 * If now completely alive again, remove from the list of temporarily offline
+							 * connections and fire a connected event
+							 */
 							temporarilyOffline.remove(connection);
 							log.info(String.format("%s back online.", connection.getDisplayName()));
 							try {
-								context.sendMessage(
-										new VPNConnection.Connected(String.format("/com/logonbox/vpn/%d", connection.getId())));
+								context.sendMessage(new VPNConnection.Connected(
+										String.format("/com/logonbox/vpn/%d", connection.getId())));
 							} catch (DBusException e) {
 								throw new IllegalStateException("Failed to send event.", e);
 							}
-							
+
 							/* Next session */
 							continue;
 						}
 					} catch (IOException ioe) {
-						if(log.isDebugEnabled())
+						if (log.isDebugEnabled())
 							log.debug("Failed to test if session was alive. Assuming it isn't", ioe);
 					}
-					
-					if(log.isDebugEnabled())
+
+					if (log.isDebugEnabled())
 						log.debug(String.format("%s still temporarily offline.", connection.getDisplayName()));
-				}
-				else {
+				} else {
 
 					try {
-						if (!connection.isAuthorized() || authorizingClients.containsKey(connection) || connectingSessions.containsKey(connection)
+						if (!connection.isAuthorized() || authorizingClients.containsKey(connection)
+								|| connectingSessions.containsKey(connection)
 								|| getContext().getPlatformService().isAlive(sessionEn.getValue(), connection)) {
-							/* If not authorized, still 'connecting', 'authorizing', or completely alive, skip to next session */
+							/*
+							 * If not authorized, still 'connecting', 'authorizing', or completely alive,
+							 * skip to next session
+							 */
 							continue;
 						}
 					} catch (IOException ioe) {
@@ -1218,32 +1258,31 @@ public class ClientServiceImpl implements ClientService {
 					log.info(String.format(
 							"Session with public key %s hasn't had a valid handshake for %d seconds, disconnecting.",
 							connection.getUserPublicKey(), ClientService.HANDSHAKE_TIMEOUT));
-					
-					/* Try to work out why .... we can only do this with LogonBox VPN
-					 * because the HTTP service should be there as well. If there is an
-					 * internet outage, or a problem on the server, then we can use
-					 * this HTTP channel to try and get a little more info as to
-					 * why we have no received a handshake for a while.
+
+					/*
+					 * Try to work out why .... we can only do this with LogonBox VPN because the
+					 * HTTP service should be there as well. If there is an internet outage, or a
+					 * problem on the server, then we can use this HTTP channel to try and get a
+					 * little more info as to why we have no received a handshake for a while.
 					 */
 					IOException reason = getConnectionError(connection);
-					
-					if(reason instanceof ReauthorizeException) {
-						if(connection.isAuthorized())
+
+					if (reason instanceof ReauthorizeException) {
+						if (connection.isAuthorized())
 							deauthorize(connection);
 						disconnect(connection, "Re-authorize required");
-					}
-					else {
-						if(connection.isStayConnected()) {
+					} else {
+						if (connection.isStayConnected()) {
 							log.info("Signalling temporarily offline.");
 							temporarilyOffline.add(connection);
 							try {
 								context.sendMessage(new VPNConnection.TemporarilyOffline(
-										String.format("/com/logonbox/vpn/%d", connection.getId()), reason.getMessage() == null ? "" : reason.getMessage()));
+										String.format("/com/logonbox/vpn/%d", connection.getId()),
+										reason.getMessage() == null ? "" : reason.getMessage()));
 							} catch (DBusException e) {
 								log.error("Failed to send message.", e);
 							}
-						}
-						else {
+						} else {
 							disconnect(connection, reason.getMessage());
 						}
 					}
@@ -1309,7 +1348,7 @@ public class ClientServiceImpl implements ClientService {
 						 * The connection did not get it's first handshake in a timely manner. We don't
 						 * have determined that it is very likely it needs re-authorizing
 						 */
-						if(connection.isAuthorized())
+						if (connection.isAuthorized())
 							deauthorize(connection);
 						requestAuthorize(connection);
 						return;
@@ -1326,11 +1365,12 @@ public class ClientServiceImpl implements ClientService {
 
 				StringBuilder errorCauseText = new StringBuilder();
 				Throwable ex = e.getCause();
-				while(ex != null) {
-					if(!errorCauseText.toString().trim().equals("") && !errorCauseText.toString().trim().endsWith(".")) {
+				while (ex != null) {
+					if (!errorCauseText.toString().trim().equals("")
+							&& !errorCauseText.toString().trim().endsWith(".")) {
 						errorCauseText.append(". ");
 					}
-					if(ex.getMessage() != null)
+					if (ex.getMessage() != null)
 						errorCauseText.append(ex.getMessage());
 					ex = ex.getCause();
 				}
@@ -1340,7 +1380,8 @@ public class ClientServiceImpl implements ClientService {
 						e.getMessage(), errorCauseText.toString(), trace.toString()));
 
 				if (!(e instanceof UserCancelledException)) {
-					log.info(String.format("Connnection not cancelled by user. Reconnect is %s, stay connected is %s", job.isReconnect(), connection.isStayConnected()));
+					log.info(String.format("Connnection not cancelled by user. Reconnect is %s, stay connected is %s",
+							job.isReconnect(), connection.isStayConnected()));
 					if (connection.isStayConnected() && job.isReconnect()) {
 						if (log.isInfoEnabled()) {
 							log.info("Stay connected is set, so scheduling new connection to " + connection);

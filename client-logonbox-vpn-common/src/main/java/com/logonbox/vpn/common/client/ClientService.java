@@ -88,4 +88,6 @@ public interface ClientService  {
 	boolean isUpdateChecksEnabled();
 
 	String getAvailableVersion();
+
+	void deferUpdate();
 }

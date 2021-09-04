@@ -75,7 +75,7 @@ import com.sshtools.twoslices.ToasterFactory;
 import com.sshtools.twoslices.ToasterSettings;
 import com.sshtools.twoslices.ToasterSettings.SystemTrayIconMode;
 import com.sshtools.twoslices.impl.OsXToaster;
-import com.sun.javafx.util.Utils;
+//import com.sun.javafx.util.Utils;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -233,6 +233,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			UI.this.update();
 		}
 
+		public void deferUpdate() {
+			UI.this.deferUpdate();
+		}
+
 		public void checkForUpdate() {
 			UI.this.checkForUpdate();
 		}
@@ -287,7 +291,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		settings.setAppName(bundle.getString("appName"));
 		settings.setSystemTrayIconMode(SystemTrayIconMode.HIDDEN);
 		ToasterFactory.setSettings(settings);
-		if(Utils.isMac()) {
+		if(SystemUtils.IS_OS_MAC_OSX) {
 			ToasterFactory.setFactory(new ToasterFactory() {
 				@Override
 				public Toaster toaster() {
@@ -875,7 +879,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	protected void configureWebEngine() {
 		WebEngine engine = webView.getEngine();
-
 		engine.setUserAgent(
 				"LogonBox VPN Client " + HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-gui-jfx"));
 		engine.setOnAlert((e) -> {
@@ -1888,6 +1891,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		if(context.getDBus().getVPN().isNeedsUpdating()) {
 			selectPageForState(false, true);
 		}
+	}
+
+	private void deferUpdate() {
+		context.getDBus().getVPN().deferUpdate();
+		selectPageForState(false, true);
 	}
 
 	public static void maybeRunLater(Runnable r) {
