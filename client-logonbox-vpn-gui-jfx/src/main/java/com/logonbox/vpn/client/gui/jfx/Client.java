@@ -58,6 +58,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.goxr3plus.fxborderlessscene.borderless.BorderlessScene;
+import com.jthemedetecor.OsThemeDetector;
 import com.logonbox.vpn.client.gui.jfx.MiniHttpServer.DynamicContent;
 import com.logonbox.vpn.client.gui.jfx.MiniHttpServer.DynamicContentFactory;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
@@ -92,6 +93,27 @@ import javafx.stage.StageStyle;
 
 public class Client extends Application implements X509TrustManager {
 
+	static Set<String> ACCEPTED_CERTIFICATES = new HashSet<>();
+
+	static final boolean allowBranding = System.getProperty("logonbox.vpn.allowBranding", "true").equals("true");
+
+	static ResourceBundle BUNDLE = ResourceBundle.getBundle(Client.class.getName());
+
+	/**
+	 * Matches the identifier in logonbox VPN server
+	 * PeerConfigurationAuthenticationProvider.java
+	 */
+	static final String DEVICE_IDENTIFIER = "LBVPNDID";
+	static UUID localWebServerCookie = UUID.randomUUID();
+
+	static final String LOCBCOOKIE = "LOCBCKIE";
+	static Logger log = LoggerFactory.getLogger(Client.class);
+	static Preferences PERMANENTLY_ACCEPTED_CERTIFICATES = Preferences.userNodeForPackage(Configuration.class)
+			.node("certificates");
+
+	/* Security can be turned off for this, useful for debugging */
+	static final boolean secureLocalHTTPService = System.getProperty("logonbox.vpn.secureLocalHTTPService", "true")
+			.equals("true");
 	/**
 	 * There seems to be some problem with runtimes later than 11 and loading
 	 * resources in the embedded browser from the classpath.
@@ -109,37 +131,234 @@ public class Client extends Application implements X509TrustManager {
 	static final boolean useLocalHTTPService = System.getProperty("logonbox.vpn.useLocalHTTPService", "false")
 			.equals("true");
 
-	/* Security can be turned off for this, useful for debugging */
-	static final boolean secureLocalHTTPService = System.getProperty("logonbox.vpn.secureLocalHTTPService", "true")
-			.equals("true");
-
-	static final boolean allowBranding = System.getProperty("logonbox.vpn.allowBranding", "true").equals("true");
-
-	/**
-	 * Matches the identifier in logonbox VPN server
-	 * PeerConfigurationAuthenticationProvider.java
-	 */
-	static final String DEVICE_IDENTIFIER = "LBVPNDID";
-	static final String LOCBCOOKIE = "LOCBCKIE";
-
-	static Logger log = LoggerFactory.getLogger(Client.class);
-	static ResourceBundle BUNDLE = ResourceBundle.getBundle(Client.class.getName());
-	static UUID localWebServerCookie = UUID.randomUUID();
-	
-	static Set<String> ACCEPTED_CERTIFICATES = new HashSet<>();
-	static Preferences PERMANENTLY_ACCEPTED_CERTIFICATES = Preferences.userNodeForPackage(Configuration.class).node("certificates");
-
-	private ExecutorService opQueue = Executors.newSingleThreadExecutor();
-	private boolean waitingForExitChoice;
-	private Stage primaryStage;
-	private MiniHttpServer miniHttp;
-	private Tray tray;
-
-//	private CookieHandler originalCookieHander;
+	//	private CookieHandler originalCookieHander;
 	private static Client instance;
-
+	
+	public static Alert createAlertWithOptOut(AlertType type, String title, String headerText, String message,
+			String optOutMessage, Consumer<Boolean> optOutAction, ButtonType... buttonTypes) {
+		Alert alert = new Alert(type);
+		alert.getDialogPane().applyCss();
+		Node graphic = alert.getDialogPane().getGraphic();
+		alert.setDialogPane(new DialogPane() {
+			@Override
+			protected Node createDetailsButton() {
+				CheckBox optOut = new CheckBox();
+				optOut.setText(optOutMessage);
+				optOut.setOnAction(e -> optOutAction.accept(optOut.isSelected()));
+				autosize();
+				return optOut;
+			}
+		});
+		alert.getDialogPane().getButtonTypes().addAll(buttonTypes);
+		alert.getDialogPane().setContentText(message);
+		alert.getDialogPane().setExpandableContent(new Group());
+		alert.getDialogPane().setExpanded(true);
+		alert.getDialogPane().setGraphic(graphic);
+		alert.getDialogPane().autosize();
+		alert.setTitle(title);
+		alert.setHeaderText(headerText);
+		return alert;
+	}
+	
 	public static Client get() {
 		return instance;
+	}
+	
+	public static String hash(byte[] in) {
+		try {
+			MessageDigest md = MessageDigest.getInstance("SHA-1");
+			md.update(in);
+			byte[] bytes = md.digest();
+			return Base64.getEncoder().encodeToString(bytes);
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to hash.", e);
+		}
+	}
+	
+	static String toHex(Color color) {
+		return toHex(color, -1);
+	}
+	
+	static String toHex(Color color, boolean opacity) {
+		return toHex(color, opacity ? color.getOpacity() : -1);
+	}
+	
+	static String toHex(Color color, double opacity) {
+		if (opacity > -1)
+			return String.format("#%02x%02x%02x%02x", (int) (color.getRed() * 255), (int) (color.getGreen() * 255),
+					(int) (color.getBlue() * 255), (int) (opacity * 255));
+		else
+			return String.format("#%02x%02x%02x", (int) (color.getRed() * 255), (int) (color.getGreen() * 255),
+					(int) (color.getBlue() * 255));
+	}
+
+	static URL toUri(File tmpFile) {
+		try {
+			return tmpFile.toURI().toURL();
+		} catch (MalformedURLException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private Branding branding;
+
+	private OsThemeDetector detector;
+
+	private MiniHttpServer miniHttp;
+
+	private ExecutorService opQueue = Executors.newSingleThreadExecutor();
+
+	private Stage primaryStage;
+
+	private Tray tray;
+
+	private boolean waitingForExitChoice;
+
+	@Override
+	public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+		if (!isStrictSSL()) {
+			return;
+		}
+
+		List<String> chainSubjectDN = new ArrayList<>();
+		for (X509Certificate c : chain) {
+			try {
+				if (log.isDebugEnabled())
+					log.debug(String.format("Validating: %s", c));
+				chainSubjectDN.add(c.getSubjectDN().toString());
+				c.checkValidity();
+			} catch (CertificateExpiredException | CertificateNotYetValidException ce) {
+				/* Already been accepted? */
+				String encodedKey = hash(c.getPublicKey().getEncoded());
+				if (ACCEPTED_CERTIFICATES.contains(encodedKey)
+						|| PERMANENTLY_ACCEPTED_CERTIFICATES.getBoolean(encodedKey, false)) {
+					log.debug(String.format("Accepting server certificate, it has previously been accepted."));
+					return;
+				}
+				String title = BUNDLE
+						.getString(ce instanceof CertificateExpiredException ? "certificate.certificateExpired.title"
+								: "certificate.certificateNotYetValid.title");
+				String content = BUNDLE
+						.getString(ce instanceof CertificateExpiredException ? "certificate.certificateExpired.content"
+								: "certificate.certificateNotYetValid.content");
+				if (Platform.isFxApplicationThread()) {
+					boolean ok = promptForCertificate(AlertType.WARNING, title, content, encodedKey,
+							c.getSubjectDN().toString(), ce.getMessage());
+					if (ok) {
+						ACCEPTED_CERTIFICATES.add(encodedKey);
+					} else
+						throw ce;
+				} else {
+					AtomicBoolean res = new AtomicBoolean();
+					Semaphore sem = new Semaphore(1);
+					try {
+						sem.acquire();
+						Platform.runLater(() -> {
+							res.set(promptForCertificate(AlertType.WARNING, title, content, encodedKey,
+									c.getSubjectDN().toString(), ce.getMessage()));
+							sem.release();
+						});
+						sem.acquire();
+						sem.release();
+						boolean ok = res.get();
+						if (ok) {
+							ACCEPTED_CERTIFICATES.add(encodedKey);
+						}
+						return;
+					} catch (InterruptedException ie) {
+						throw ce;
+					}
+				}
+
+			}
+		}
+	}
+
+	public void clearLoadQueue() {
+		opQueue.shutdownNow();
+		opQueue = Executors.newSingleThreadExecutor();
+	}
+
+	public void confirmExit() {
+		int active = 0;
+		try {
+			active = getDBus().getVPN().getActiveButNonPersistentConnections();
+		} catch (Exception e) {
+			exitApp();
+		}
+
+		if (active > 0) {
+			Alert alert = new Alert(AlertType.CONFIRMATION);
+			alert.initModality(Modality.APPLICATION_MODAL);
+			alert.initOwner(getStage());
+			alert.setTitle(BUNDLE.getString("exit.confirm.title"));
+			alert.setHeaderText(BUNDLE.getString("exit.confirm.header"));
+			alert.setContentText(BUNDLE.getString("exit.confirm.content"));
+
+			ButtonType disconnect = new ButtonType(BUNDLE.getString("exit.confirm.disconnect"));
+			ButtonType stayConnected = new ButtonType(BUNDLE.getString("exit.confirm.stayConnected"));
+			ButtonType cancel = new ButtonType(BUNDLE.getString("exit.confirm.cancel"), ButtonData.CANCEL_CLOSE);
+
+			alert.getButtonTypes().setAll(disconnect, stayConnected, cancel);
+			waitingForExitChoice = true;
+			try {
+				Optional<ButtonType> result = alert.showAndWait();
+
+				if (result.get() == disconnect) {
+					opQueue.execute(() -> {
+						getDBus().getVPN().disconnectAll();
+						exitApp();
+					});
+				} else if (result.get() == stayConnected) {
+					exitApp();
+				}
+			} finally {
+				waitingForExitChoice = false;
+			}
+		} else {
+			exitApp();
+		}
+	}
+
+	@Override
+	public X509Certificate[] getAcceptedIssuers() {
+		X509Certificate[] NO_CERTS = new X509Certificate[0];
+		return NO_CERTS;
+	}
+
+	public String getCommonName(X509Certificate cert) {
+		try {
+			LdapName ldapName = new LdapName(cert.getSubjectX500Principal().getName());
+			/*
+			 * Looking for the "most specific CN" (i.e. the last).
+			 */
+			String cn = null;
+			for (Rdn rdn : ldapName.getRdns()) {
+				if ("CN".equalsIgnoreCase(rdn.getType())) {
+					cn = rdn.getValue().toString();
+				}
+			}
+			return cn;
+		} catch (InvalidNameException e) {
+			return null;
+		}
+	}
+
+	public AbstractDBusClient getDBus() {
+		return Main.getInstance();
+	}
+
+	public ExecutorService getOpQueue() {
+		return opQueue;
+	}
+
+	public Stage getStage() {
+		return primaryStage;
 	}
 
 	@Override
@@ -157,8 +376,157 @@ public class Client extends Application implements X509TrustManager {
 				System.getProperty("hypersocket.logConfiguration", "conf" + File.separator + "log4j.properties"));
 	}
 
-	public AbstractDBusClient getDBus() {
-		return Main.getInstance();
+	public boolean isIpv4Address(String hostname) {
+		String[] ipSections = hostname.split("\\.");
+		if (ipSections.length != 4) {
+			return false;
+		}
+		for (String ipSection : ipSections) {
+			try {
+				int num = Integer.parseInt(ipSection);
+				if (num < 0 || num > 255) {
+					return false;
+				}
+			} catch (NumberFormatException e) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public boolean isMinimizeAllowed() {
+		return tray == null || !(tray instanceof AWTTaskbarTray);
+	}
+
+	public boolean isTrayConfigurable() {
+		return tray != null && tray.isConfigurable();
+	}
+
+//	protected void updateCookieHandlerState() {
+//		boolean isPersistJar = !(CookieHandler.getDefault() instanceof CookieManager);
+//		boolean wantsPeristJar = Configuration.getDefault().saveCookiesProperty().get();
+//		if(isPersistJar != wantsPeristJar) {
+//			if(wantsPeristJar) {
+//				log.info("Using Webkit cookie manager");
+//				CookieHandler.setDefault(originalCookieHander);
+//			}
+//			else {
+//				log.info("Using in memory cookie manager");
+//				/* This cookie handler simulates clearing the
+//				 * cookies by returning null for gets until the 
+//				 * first put. The cookies will have actually been persisted.
+//				 */
+//				CookieHandler.setDefault(new CookieManager() {
+//					
+//					Set<String> requestedCookies = new HashSet<>();
+//
+//				    public void
+//				        put(URI uri, Map<String, List<String>> responseHeaders)
+//				        throws IOException
+//				    {
+//				    	List<String> cookieHeaders = responseHeaders.get("Set-Cookie");
+//				    	for(String cookieHeader : cookieHeaders) {
+//				    		/* We only need the cookie name */
+//				    		int idx = cookieHeader.indexOf('=');
+//				    		if(idx != -1) {
+//				    			String cookieName = cookieHeader.substring(0, idx);
+//				    			requestedCookies.add(cookieName);
+//				    		}
+//				    	}
+//				    	originalCookieHander.put(uri, responseHeaders);
+//				    }
+//
+//					@Override
+//					public Map<String, List<String>> get(URI uri, Map<String, List<String>> requestHeaders)
+//							throws IOException {
+//						// TODO Auto-generated method stub
+//						Map<String, List<String>> map = originalCookieHander.get(uri, requestHeaders);
+//						List<String> cookies = map.get("Cookie");
+//						if(cookies != null) {
+//					    	log.info("Getting cookie for " + uri + ": " + requestHeaders + " ============ " + map + " >>>>>>>>>> " + cookies + " (" + cookies.size() + ")");
+//							List<String> actualCookies = new ArrayList<>();
+//							for(String cookieList : cookies) {
+//								List<String> actualCookie = new ArrayList<>();
+//								for(String cookie : cookieList.split(";")) {
+//									cookie = cookie.trim();
+//									int idx = cookie.indexOf('=');
+//									String cookieName = cookie.substring(0, idx);
+//									if(requestedCookies.contains(cookieName)) {
+//										actualCookie.add(cookie);
+//									}
+//								}
+//								String actualCookieList = String.join(";", actualCookie);
+//								actualCookies.add(actualCookieList);
+//							}
+//							Map<String, List<String>> newMap = new HashMap<>(map);
+//							if(actualCookies.isEmpty()) {
+//								newMap.remove("Cookie");
+//							}
+//							else {
+//								newMap.put("Cookie", actualCookies);
+//							}
+//							return newMap;
+//						}
+//						return map;
+//					}
+//				});
+//			}
+//		}
+//	}
+
+	public boolean isWaitingForExitChoice() {
+		return waitingForExitChoice;
+	}
+
+	public boolean matchHostname(String hostname, String certificateName) {
+		if (hostname.equalsIgnoreCase(certificateName)) {
+			return true;
+		}
+		/*
+		 * Looking for wildcards, only on the left-most label.
+		 */
+		String[] certificateNameLabels = certificateName.split(".");
+		String[] hostnameLabels = certificateName.split(".");
+		if (certificateNameLabels.length != hostnameLabels.length) {
+			return false;
+		}
+		/*
+		 * TODO: It could also be useful to check whether there is a minimum number of
+		 * labels in the name, to protect against CAs that would issue wildcard
+		 * certificates too loosely (e.g. *.com).
+		 */
+		/*
+		 * We check that whatever is not in the first label matches exactly.
+		 */
+		for (int i = 1; i < certificateNameLabels.length; i++) {
+			if (!hostnameLabels[i].equalsIgnoreCase(certificateNameLabels[i])) {
+				return false;
+			}
+		}
+		/*
+		 * We allow for a wildcard in the first label.
+		 */
+		if (certificateNameLabels.length > 0 && "*".equals(certificateNameLabels[0])) {
+			// TODO match wildcard that are only part of the label.
+			return true;
+		}
+		return false;
+	}
+
+	public void maybeExit() {
+		if (tray == null || !tray.isActive()) {
+			confirmExit();
+		} else {
+			Platform.runLater(() -> primaryStage.hide());
+		}
+	}
+
+	public void open() {
+		log.info("Open request");
+		Platform.runLater(() -> {
+			primaryStage.show();
+			primaryStage.toFront();
+		});
 	}
 
 	public <C extends AbstractController> C openScene(Class<C> controller) throws IOException {
@@ -181,9 +549,15 @@ public class Client extends Application implements X509TrustManager {
 		return controllerInst;
 	}
 
+	public void options() {
+		open();
+		Platform.runLater(() -> UI.getInstance().options());
+	}
+
 	@Override
 	public void start(Stage primaryStage) throws Exception {
 		this.primaryStage = primaryStage;
+		detector = OsThemeDetector.getDetector();
 		installCertificateVerifier();
 
 		if (useLocalHTTPService) {
@@ -301,7 +675,7 @@ public class Client extends Application implements X509TrustManager {
 		}
 		primaryStage.setScene(primaryScene);
 		primaryStage.getScene().getRoot().setEffect(new DropShadow());
-		((Region)primaryStage.getScene().getRoot()).setPadding(new Insets(10,10,10,10));
+		((Region) primaryStage.getScene().getRoot()).setPadding(new Insets(10, 10, 10, 10));
 		primaryStage.getScene().setFill(Color.TRANSPARENT);
 		primaryStage.show();
 		primaryStage.xProperty().addListener((c, o, n) -> cfg.xProperty().set(n.intValue()));
@@ -309,6 +683,18 @@ public class Client extends Application implements X509TrustManager {
 		primaryStage.widthProperty().addListener((c, o, n) -> cfg.wProperty().set(n.intValue()));
 		primaryStage.heightProperty().addListener((c, o, n) -> cfg.hProperty().set(n.intValue()));
 		primaryStage.setAlwaysOnTop(Main.getInstance().isAlwaysOnTop());
+
+		/* Dark mode handling */
+		cfg.darkModeProperty().addListener((c, o, n) -> {
+			reapplyColors();
+		});
+		detector.registerListener(isDark -> {
+			Platform.runLater(() -> {
+				log.info("Dark mode is now " + isDark);
+				reapplyColors();
+				UI.getInstance().reload();
+			});
+		});
 
 		primaryStage.onCloseRequestProperty().set(we -> {
 			if (!Main.getInstance().isNoClose())
@@ -331,73 +717,80 @@ public class Client extends Application implements X509TrustManager {
 		if (splash != null) {
 			splash.close();
 		}
-		
+
 //		this.originalCookieHander = CookieHandler.getDefault();
 //		updateCookieHandlerState();
 //		Configuration.getDefault().saveCookiesProperty().addListener((e) -> updateCookieHandlerState());
 
 	}
 
-	public boolean isMinimizeAllowed() {
-		return tray == null || !(tray instanceof AWTTaskbarTray);
-	}
-
-	public boolean isTrayConfigurable() {
-		return tray != null && tray.isConfigurable();
-	}
-
-	private boolean isHidpi() {
-		return Screen.getPrimary().getDpi() >= 300;
-	}
-
-	public Stage getStage() {
-		return primaryStage;
-	}
-
-	public void confirmExit() {
-		int active = 0;
+	public void verifyHostname(SSLSession sslSession) throws SSLPeerUnverifiedException {
 		try {
-			active = getDBus().getVPN().getActiveButNonPersistentConnections();
-		} catch (Exception e) {
-			exitApp();
-		}
+			String hostname = sslSession.getPeerHost();
+			X509Certificate serverCertificate = (X509Certificate) sslSession.getPeerCertificates()[0];
 
-		if (active > 0) {
-			Alert alert = new Alert(AlertType.CONFIRMATION);
-			alert.initModality(Modality.APPLICATION_MODAL);
-			alert.initOwner(getStage());
-			alert.setTitle(BUNDLE.getString("exit.confirm.title"));
-			alert.setHeaderText(BUNDLE.getString("exit.confirm.header"));
-			alert.setContentText(BUNDLE.getString("exit.confirm.content"));
+			Collection<List<?>> subjectAltNames = serverCertificate.getSubjectAlternativeNames();
 
-			ButtonType disconnect = new ButtonType(BUNDLE.getString("exit.confirm.disconnect"));
-			ButtonType stayConnected = new ButtonType(BUNDLE.getString("exit.confirm.stayConnected"));
-			ButtonType cancel = new ButtonType(BUNDLE.getString("exit.confirm.cancel"), ButtonData.CANCEL_CLOSE);
-
-			alert.getButtonTypes().setAll(disconnect, stayConnected, cancel);
-			waitingForExitChoice = true;
-			try {
-				Optional<ButtonType> result = alert.showAndWait();
-
-				if (result.get() == disconnect) {
-					opQueue.execute(() -> {
-						getDBus().getVPN().disconnectAll();
-						exitApp();
-					});
-				} else if (result.get() == stayConnected) {
-					exitApp();
+			if (isIpv4Address(hostname)) {
+				/*
+				 * IP addresses are not handled as part of RFC 6125. We use the RFC 2818
+				 * (Section 3.1) behaviour: we try to find it in an IP address Subject Alt.
+				 * Name.
+				 */
+				for (List<?> sanItem : subjectAltNames) {
+					/*
+					 * Each item in the SAN collection is a 2-element list. See <a href=
+					 * "http://docs.oracle.com/javase/7/docs/api/java/security/cert/X509Certificate.html#getSubjectAlternativeNames%28%29"
+					 * >X509Certificate.getSubjectAlternativeNames()</a>. The first element in each
+					 * list is a number indicating the type of entry. Type 7 is for IP addresses.
+					 */
+					if ((sanItem.size() == 2) && ((Integer) sanItem.get(0) == 7)
+							&& (hostname.equalsIgnoreCase((String) sanItem.get(1)))) {
+						return;
+					}
 				}
-			} finally {
-				waitingForExitChoice = false;
-			}
-		} else {
-			exitApp();
-		}
-	}
+				throw new SSLPeerUnverifiedException(MessageFormat
+						.format(BUNDLE.getString("certificate.verify.error.noIpv4HostnameMatch"), hostname));
+			} else {
+				boolean anyDnsSan = false;
+				for (List<?> sanItem : subjectAltNames) {
+					/*
+					 * Each item in the SAN collection is a 2-element list. See <a href=
+					 * "http://docs.oracle.com/javase/7/docs/api/java/security/cert/X509Certificate.html#getSubjectAlternativeNames%28%29"
+					 * >X509Certificate.getSubjectAlternativeNames()</a>. The first element in each
+					 * list is a number indicating the type of entry. Type 2 is for DNS names.
+					 */
+					if ((sanItem.size() == 2) && ((Integer) sanItem.get(0) == 2)) {
+						anyDnsSan = true;
+						if (matchHostname(hostname, (String) sanItem.get(1))) {
+							return;
+						}
+					}
+				}
 
-	protected void exitApp() {
-		opQueue.shutdown();
-		System.exit(0);
+				/*
+				 * If there were not any DNS Subject Alternative Name entries, we fall back on
+				 * the Common Name in the Subject DN.
+				 */
+				if (!anyDnsSan) {
+					String commonName = getCommonName(serverCertificate);
+					if (commonName != null && matchHostname(hostname, commonName)) {
+						return;
+					}
+				}
+
+				throw new SSLPeerUnverifiedException(MessageFormat
+						.format(BUNDLE.getString("certificate.verify.error.noSanHostnameMatch"), hostname));
+			}
+		} catch (CertificateParsingException e) {
+			/*
+			 * It's quite likely this exception would have been thrown in the trust manager
+			 * before this point anyway.
+			 */
+
+			throw new SSLPeerUnverifiedException(
+					MessageFormat.format(BUNDLE.getString("certificate.verify.error.failedToParse"), e.getMessage()));
+		}
 	}
 
 	protected void cleanUp() {
@@ -415,17 +808,28 @@ public class Client extends Application implements X509TrustManager {
 		}
 	}
 
-	public ExecutorService getOpQueue() {
-		return opQueue;
+	protected void exitApp() {
+		opQueue.shutdown();
+		System.exit(0);
 	}
 
-	public void clearLoadQueue() {
-		opQueue.shutdownNow();
-		opQueue = Executors.newSingleThreadExecutor();
+	protected Color getBase() {
+		if (isDark()) {
+			if (SystemUtils.IS_OS_LINUX)
+				return Color.valueOf("#1c1f22");
+			else if (SystemUtils.IS_OS_MAC_OSX)
+				return Color.valueOf("#231f25");
+			else
+				return Color.valueOf("#202020");
+		} else
+			return Color.WHITE;
 	}
 
-	public boolean isWaitingForExitChoice() {
-		return waitingForExitChoice;
+	protected Color getBaseInverse() {
+		if (isDark())
+			return Color.WHITE;
+		else
+			return Color.BLACK;
 	}
 
 	protected void installCertificateVerifier() {
@@ -450,54 +854,59 @@ public class Client extends Application implements X509TrustManager {
 			@Override
 			public synchronized boolean verify(String hostname, SSLSession session) {
 				log.debug(String.format("Verify hostname %s: %s", hostname, session));
-				if(!isStrictSSL())
+				if (!isStrictSSL())
 					return true;
-				
+
 				/* Already been accepted? */
 				String encodedKey;
 				try {
-					X509Certificate x509Certificate = (X509Certificate) session
-					        .getPeerCertificates()[0];
+					X509Certificate x509Certificate = (X509Certificate) session.getPeerCertificates()[0];
 					encodedKey = hash(x509Certificate.getPublicKey().getEncoded());
 				} catch (SSLPeerUnverifiedException e) {
 					throw new IllegalStateException("Failed to extract certificate.", e);
 				}
-				
+
 				try {
-					if(ACCEPTED_CERTIFICATES.contains(encodedKey) || PERMANENTLY_ACCEPTED_CERTIFICATES.getBoolean(encodedKey, false)) {
-						log.debug(String.format("Accepting certificate for hostname %s, it has previously been accepted: %s", hostname, session));
+					if (ACCEPTED_CERTIFICATES.contains(encodedKey)
+							|| PERMANENTLY_ACCEPTED_CERTIFICATES.getBoolean(encodedKey, false)) {
+						log.debug(String.format(
+								"Accepting certificate for hostname %s, it has previously been accepted: %s", hostname,
+								session));
 						return true;
 					}
-					
+
 					verifyHostname(session);
 					return true;
-				}
-				catch(SSLPeerUnverifiedException sslpue) {
-					if(Platform.isFxApplicationThread()) {
-						boolean ok = promptForCertificate(AlertType.WARNING, BUNDLE.getString("certificate.invalidCertificate.title"), BUNDLE.getString("certificate.invalidCertificate.content"), encodedKey, hostname, sslpue.getMessage());
-						if(ok) {
+				} catch (SSLPeerUnverifiedException sslpue) {
+					if (Platform.isFxApplicationThread()) {
+						boolean ok = promptForCertificate(AlertType.WARNING,
+								BUNDLE.getString("certificate.invalidCertificate.title"),
+								BUNDLE.getString("certificate.invalidCertificate.content"), encodedKey, hostname,
+								sslpue.getMessage());
+						if (ok) {
 							ACCEPTED_CERTIFICATES.add(encodedKey);
 						}
 						return ok;
-					}
-					else {
+					} else {
 						AtomicBoolean res = new AtomicBoolean();
 						Semaphore sem = new Semaphore(1);
 						try {
 							sem.acquire();
 							Platform.runLater(() -> {
-								res.set(promptForCertificate(AlertType.WARNING, BUNDLE.getString("certificate.invalidCertificate.title"), BUNDLE.getString("certificate.invalidCertificate.content"), encodedKey, hostname, sslpue.getMessage()));
+								res.set(promptForCertificate(AlertType.WARNING,
+										BUNDLE.getString("certificate.invalidCertificate.title"),
+										BUNDLE.getString("certificate.invalidCertificate.content"), encodedKey,
+										hostname, sslpue.getMessage()));
 								sem.release();
 							});
 							sem.acquire();
 							sem.release();
 							boolean ok = res.get();
-							if(ok) {
+							if (ok) {
 								ACCEPTED_CERTIFICATES.add(encodedKey);
 							}
 							return ok;
-						}
-						catch(InterruptedException ie) {
+						} catch (InterruptedException ie) {
 							return false;
 						}
 					}
@@ -508,384 +917,58 @@ public class Client extends Application implements X509TrustManager {
 		// Install the all-trusting host verifier
 		HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
 	}
-	
-	public static String hash(byte[] in) 
-    {
-		try {
-	        MessageDigest md = MessageDigest.getInstance("SHA-1");
-	        md.update(in);
-	        byte[] bytes = md.digest();
-	        return Base64.getEncoder().encodeToString(bytes);
-		}
-		catch(Exception e) {
-			throw new IllegalStateException("Failed to hash.", e);
-		}
-    }
 
-	@Override
-	public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-		if (!isStrictSSL()) {
-			return;
-		}
-
-		List<String> chainSubjectDN = new ArrayList<>();
-		for (X509Certificate c : chain) {
-			try {
-				if (log.isDebugEnabled())
-					log.debug(String.format("Validating: %s", c));
-				chainSubjectDN.add(c.getSubjectDN().toString());
-				c.checkValidity();
-			} catch(CertificateExpiredException | CertificateNotYetValidException ce) {
-				/* Already been accepted? */
-				String encodedKey = hash(c.getPublicKey().getEncoded());
-				if(ACCEPTED_CERTIFICATES.contains(encodedKey) || PERMANENTLY_ACCEPTED_CERTIFICATES.getBoolean(encodedKey, false)) {
-					log.debug(String.format("Accepting server certificate, it has previously been accepted."));
-					return;
-				}
-				String title = BUNDLE.getString(ce instanceof CertificateExpiredException ? "certificate.certificateExpired.title" : "certificate.certificateNotYetValid.title");
-				String content = BUNDLE.getString(ce instanceof CertificateExpiredException ? "certificate.certificateExpired.content" : "certificate.certificateNotYetValid.content");
-				if(Platform.isFxApplicationThread()) {
-					boolean ok = promptForCertificate(AlertType.WARNING, title, content, encodedKey, c.getSubjectDN().toString(), ce.getMessage());
-					if(ok) {
-						ACCEPTED_CERTIFICATES.add(encodedKey);
-					}
-					else
-						throw ce;
-				}
-				else {
-					AtomicBoolean res = new AtomicBoolean();
-					Semaphore sem = new Semaphore(1);
-					try {
-						sem.acquire();
-						Platform.runLater(() -> {
-							res.set(promptForCertificate(AlertType.WARNING, title, content, encodedKey, c.getSubjectDN().toString(), ce.getMessage()));
-							sem.release();
-						});
-						sem.acquire();
-						sem.release();
-						boolean ok = res.get();
-						if(ok) {
-							ACCEPTED_CERTIFICATES.add(encodedKey);
-						}
-						return;
-					}
-					catch(InterruptedException ie) {
-						throw ce;
-					}
-				}
-				
-			}
-		}
-	}
-	
-//	protected void updateCookieHandlerState() {
-//		boolean isPersistJar = !(CookieHandler.getDefault() instanceof CookieManager);
-//		boolean wantsPeristJar = Configuration.getDefault().saveCookiesProperty().get();
-//		if(isPersistJar != wantsPeristJar) {
-//			if(wantsPeristJar) {
-//				log.info("Using Webkit cookie manager");
-//				CookieHandler.setDefault(originalCookieHander);
-//			}
-//			else {
-//				log.info("Using in memory cookie manager");
-//				/* This cookie handler simulates clearing the
-//				 * cookies by returning null for gets until the 
-//				 * first put. The cookies will have actually been persisted.
-//				 */
-//				CookieHandler.setDefault(new CookieManager() {
-//					
-//					Set<String> requestedCookies = new HashSet<>();
-//
-//				    public void
-//				        put(URI uri, Map<String, List<String>> responseHeaders)
-//				        throws IOException
-//				    {
-//				    	List<String> cookieHeaders = responseHeaders.get("Set-Cookie");
-//				    	for(String cookieHeader : cookieHeaders) {
-//				    		/* We only need the cookie name */
-//				    		int idx = cookieHeader.indexOf('=');
-//				    		if(idx != -1) {
-//				    			String cookieName = cookieHeader.substring(0, idx);
-//				    			requestedCookies.add(cookieName);
-//				    		}
-//				    	}
-//				    	originalCookieHander.put(uri, responseHeaders);
-//				    }
-//
-//					@Override
-//					public Map<String, List<String>> get(URI uri, Map<String, List<String>> requestHeaders)
-//							throws IOException {
-//						// TODO Auto-generated method stub
-//						Map<String, List<String>> map = originalCookieHander.get(uri, requestHeaders);
-//						List<String> cookies = map.get("Cookie");
-//						if(cookies != null) {
-//					    	log.info("Getting cookie for " + uri + ": " + requestHeaders + " ============ " + map + " >>>>>>>>>> " + cookies + " (" + cookies.size() + ")");
-//							List<String> actualCookies = new ArrayList<>();
-//							for(String cookieList : cookies) {
-//								List<String> actualCookie = new ArrayList<>();
-//								for(String cookie : cookieList.split(";")) {
-//									cookie = cookie.trim();
-//									int idx = cookie.indexOf('=');
-//									String cookieName = cookie.substring(0, idx);
-//									if(requestedCookies.contains(cookieName)) {
-//										actualCookie.add(cookie);
-//									}
-//								}
-//								String actualCookieList = String.join(";", actualCookie);
-//								actualCookies.add(actualCookieList);
-//							}
-//							Map<String, List<String>> newMap = new HashMap<>(map);
-//							if(actualCookies.isEmpty()) {
-//								newMap.remove("Cookie");
-//							}
-//							else {
-//								newMap.put("Cookie", actualCookies);
-//							}
-//							return newMap;
-//						}
-//						return map;
-//					}
-//				});
-//			}
-//		}
-//	}
-
-	protected boolean promptForCertificate(AlertType alertType, String title, String content, String key, String hostname, String message) {
-		ButtonType reject = new ButtonType(BUNDLE.getString("certificate.confirm.reject"));
-		ButtonType accept = new ButtonType(BUNDLE.getString("certificate.confirm.accept"));
-		Alert alert = createAlertWithOptOut(alertType, title, BUNDLE.getString("certificate.confirm.header"), 
-				MessageFormat.format(content, hostname, message), BUNDLE.getString("certificate.confirm.savePermanently"), 
-                param -> { 
-                	if(param)
-                		PERMANENTLY_ACCEPTED_CERTIFICATES.putBoolean(key, true);
-                }, accept, reject);
-		alert.initModality(Modality.APPLICATION_MODAL);
-		Stage stage = getStage();
-		if(stage != null && stage.getOwner() != null)
-			alert.initOwner(stage);
-
-		alert.getButtonTypes().setAll(accept, reject);
-
-		
-		Optional<ButtonType> result = alert.showAndWait();
-		if (result.get() == reject) {
-			return false;
-		} else  {
-			return true;
-		}
-	}
-	
-	public static Alert createAlertWithOptOut(AlertType type, String title, String headerText, String message,
-			String optOutMessage, Consumer<Boolean> optOutAction, ButtonType... buttonTypes) {
-		Alert alert = new Alert(type);
-		alert.getDialogPane().applyCss();
-		Node graphic = alert.getDialogPane().getGraphic();
-		alert.setDialogPane(new DialogPane() {
-			@Override
-			protected Node createDetailsButton() {
-				CheckBox optOut = new CheckBox();
-				optOut.setText(optOutMessage);
-				optOut.setOnAction(e -> optOutAction.accept(optOut.isSelected()));
-				return optOut;
-			}
-		});
-		alert.getDialogPane().getButtonTypes().addAll(buttonTypes);
-		alert.getDialogPane().setContentText(message);
-		alert.getDialogPane().setExpandableContent(new Group());
-		alert.getDialogPane().setExpanded(true);
-		alert.getDialogPane().setGraphic(graphic);
-		alert.getDialogPane().resize(500, 500);
-		alert.setTitle(title);
-		alert.setHeaderText(headerText);
-		return alert;
-	}
-	
 	protected boolean isStrictSSL() {
 		return "true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"));
 	}
 
-	@Override
-	public X509Certificate[] getAcceptedIssuers() {
-		X509Certificate[] NO_CERTS = new X509Certificate[0];
-		return NO_CERTS;
-	}
-	
-	public void verifyHostname(SSLSession sslSession)
-	        throws SSLPeerUnverifiedException {
-	    try {
-	        String hostname = sslSession.getPeerHost();
-	        X509Certificate serverCertificate = (X509Certificate) sslSession
-	                .getPeerCertificates()[0];
+	protected boolean promptForCertificate(AlertType alertType, String title, String content, String key,
+			String hostname, String message) {
+		ButtonType reject = new ButtonType(BUNDLE.getString("certificate.confirm.reject"));
+		ButtonType accept = new ButtonType(BUNDLE.getString("certificate.confirm.accept"));
+		Alert alert = createAlertWithOptOut(alertType, title, BUNDLE.getString("certificate.confirm.header"),
+				MessageFormat.format(content, hostname, message),
+				BUNDLE.getString("certificate.confirm.savePermanently"), param -> {
+					if (param)
+						PERMANENTLY_ACCEPTED_CERTIFICATES.putBoolean(key, true);
+				}, accept, reject);
+		alert.initModality(Modality.APPLICATION_MODAL);
+		Stage stage = getStage();
+		if (stage != null && stage.getOwner() != null)
+			alert.initOwner(stage);
 
-	        Collection<List<?>> subjectAltNames = serverCertificate
-	                .getSubjectAlternativeNames();
+		alert.getButtonTypes().setAll(accept, reject);
 
-	        if (isIpv4Address(hostname)) {
-	            /*
-	             * IP addresses are not handled as part of RFC 6125. We use the
-	             * RFC 2818 (Section 3.1) behaviour: we try to find it in an IP
-	             * address Subject Alt. Name.
-	             */
-	            for (List<?> sanItem : subjectAltNames) {
-	                /*
-	                 * Each item in the SAN collection is a 2-element list. See
-	                 * <a href=
-	                 * "http://docs.oracle.com/javase/7/docs/api/java/security/cert/X509Certificate.html#getSubjectAlternativeNames%28%29"
-	                 * >X509Certificate.getSubjectAlternativeNames()</a>. The
-	                 * first element in each list is a number indicating the
-	                 * type of entry. Type 7 is for IP addresses.
-	                 */
-	                if ((sanItem.size() == 2)
-	                        && ((Integer) sanItem.get(0) == 7)
-	                        && (hostname.equalsIgnoreCase((String) sanItem
-	                                .get(1)))) {
-	                    return;
-	                }
-	            }
-	            throw new SSLPeerUnverifiedException(
-	                    MessageFormat.format(BUNDLE.getString("certificate.verify.error.noIpv4HostnameMatch"), hostname));
-	        } else {
-	            boolean anyDnsSan = false;
-	            for (List<?> sanItem : subjectAltNames) {
-	                /*
-	                 * Each item in the SAN collection is a 2-element list. See
-	                 * <a href=
-	                 * "http://docs.oracle.com/javase/7/docs/api/java/security/cert/X509Certificate.html#getSubjectAlternativeNames%28%29"
-	                 * >X509Certificate.getSubjectAlternativeNames()</a>. The
-	                 * first element in each list is a number indicating the
-	                 * type of entry. Type 2 is for DNS names.
-	                 */
-	                if ((sanItem.size() == 2)
-	                        && ((Integer) sanItem.get(0) == 2)) {
-	                    anyDnsSan = true;
-	                    if (matchHostname(hostname, (String) sanItem.get(1))) {
-	                        return;
-	                    }
-	                }
-	            }
-
-	            /*
-	             * If there were not any DNS Subject Alternative Name entries,
-	             * we fall back on the Common Name in the Subject DN.
-	             */
-	            if (!anyDnsSan) {
-	                String commonName = getCommonName(serverCertificate);
-	                if (commonName != null
-	                        && matchHostname(hostname, commonName)) {
-	                    return;
-	                }
-	            }
-
-	            throw new SSLPeerUnverifiedException(
-	                    MessageFormat.format(BUNDLE.getString("certificate.verify.error.noSanHostnameMatch"), hostname));
-	        }
-	    } catch (CertificateParsingException e) {
-	        /*
-	         * It's quite likely this exception would have been thrown in the
-	         * trust manager before this point anyway.
-	         */
-
-            throw new SSLPeerUnverifiedException(
-                    MessageFormat.format(BUNDLE.getString("certificate.verify.error.failedToParse"), e.getMessage()));
-	    }
-	}
-
-	public boolean isIpv4Address(String hostname) {
-	    String[] ipSections = hostname.split("\\.");
-	    if (ipSections.length != 4) {
-	        return false;
-	    }
-	    for (String ipSection : ipSections) {
-	        try {
-	            int num = Integer.parseInt(ipSection);
-	            if (num < 0 || num > 255) {
-	                return false;
-	            }
-	        } catch (NumberFormatException e) {
-	            return false;
-	        }
-	    }
-	    return true;
-	}
-
-	public boolean matchHostname(String hostname, String certificateName) {
-	    if (hostname.equalsIgnoreCase(certificateName)) {
-	        return true;
-	    }
-	    /*
-	     * Looking for wildcards, only on the left-most label.
-	     */
-	    String[] certificateNameLabels = certificateName.split(".");
-	    String[] hostnameLabels = certificateName.split(".");
-	    if (certificateNameLabels.length != hostnameLabels.length) {
-	        return false;
-	    }
-	    /*
-	     * TODO: It could also be useful to check whether there is a minimum
-	     * number of labels in the name, to protect against CAs that would issue
-	     * wildcard certificates too loosely (e.g. *.com).
-	     */
-	    /*
-	     * We check that whatever is not in the first label matches exactly.
-	     */
-	    for (int i = 1; i < certificateNameLabels.length; i++) {
-	        if (!hostnameLabels[i].equalsIgnoreCase(certificateNameLabels[i])) {
-	            return false;
-	        }
-	    }
-	    /*
-	     * We allow for a wildcard in the first label.
-	     */
-	    if (certificateNameLabels.length > 0 && "*".equals(certificateNameLabels[0])) {
-	        // TODO match wildcard that are only part of the label.
-	        return true;
-	    }
-	    return false;
-	}
-
-	public String getCommonName(X509Certificate cert) {
-	    try {
-	        LdapName ldapName = new LdapName(cert.getSubjectX500Principal()
-	                .getName());
-	        /*
-	         * Looking for the "most specific CN" (i.e. the last).
-	         */
-	        String cn = null;
-	        for (Rdn rdn : ldapName.getRdns()) {
-	            if ("CN".equalsIgnoreCase(rdn.getType())) {
-	                cn = rdn.getValue().toString();
-	            }
-	        }
-	        return cn;
-	    } catch (InvalidNameException e) {
-	        return null;
-	    }
-	}
-
-	public void open() {
-		log.info("Open request");
-		Platform.runLater(() -> {
-			primaryStage.show();
-			primaryStage.toFront();
-		});
-	}
-
-	public void options() {
-		open();
-		Platform.runLater(() -> UI.getInstance().options());
-	}
-
-	public void maybeExit() {
-		if (tray == null || !tray.isActive()) {
-			confirmExit();
+		Optional<ButtonType> result = alert.showAndWait();
+		if (result.get() == reject) {
+			return false;
 		} else {
-			Platform.runLater(() -> primaryStage.hide());
+			return true;
 		}
+	}
+
+	void applyColors(Branding branding, Parent node) {
+		this.branding = branding;
+
+		ObservableList<String> ss = node.getStylesheets();
+
+		/* No branding, remove the custom styles if there are any */
+		ss.clear();
+
+		/* Create new custom local web styles */
+		writeLocalWebCSS(branding);
+
+		/* Create new JavaFX custom styles */
+		writeJavaFXCSS(branding);
+		File tmpFile = getCustomJavaFXCSSFile();
+		if (log.isDebugEnabled())
+			log.debug(String.format("Using custom JavaFX stylesheet %s", tmpFile));
+		ss.add(0, toUri(tmpFile).toExternalForm());
+
+		ss.add(BootstrapFX.bootstrapFXStylesheet());
+		ss.add(Client.class.getResource("bootstrapfx.override.css").toExternalForm());
+		ss.add(Client.class.getResource(Client.class.getSimpleName() + ".css").toExternalForm());
+
 	}
 
 	File getCustomJavaFXCSSFile() {
@@ -896,17 +979,6 @@ public class Client extends Application implements X509TrustManager {
 		else
 			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")).getParentFile(),
 					"lbvpn-jfx.css");
-		return tmpFile;
-	}
-
-	File getCustomLocalWebCSSFile() {
-		File tmpFile;
-		if (System.getProperty("hypersocket.bootstrap.distDir") == null)
-			tmpFile = new File(new File(System.getProperty("java.io.tmpdir")),
-					System.getProperty("user.name") + "-lbvpn-web.css");
-		else
-			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")).getParentFile(),
-					"lbvpn-web.css");
 		return tmpFile;
 	}
 
@@ -935,6 +1007,14 @@ public class Client extends Application implements X509TrustManager {
 		bui.append(toHex(foregroundColour));
 		bui.append(";\n");
 
+		bui.append("-fx-lbvpn-base: ");
+		bui.append(toHex(getBase()));
+		bui.append(";\n");
+
+		bui.append("-fx-lbvpn-base-inverse: ");
+		bui.append(toHex(getBaseInverse()));
+		bui.append(";\n");
+
 //
 		// Highlight
 		if (backgroundColour.getSaturation() == 0) {
@@ -955,51 +1035,30 @@ public class Client extends Application implements X509TrustManager {
 
 	}
 
-	void applyColors(Branding branding, Parent node) {
-		ObservableList<String> ss = node.getStylesheets();
-
-		/* No branding, remove the custom styles if there are any */
-		ss.clear();
-
-		/* Create new custom local web styles */
-		writeLocalWebCSS(branding);
-
-		/* Create new JavaFX custom styles */
-		writeJavaFXCSS(branding);
-		File tmpFile = getCustomJavaFXCSSFile();
-		if (log.isDebugEnabled())
-			log.debug(String.format("Using custom JavaFX stylesheet %s", tmpFile));
-		ss.add(0, toUri(tmpFile).toExternalForm());
-
-		node.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
-		node.getStylesheets().add(Client.class.getResource("bootstrapfx.override.css").toExternalForm());
-		node.getStylesheets().add(Client.class.getResource(Client.class.getSimpleName() + ".css").toExternalForm());
-
+	File getCustomLocalWebCSSFile() {
+		File tmpFile;
+		if (System.getProperty("hypersocket.bootstrap.distDir") == null)
+			tmpFile = new File(new File(System.getProperty("java.io.tmpdir")),
+					System.getProperty("user.name") + "-lbvpn-web.css");
+		else
+			tmpFile = new File(new File(System.getProperty("hypersocket.bootstrap.distDir")).getParentFile(),
+					"lbvpn-web.css");
+		return tmpFile;
 	}
 
-	void writeLocalWebCSS(Branding branding) {
-		File tmpFile = getCustomLocalWebCSSFile();
-		tmpFile.getParentFile().mkdirs();
-		String url = toUri(tmpFile).toExternalForm();
-		if (log.isDebugEnabled())
-			log.debug(String.format("Writing local web style sheet to %s", url));
-		String cbg = branding == null ? BrandingInfo.DEFAULT_BACKGROUND : branding.getResource().getBackground();
-		String cfg = branding == null ? BrandingInfo.DEFAULT_FOREGROUND : branding.getResource().getForeground();
-		String cac = toHex(Color.valueOf(cbg).deriveColor(0, 1, 0.85, 1));
-		String cac2 = toHex(Color.valueOf(cbg).deriveColor(0, 1, 1.15, 1));
-		try (PrintWriter output = new PrintWriter(new FileWriter(tmpFile))) {
-			try (InputStream input = UI.class.getResource("local.css").openStream()) {
-				for (String line : IOUtils.readLines(input, "UTF-8")) {
-					line = line.replace("${lbvpnBackground}", cbg);
-					line = line.replace("${lbvpnForeground}", cfg);
-					line = line.replace("${lbvpnAccent}", cac);
-					line = line.replace("${lbvpnAccent2}", cac2);
-					output.println(line);
-				}
-			}
-		} catch (IOException ioe) {
-			throw new IllegalStateException("Failed to load local style sheet template.", ioe);
+	boolean isDark() {
+		switch (Configuration.getDefault().darkModeProperty().get()) {
+		case Configuration.DARK_MODE_AUTO:
+			return detector.isDark();
+		case Configuration.DARK_MODE_ALWAYS:
+			return true;
+		default:
+			return false;
 		}
+	}
+
+	void reapplyColors() {
+		applyColors(branding, UI.getInstance().getScene().getRoot());
 	}
 
 	void writeJavaFXCSS(Branding branding) {
@@ -1019,28 +1078,36 @@ public class Client extends Application implements X509TrustManager {
 		}
 	}
 
-	static URL toUri(File tmpFile) {
-		try {
-			return tmpFile.toURI().toURL();
-		} catch (MalformedURLException e) {
-			throw new RuntimeException(e);
+	void writeLocalWebCSS(Branding branding) {
+		File tmpFile = getCustomLocalWebCSSFile();
+		tmpFile.getParentFile().mkdirs();
+		String url = toUri(tmpFile).toExternalForm();
+		if (log.isDebugEnabled())
+			log.debug(String.format("Writing local web style sheet to %s", url));
+		String cbg = branding == null ? BrandingInfo.DEFAULT_BACKGROUND : branding.getResource().getBackground();
+		String cfg = branding == null ? BrandingInfo.DEFAULT_FOREGROUND : branding.getResource().getForeground();
+		String cac = toHex(Color.valueOf(cbg).deriveColor(0, 1, 0.85, 1));
+		String cac2 = toHex(Color.valueOf(cbg).deriveColor(0, 1, 1.15, 1));
+		String baseStr = toHex(getBase());
+		String baseInverseStr = toHex(getBaseInverse());
+		try (PrintWriter output = new PrintWriter(new FileWriter(tmpFile))) {
+			try (InputStream input = UI.class.getResource("local.css").openStream()) {
+				for (String line : IOUtils.readLines(input, "UTF-8")) {
+					line = line.replace("${lbvpnBackground}", cbg);
+					line = line.replace("${lbvpnForeground}", cfg);
+					line = line.replace("${lbvpnAccent}", cac);
+					line = line.replace("${lbvpnAccent2}", cac2);
+					line = line.replace("${lbvpnBase}", baseStr);
+					line = line.replace("${lbvpnBaseInverse}", baseInverseStr);
+					output.println(line);
+				}
+			}
+		} catch (IOException ioe) {
+			throw new IllegalStateException("Failed to load local style sheet template.", ioe);
 		}
 	}
 
-	static String toHex(Color color) {
-		return toHex(color, -1);
-	}
-
-	static String toHex(Color color, boolean opacity) {
-		return toHex(color, opacity ? color.getOpacity() : -1);
-	}
-
-	static String toHex(Color color, double opacity) {
-		if (opacity > -1)
-			return String.format("#%02x%02x%02x%02x", (int) (color.getRed() * 255), (int) (color.getGreen() * 255),
-					(int) (color.getBlue() * 255), (int) (opacity * 255));
-		else
-			return String.format("#%02x%02x%02x", (int) (color.getRed() * 255), (int) (color.getGreen() * 255),
-					(int) (color.getBlue() * 255));
+	private boolean isHidpi() {
+		return Screen.getPrimary().getDpi() >= 300;
 	}
 }

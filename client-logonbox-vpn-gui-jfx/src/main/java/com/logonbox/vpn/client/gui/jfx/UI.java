@@ -211,13 +211,14 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 		public void saveOptions(JSObject o) {
 			String trayMode = memberOrDefault(o, "trayMode", String.class, null);
+			String darkMode = memberOrDefault(o, "darkMode", String.class, null);
 			String logLevel = memberOrDefault(o, "logLevel", String.class, null);
 			String dnsIntegrationMethod = memberOrDefault(o, "dnsIntegrationMethod", String.class, null);
 			String phase = memberOrDefault(o, "phase", String.class, null);
 			Boolean automaticUpdates = memberOrDefault(o, "automaticUpdates", Boolean.class, null);
 			Boolean ignoreLocalRoutes = memberOrDefault(o, "ignoreLocalRoutes", Boolean.class, null);
 			Boolean saveCookies = memberOrDefault(o, "saveCookies", Boolean.class, null);
-			UI.this.saveOptions(trayMode, phase, automaticUpdates, logLevel, ignoreLocalRoutes, dnsIntegrationMethod, saveCookies);
+			UI.this.saveOptions(trayMode, darkMode, phase, automaticUpdates, logLevel, ignoreLocalRoutes, dnsIntegrationMethod, saveCookies);
 		}
 
 		public void showError(String error) {
@@ -442,6 +443,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		/* Option collections */
 		beans.put("trayModes", new String[] { Configuration.TRAY_MODE_AUTO, Configuration.TRAY_MODE_COLOR,
 				Configuration.TRAY_MODE_DARK, Configuration.TRAY_MODE_LIGHT, Configuration.TRAY_MODE_OFF });
+		beans.put("darkModes", new String[] { Configuration.DARK_MODE_AUTO, Configuration.DARK_MODE_ALWAYS,
+				Configuration.DARK_MODE_NEVER });
 		beans.put("logLevels", new String[] {
 				"",
 				org.apache.log4j.Level.ALL.toString(),
@@ -459,8 +462,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 		/* Per-user GUI specific */
 		Configuration config = Configuration.getDefault();
-		String trayMode = config.trayModeProperty().get();
-		beans.put("trayMode", trayMode);
+		beans.put("trayMode", config.trayModeProperty().get());
+		beans.put("darkMode", config.darkModeProperty().get());
 		beans.put("logLevel", config.logLevelProperty().get() == null ? "" : config.logLevelProperty().get());
 		beans.put("saveCookies", config.saveCookiesProperty().get());
 
@@ -476,6 +479,12 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	public void setMode(UIState mode) {
 		this.mode = mode;
 		rebuildConnections(getSelectedConnection());
+		selectPageForState(false, true);
+	}
+	
+	public void reload() {
+//		webView.getEngine().reload();
+		/* TODO: hrm, why cant we just refresh the page? */
 		selectPageForState(false, true);
 	}
 
@@ -1137,13 +1146,16 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		Font.loadFont(UI.class.getResource("ARLRDBD.TTF").toExternalForm(), 12);
 	}
 
-	protected void saveOptions(String trayMode, String phase, Boolean automaticUpdates, String logLevel, Boolean ignoreLocalRoutes, String dnsIntegrationMethod, Boolean saveCookies) {
+	protected void saveOptions(String trayMode, String darkMode, String phase, Boolean automaticUpdates, String logLevel, Boolean ignoreLocalRoutes, String dnsIntegrationMethod, Boolean saveCookies) {
 		try {
 			/* Local per-user GUI specific configuration  */
 			Configuration config = Configuration.getDefault();
 			
 			if(trayMode != null)
 				config.trayModeProperty().set(trayMode);
+			
+			if(darkMode != null)
+				config.darkModeProperty().set(darkMode);
 			
 			if(logLevel != null) {
 				config.logLevelProperty().set(logLevel);

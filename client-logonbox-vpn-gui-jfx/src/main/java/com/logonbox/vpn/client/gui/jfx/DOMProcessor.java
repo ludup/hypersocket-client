@@ -79,8 +79,7 @@ public class DOMProcessor {
 						|| StringUtils.isBlank(branding.getResource().getName()) ? "LogonBox"
 								: branding.getResource().getName())));
 		replacements.put("tracksServerVersion", vpn == null ? "true" : String.valueOf(vpn.isTrackServerVersion()));
-//		replacements.put("trayConfigurable", String.valueOf(Client.get().isTrayConfigurable()));
-		replacements.put("trayConfigurable", String.valueOf(false));
+		replacements.put("trayConfigurable", String.valueOf(Client.get().isTrayConfigurable()));
 		
 		/* Connection */
 		replacements.put("displayName", connection == null ? "" : connection.getDisplayName());

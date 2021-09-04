@@ -2,6 +2,14 @@
 	src: url('/com/logonbox/vpn/client/gui/jfx/ARLRDBD.TTF');
 }
 
+.root { 
+    -fx-accent: -fx-lbvpn-background;
+    -fx-focus-color: -fx-lbvpn-background;
+    -fx-base: -fx-lbvpn-base;
+    -fx-control-inner-background: derive(-fx-base, 35%);
+    -fx-control-inner-background-alt: -fx-control-inner-background ;
+}
+
 .inverse {
   -fx-background-color: -fx-lbvpn-background;
   -fx-text-fill: white;

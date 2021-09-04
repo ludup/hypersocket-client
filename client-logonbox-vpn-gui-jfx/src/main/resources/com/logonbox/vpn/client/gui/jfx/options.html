@@ -19,7 +19,7 @@
 					<h1 data-i18n="options">Options</h1>
 				</div>
 				<div class="col-3 text-end""> 
-					<small><a href="about.html"><i class="fa fa-info-circle"></i><span data-i18n="about">About</span></a></small>
+					<small><a href="about.html"><i class="fa fa-info-circle"></i>&nbsp;<span data-i18n="about">About</span></a></small>
 				</div>
 			</div>
 			<form id="optionsForm">
@@ -43,9 +43,16 @@
 							class="form-text text-muted">Help</small>
 					</div>
 				</div>
-
+                
+                <h4 data-i18n="appearance">Appearance</h4>
+                <div class="form-group">
+                        <label for="darkMode" data-i18n="darkMode">Dark Mode</label> <select
+                            class="form-control" id="darkMode">
+                        </select> <small id="darkModeHelp" data-i18n="darkModeHelp"
+                            class="form-text text-muted">Dark Mode Help</small>
+                </div>
+                    
 				<div data-conditional="trayConfigurable">
-					<h4 data-i18n="tray">Tray</h4>
 					<div class="form-group">
 						<label for="trayMode" data-i18n="trayMode">Tray Mode</label> <select
 							class="form-control" id="trayMode">
@@ -101,6 +108,11 @@
 					$('#trayMode').append('<option ' + (trayModes[i] == trayMode ? 'selected="selected"' : '') + ' value="' + trayModes[i] + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
 				}
 			}
+            if ($('#darkMode').length) {
+                for (var i = 0; i < darkModes.length; i++) {
+                    $('#darkMode').append('<option ' + (darkModes[i] == darkMode ? 'selected="selected"' : '') + ' value="' + darkModes[i] + '">' + pageBundle.getString('darkMode.' + darkModes[i]) + '</option>');
+                }
+            }
 
             /*$('#saveCookies').prop('checked', saveCookies);*/
 			for (var i = 0; i < logLevels.length; i++) {
@@ -135,6 +147,9 @@
 				if ($('#trayMode').length) {
 					ser['trayMode'] = $('#trayMode').val();
 				}
+                if ($('#darkMode').length) {
+                    ser['darkMode'] = $('#darkMode').val();
+                }
 				if ($('#phase').length) {
 					ser['phase'] = $('#phase').val();
 				}

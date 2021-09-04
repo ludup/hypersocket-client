@@ -26,10 +26,15 @@ public class Configuration {
 	public static final String TRAY_MODE_LIGHT = "light";
 	public static final String TRAY_MODE_AUTO = "auto";
 	public static final String TRAY_MODE_OFF = "off";
+	
+	public static final String DARK_MODE_AUTO = "auto";
+	public static final String DARK_MODE_ALWAYS = "always";
+	public static final String DARK_MODE_NEVER = "never";
 
 	private StringProperty temporaryOnStartConnection = new SimpleStringProperty();
 	private StringProperty saveCredentialsConnections = new SimpleStringProperty();
 	private StringProperty trayMode = new SimpleStringProperty();
+	private StringProperty darkMode = new SimpleStringProperty();
 	private StringProperty logLevel = new SimpleStringProperty();
 	private IntegerProperty w = new SimpleIntegerProperty();
 	private IntegerProperty h = new SimpleIntegerProperty();
@@ -134,6 +139,9 @@ public class Configuration {
 		trayMode.set(node.get("trayMode", TRAY_MODE_AUTO));
 		trayMode.addListener(new StringPreferenceUpdateChangeListener(node, "trayMode"));
 
+		darkMode.set(node.get("darkMode", DARK_MODE_AUTO));
+		darkMode.addListener(new StringPreferenceUpdateChangeListener(node, "darkMode"));
+
 		logLevel.set(node.get("logLevel", null));
 		logLevel.addListener(new StringPreferenceUpdateChangeListener(node, "logLevel"));
 
@@ -189,7 +197,11 @@ public class Configuration {
 	}
 
 	public StringProperty trayModeProperty() {
-		return temporaryOnStartConnection;
+		return trayMode;
+	}
+
+	public StringProperty darkModeProperty() {
+		return darkMode;
 	}
 
 	public StringProperty logLevelProperty() {
