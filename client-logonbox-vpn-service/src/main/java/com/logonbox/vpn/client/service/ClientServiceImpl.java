@@ -612,12 +612,12 @@ public class ClientServiceImpl implements ClientService {
 				 */
 				try {
 					JsonExtensionUpdate v = getUpdates();
-					Version remoteVersion = new Version(v.getResource().getLatestVersion());
+					Version remoteVersion = new Version(v.getResource().getCurrentVersion());
 					Version localVersion = new Version(HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS));
 					if(remoteVersion.compareTo(localVersion) < 1)
 						return "";
 					else
-						return v.getResource().getLatestVersion();
+						return v.getResource().getCurrentVersion();
 				}
 				catch(IllegalStateException ise) {
 					return "";
