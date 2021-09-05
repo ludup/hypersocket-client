@@ -56,6 +56,14 @@ public abstract class AbstractTray implements AutoCloseable, Tray, BusLifecycleL
 		onClose();
 	}
 
+	@Override
+	public void setProgress(int progress) {
+	}
+
+	@Override
+	public void setAttention(boolean enabled, boolean critical) {
+	}
+
 	protected abstract void onClose() throws Exception;
 
 	protected BufferedImage createAwesomeIcon(FontAwesome string, int sz) {

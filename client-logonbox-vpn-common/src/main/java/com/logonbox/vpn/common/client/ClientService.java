@@ -90,4 +90,6 @@ public interface ClientService  {
 	String getAvailableVersion();
 
 	void deferUpdate();
+
+	void cancelUpdate();
 }

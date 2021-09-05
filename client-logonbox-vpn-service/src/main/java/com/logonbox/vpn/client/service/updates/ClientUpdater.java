@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang3.StringUtils;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,10 +88,19 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	protected void onUpdateFailure(Throwable e) {
 		try {
-			StringWriter msg = new StringWriter();
+			StringWriter trace = new StringWriter();
 			if (e != null)
-				e.printStackTrace(new PrintWriter(msg));
-			cctx.sendMessage(new VPN.UpdateFailure("/com/logonbox/vpn", extensionPlace.getApp(), msg.toString()));
+				e.printStackTrace(new PrintWriter(trace));
+			if(e instanceof InterruptedException) {
+				e = new IOException("Cancelled by user.", e);
+			}
+			String message = e.getMessage();
+			if(StringUtils.isBlank(message) && e.getCause() != null)
+				message = e.getCause().getMessage();
+			if(StringUtils.isBlank(message))
+				message = "No message supplied.";
+			
+			cctx.sendMessage(new VPN.UpdateFailure("/com/logonbox/vpn", extensionPlace.getApp(), message, trace.toString()));
 		} catch (DBusException ex) {
 			throw new IllegalStateException("Failed to send event.", ex);
 		}

@@ -13,4 +13,8 @@ public interface Tray extends AutoCloseable {
 	default boolean isConfigurable() {
 		return true;
 	}
+	
+	void setProgress(int progress);
+
+	void setAttention(boolean enabled, boolean critical);
 }

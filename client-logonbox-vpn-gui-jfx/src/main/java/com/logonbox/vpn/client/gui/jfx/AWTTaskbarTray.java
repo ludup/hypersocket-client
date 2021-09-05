@@ -6,6 +6,7 @@ import java.awt.MenuItem;
 import java.awt.MenuShortcut;
 import java.awt.PopupMenu;
 import java.awt.Taskbar;
+import java.awt.Taskbar.Feature;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -35,6 +36,25 @@ public class AWTTaskbarTray extends AbstractTray implements AutoCloseable, Tray,
 			boolean connected = context.getDBus().isBusAvailable();
 			List<VPNConnection> conx = connected ? context.getDBus().getVPNConnections() : Collections.emptyList();
 			adjustTray(connected, conx);
+		});
+	}
+
+
+	@Override
+	public void setAttention(boolean enabled, boolean critical) {
+		queueGuiOp(() -> {
+			if(taskbar != null && taskbar.isSupported(Feature.USER_ATTENTION)) {
+				taskbar.requestUserAttention(enabled, critical);
+			}
+		});
+	}
+
+	@Override
+	public void setProgress(int progress) {
+		queueGuiOp(() -> {
+			if(taskbar != null && taskbar.isSupported(Feature.PROGRESS_VALUE)) {
+				taskbar.setProgressValue(progress);
+			}
 		});
 	}
 

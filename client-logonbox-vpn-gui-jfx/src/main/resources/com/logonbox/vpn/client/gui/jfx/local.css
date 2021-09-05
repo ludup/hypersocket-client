@@ -36,6 +36,7 @@
 a:focus, a:hover {
     color: ${lbvpnBackground} !important;
     text-decoration: underline !important;
+    cursor: pointer; 
 }
 
 a {

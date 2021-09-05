@@ -237,6 +237,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			UI.this.deferUpdate();
 		}
 
+		public void cancelUpdate() {
+			UI.this.cancelUpdate();
+		}
+
 		public void checkForUpdate() {
 			UI.this.checkForUpdate();
 		}
@@ -329,7 +333,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private String lastErrorCause;
 	private String lastException;
 	private ResourceBundle pageBundle;
-	private UIState mode = UIState.NORMAL;
 	private File logoFile;
 	private boolean adjustingSelection;
 	private String disconnectionReason;
@@ -382,10 +385,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				Platform.runLater(() -> showError("Failed to disconnect.", e));
 			}
 		});
-	}
-
-	public UIState getMode() {
-		return mode;
 	}
 
 	public void connect(VPNConnection n) {
@@ -480,8 +479,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		sidebar.setVisible(false);
 	}
 
-	public void setMode(UIState mode) {
-		this.mode = mode;
+	public void refresh() {
 		rebuildConnections(getSelectedConnection());
 		selectPageForState(false, true);
 	}
@@ -576,7 +574,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 						if (awaitingRestart)
 							throw new IllegalStateException(
 									"Cannot initiate updates while waiting to restart the GUI.");
-						UI.this.mode = UIState.UPDATE;
 						LOG.info(String.format("Initialising update. Expecting %d apps", sig.getApps()));
 						appsToUpdate = sig.getApps();
 						appsUpdated = 0;
@@ -593,6 +590,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 						LOG.info(String.format("Starting up of %s, expect %d bytes", sig.getApp(),
 								sig.getTotalBytesExpected()));
 						String appName = getAppName(sig.getApp());
+						Tray tray = Client.get().getTray();
+						if(tray != null)
+							tray.setProgress(0);
 						setUpdateProgress(0, MessageFormat.format(resources.getString("updating"), appName));
 					});
 				}
@@ -604,7 +604,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				public void handle(VPN.UpdateProgress sig) {
 					maybeRunLater(() -> {
 						String appName = getAppName(sig.getApp());
-						setUpdateProgress((int) (((double) sig.getTotalSoFar() / sig.getTotalBytesExpected()) * 100d),
+						int pc = (int) (((double) sig.getTotalSoFar() / sig.getTotalBytesExpected()) * 100d);
+						Tray tray = Client.get().getTray();
+						if(tray != null)
+							tray.setProgress(pc);
+						setUpdateProgress(pc,
 								MessageFormat.format(resources.getString("updating"), appName));
 					});
 				}
@@ -618,6 +622,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 						String appName = getAppName(sig.getApp());
 						setUpdateProgress(100, MessageFormat.format(resources.getString("updated"), appName));
 						appsUpdated++;
+						Tray tray = Client.get().getTray();
+						if(tray != null)
+							tray.setProgress(-1);
 						LOG.info(String.format("Update of %s complete, have now updated %d of %d apps", sig.getApp(),
 								appsUpdated, appsToUpdate));
 					});
@@ -631,12 +638,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					maybeRunLater(() -> {
 						LOG.info(String.format("Failed to update app %s. %s", sig.getApp(), sig.getMessage()));
 						UI.this.notify(sig.getMessage(), ToastType.ERROR);
-						if (StringUtils.isBlank(sig.getMessage()))
-							showError(
-									MessageFormat.format(resources.getString("updateFailureNoMessage"), sig.getApp()));
-						else
-							showError(MessageFormat.format(resources.getString("updateFailure"), sig.getApp(),
-									sig.getMessage()));
+						Tray tray = Client.get().getTray();
+						if(tray != null)
+							tray.setAttention(true, false);
+						showError(MessageFormat.format(resources.getString("updateFailure"), sig.getApp()), sig.getMessage(), sig.getTrace());
 					});
 				}
 			});
@@ -646,6 +651,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				@Override
 				public void handle(VPN.UpdateDone sig) {
 					maybeRunLater(() -> {
+						Tray tray = Client.get().getTray();
+						if(tray != null)
+							tray.setProgress(-1);
 						LOG.info(String.format("Update done. Message: %s, Restart: %s", sig.getFailureMessage(), sig.isRestart() ? "Yes" : "No"));
 						if (StringUtils.isBlank(sig.getFailureMessage())) {
 							if (sig.isRestart()) {
@@ -1478,7 +1486,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		 * while.
 		 */
 
-		mode = context.getDBus().isBusAvailable() && context.getDBus().getVPN().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
+//		mode = context.getDBus().isBusAvailable() && context.getDBus().getVPN().isUpdating() ? UIState.UPDATE : UIState.NORMAL;
 		VPNConnection selectedConnection = getSelectedConnection();
 		if (Client.allowBranding) {
 			branding = getBranding(selectedConnection);
@@ -1650,7 +1658,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		LOG.info("Given up waiting for bridge to start");
 		resetAwaingBridgeEstablish();
 		notify(resources.getString("givenUpWaitingForBridgeEstablish"), ToastType.ERROR);
-		setMode(UIState.NORMAL);
 	}
 
 	/*
@@ -1661,7 +1668,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		LOG.info("Given up waiting for bridge to stop");
 		resetAwaingBridgeLoss();
 		notify(resources.getString("givenUpWaitingForBridgeStop"), ToastType.ERROR);
-		setMode(UIState.NORMAL);
 	}
 
 	private void initUi(VPNConnection connection) {
@@ -1724,8 +1730,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		resetAwaingBridgeLoss();
 		appsToUpdate = 0;
 		appsUpdated = 0;
-		LOG.info(String.format("Reseting update state, returning to mode %s", UIState.NORMAL));
-		setMode(UIState.NORMAL);
 	}
 
 	private void selectPageForState(boolean connectIfDisconnected, boolean force) {
@@ -1738,7 +1742,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 //			}
 
 			AbstractDBusClient bridge = context.getDBus();
-			if (mode == UIState.UPDATE) {
+			if (bridge.isBusAvailable() && bridge.getVPN().isUpdating() ) {
 				setHtmlPage("updating.html");
 			} else if (bridge.isBusAvailable() && bridge.getVPN().isUpdatesEnabled() && bridge.getVPN().isNeedsUpdating()) {
 				// An update is available
@@ -1836,12 +1840,16 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	private void showError(String error, String cause, String exception) {
+		showError(error, cause, exception, "error.html");
+	}
+	
+	private void showError(String error, String cause, String exception, String page) {
 		maybeRunLater(() -> {
 			LOG.error(error, exception);
 			lastErrorCause = cause;
 			lastErrorMessage = error;
 			lastException = exception;
-			setHtmlPage("error.html");
+			setHtmlPage(page);
 		});
 	}
 	
@@ -1895,6 +1903,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	private void deferUpdate() {
 		context.getDBus().getVPN().deferUpdate();
+		selectPageForState(false, true);
+	}
+
+	private void cancelUpdate() {
+		context.getDBus().getVPN().cancelUpdate();
 		selectPageForState(false, true);
 	}
 

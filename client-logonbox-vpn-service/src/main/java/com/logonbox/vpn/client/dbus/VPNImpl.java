@@ -187,7 +187,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public void cancelUpdate() {
 		assertRegistered();
-		log.warn("cancelUpdate() NOT YET IMPLEMENTED");
+		ctx.getClientService().cancelUpdate();
 	}
 
 	@Override

@@ -401,6 +401,10 @@ public class Client extends Application implements X509TrustManager {
 	public boolean isTrayConfigurable() {
 		return tray != null && tray.isConfigurable();
 	}
+	
+	public Tray getTray() {
+		return tray;
+	}
 
 //	protected void updateCookieHandlerState() {
 //		boolean isPersistJar = !(CookieHandler.getDefault() instanceof CookieManager);

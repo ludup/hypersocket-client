@@ -101,6 +101,11 @@ public class ClientServiceImpl implements ClientService {
 	private long lastAvailableVersionRetrieved;
 
 	private String lastAvailableVersion;
+	private Thread updateThread;
+	private Object updateLock = new Object();
+	private boolean allowUpdateCancel = true;
+
+	private boolean updateCancelled;
 
 	public ClientServiceImpl(LocalContext context, ConnectionRepository connectionRepository,
 			ConfigurationRepository configurationRepository) {
@@ -611,9 +616,10 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public String getAvailableVersion() {
-		if(lastAvailableVersion == null || lastAvailableVersionRetrieved < System.currentTimeMillis() - VERSION_CHECK_TIMEOUT) {
+		if (lastAvailableVersion == null
+				|| lastAvailableVersionRetrieved < System.currentTimeMillis() - VERSION_CHECK_TIMEOUT) {
 			lastAvailableVersion = doGetAvailableVersion();
-			lastAvailableVersionRetrieved= System.currentTimeMillis();
+			lastAvailableVersionRetrieved = System.currentTimeMillis();
 		}
 		return lastAvailableVersion;
 	}
@@ -994,20 +1000,39 @@ public class ClientServiceImpl implements ClientService {
 	@Override
 	public void deferUpdate() {
 		long dayMs = TimeUnit.DAYS.toMillis(1);
-		deferUpdatesUntil = ( (System.currentTimeMillis() / dayMs) * dayMs ) + dayMs;
+		deferUpdatesUntil = ((System.currentTimeMillis() / dayMs) * dayMs) + dayMs;
 		update(true);
+	}
+
+	@Override
+	public void cancelUpdate() {
+		synchronized(updateLock) {
+			if (!updating)
+				throw new IllegalStateException("Not updating.");
+			if(!allowUpdateCancel)
+				throw new IllegalStateException("Cancel is not allowed at this stage of the update.");
+			if(updateCancelled)
+				log.warn("Update already cancelled, trying to interrupt again.");
+			updateCancelled = true;
+			updateThread.interrupt();
+		}
 	}
 
 	public void update(boolean checkOnly) {
 		if (updating)
 			throw new IllegalStateException("Already updating.");
 
-		appsToUpdate = 0;
-		needsUpdate = false;
+		synchronized (updateLock) {
+			updateThread = Thread.currentThread();
+			appsToUpdate = 0;
+			needsUpdate = false;
+			updating = true;
+			allowUpdateCancel = true;
+			updateCancelled = false;
+		}
 		int updates = 0;
 
 		try {
-			updating = true;
 			if (!isUpdatesEnabled() && !isUpdateChecksEnabled()) {
 				log.info("Updates disabled.");
 				guiNeedsSeparateUpdate = false;
@@ -1061,6 +1086,8 @@ public class ClientServiceImpl implements ClientService {
 						}
 
 						for (ClientUpdater update : updaters) {
+							if(updateCancelled)
+								throw new IOException("Cancelled by user.");
 							if ((checkOnly && update.checkForUpdates()) || (!checkOnly && update.update())) {
 								updates++;
 								log.info(String.format("    %s (%s) - needs update",
@@ -1088,6 +1115,7 @@ public class ClientServiceImpl implements ClientService {
 										}
 									}
 									if (appsToUpdate == 0) {
+										allowUpdateCancel = false;
 										/* Still nothing else to update, we are done */
 										context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, ""));
 										log.info("Update complete, restarting.");
@@ -1097,6 +1125,8 @@ public class ClientServiceImpl implements ClientService {
 										context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
 										int updated = 0;
 										for (ClientUpdater update : updaters) {
+											if(updateCancelled)
+												throw new IOException("Cancelled by user.");
 											if (update.update())
 												updated++;
 										}
@@ -1104,10 +1134,12 @@ public class ClientServiceImpl implements ClientService {
 										if (updated > 0) {
 											log.info("Update complete, restarting.");
 											/* Delay restart to let signals be sent */
+											allowUpdateCancel = false;
 											getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
 										}
 									}
 								} else {
+									allowUpdateCancel = false;
 									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, ""));
 									log.info("Update complete, restarting.");
 									/* Delay restart to let signals be sent */
@@ -1128,9 +1160,9 @@ public class ClientServiceImpl implements ClientService {
 						return;
 					}
 
-				}
-				else {
-					log.info(String.format("Updates deferred until %s", DateFormat.getDateTimeInstance().format(new Date(deferUpdatesUntil))));
+				} else {
+					log.info(String.format("Updates deferred until %s",
+							DateFormat.getDateTimeInstance().format(new Date(deferUpdatesUntil))));
 				}
 			}
 		} catch (Exception re) {
@@ -1141,7 +1173,10 @@ public class ClientServiceImpl implements ClientService {
 						String.format("Failed to get GUI extension information. Update aborted. %s", re.getMessage()));
 			}
 		} finally {
-			updating = false;
+			synchronized (updateLock) {
+				updating = false;
+				updateThread = null;
+			}
 		}
 
 		needsUpdate = updates > 0;

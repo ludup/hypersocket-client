@@ -306,11 +306,17 @@ public interface VPN extends DBusInterface {
 
 		private final String app;
 		private final String message;
+		private final String trace;
 
-		public UpdateFailure(String path, String app, String message) throws DBusException {
-			super(path, app, message);
+		public UpdateFailure(String path, String app, String message, String trace) throws DBusException {
+			super(path, app, message, trace);
 			this.app = app;
 			this.message = message;
+			this.trace = trace;
+		}
+
+		public String getTrace() {
+			return trace;
 		}
 
 		public String getApp() {

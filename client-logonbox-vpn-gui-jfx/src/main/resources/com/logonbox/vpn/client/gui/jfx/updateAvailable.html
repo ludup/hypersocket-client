@@ -45,15 +45,10 @@
             });
             $('#startUpdate').off('click').on('click', function(event) {
                 try {
-                	alert('x1');
                     $('#startUpdate').buttonLoader('start');
-                    alert('x2');
                     $('#alerts').empty();
-                    alert('x3');
                     bridge.update();
-                    alert('x4');
                 } catch (e) {
-                    alert('x5 ' + e);
                     $('#startUpdate').buttonLoader('stop');
                     $('#alerts').append($('<div class="alert alert-danger">' + e.getMessage() + '</div>'));
                 }
