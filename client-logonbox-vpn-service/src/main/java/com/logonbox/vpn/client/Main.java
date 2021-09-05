@@ -363,19 +363,30 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				address += ",guid=" + TransportFactory.genGUID();
 				busAddress = new BusAddress(address);
 			}
+			if(busAddress.isListeningSocket()) {
+				address = address.replace(",listen=true", "");
+				busAddress = new BusAddress(address);
+			}
+			
+			BusAddress listenBusAddress = new BusAddress(address);
+			String listenAddress = address;
+			if(!listenBusAddress.isListeningSocket()) {
+				listenAddress = address + ",listen=true";
+				listenBusAddress = new BusAddress(listenAddress);
+			}
 
-			log.info(String.format("Starting embedded bus on address %s (auth types: %s)", busAddress.getRawAddress(), toAuthTypesString(authTypes)));
+			log.info(String.format("Starting embedded bus on address %s (auth types: %s)", listenBusAddress.getRawAddress(), toAuthTypesString(authTypes)));
 			daemon = new EmbeddedDBusDaemon();
 			daemon.setAuthTypes(authTypes);
-			daemon.setAddress(busAddress);
+			daemon.setAddress(listenBusAddress);
 			daemon.startInBackground();
-			log.info(String.format("Started embedded bus on address %s", busAddress.getRawAddress()));
+			log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
 
-			log.info("Connecting to embedded DBus");
+			log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
 			for (int i = 0; i < 6; i++) {
 				try {
 					conn = DBusConnection.getConnection(busAddress.getRawAddress());
-					log.info("Connected to embedded DBus");
+					log.info(String.format("Connected to embedded DBus %s", busAddress.getRawAddress()));
 					break;
 				} catch (DBusException dbe) {
 					if (i > 4)

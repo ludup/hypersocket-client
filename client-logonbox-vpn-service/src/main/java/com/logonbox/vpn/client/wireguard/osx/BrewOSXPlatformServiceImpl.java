@@ -29,9 +29,8 @@ import com.logonbox.vpn.client.wireguard.osx.OSXNetworksetupDNS.InterfaceDNS;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.logonbox.vpn.common.client.StatusDetail;
+import com.logonbox.vpn.common.client.Util;
 import com.sshtools.forker.client.OSCommand;
-
-import jnr.posix.util.Platform;
 
 public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<BrewOSXIP> {
 
@@ -62,7 +61,7 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 		
 		if(wgCommandPath == null) {
 			try {
-				wgCommandPath = extractCommand("macosx", Platform.IS_64_BIT ? "x86-64" : "x86", "wg");
+				wgCommandPath = extractCommand("macosx", Util.is64bit() ? "x86-64" : "x86", "wg");
 			} catch (IOException e) {
 				LOG.error("Failed to extract bundled wireguard components.", e);
 			}
@@ -72,7 +71,7 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 		
 		if(wgGoCommandPath == null) {
 			try {
-				wgGoCommandPath = extractCommand("macosx", Platform.IS_64_BIT ? "x86-64" : "x86", "wireguard-go");
+				wgGoCommandPath = extractCommand("macosx", Util.is64bit() ? "x86-64" : "x86", "wireguard-go");
 			} catch (IOException e) {
 				LOG.error("Failed to extract bundled wireguard components.", e);
 			}

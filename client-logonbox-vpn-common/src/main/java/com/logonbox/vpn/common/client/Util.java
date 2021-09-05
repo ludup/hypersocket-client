@@ -8,6 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Util {
+
+	private static final boolean IS_64BIT = is64bit0();
+	
 	public static byte[] decodeHexString(String hexString) {
 		if (hexString.length() % 2 == 1) {
 			throw new IllegalArgumentException("Invalid hexadecimal String supplied.");
@@ -33,7 +36,7 @@ public class Util {
 		}
 		return digit;
 	}
-	
+
 	public static int byteSwap(int a) {
 		return ((a & 0xff000000) >>> 24) | ((a & 0x00ff0000) >>> 8) | ((a & 0x0000ff00) << 8)
 				| ((a & 0x000000ff) << 24);
@@ -112,16 +115,33 @@ public class Util {
 
 	public static String toHumanSize(long bytes) {
 		long absB = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
-	    if (absB < 1024) {
-	        return bytes + " B";
-	    }
-	    long value = absB;
-	    CharacterIterator ci = new StringCharacterIterator("KMGTPE");
-	    for (int i = 40; i >= 0 && absB > 0xfffccccccccccccL >> i; i -= 10) {
-	        value >>= 10;
-	        ci.next();
-	    }
-	    value *= Long.signum(bytes);
-	    return String.format("%.1f %ciB", value / 1024.0, ci.current());
+		if (absB < 1024) {
+			return bytes + " B";
+		}
+		long value = absB;
+		CharacterIterator ci = new StringCharacterIterator("KMGTPE");
+		for (int i = 40; i >= 0 && absB > 0xfffccccccccccccL >> i; i -= 10) {
+			value >>= 10;
+			ci.next();
+		}
+		value *= Long.signum(bytes);
+		return String.format("%.1f %ciB", value / 1024.0, ci.current());
+	}
+
+	public static boolean is64bit() {
+		return IS_64BIT;
+	}
+
+	private static boolean is64bit0() {
+		String systemProp = System.getProperty("com.ibm.vm.bitmode");
+		if (systemProp != null) {
+			return "64".equals(systemProp);
+		}
+		systemProp = System.getProperty("sun.arch.data.model");
+		if (systemProp != null) {
+			return "64".equals(systemProp);
+		}
+		systemProp = System.getProperty("java.vm.version");
+		return systemProp != null && systemProp.contains("_64");
 	}
 }
