@@ -138,6 +138,12 @@
 		      <artifactId>jSystemThemeDetector</artifactId>
 		      <version>3.6</version>
 		</dependency>
+        <dependency>
+            <groupId>de.jangassen</groupId>
+            <artifactId>jfa</artifactId>
+            <version>1.2.0</version>
+            <optional>true</optional>
+        </dependency>
 		<dependency>
 			<groupId>com.dorkbox</groupId>
 			<artifactId>SystemTray</artifactId>
