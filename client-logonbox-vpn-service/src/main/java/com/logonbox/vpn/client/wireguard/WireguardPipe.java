@@ -136,4 +136,9 @@ public class WireguardPipe implements StatusDetail {
 	public long getLastHandshake() {
 		return lastHandshakeTimeSec * 1000;
 	}
+
+	@Override
+	public String getInterfaceName() {
+		return name;
+	}
 }

@@ -75,3 +75,7 @@
 
 #exceptionContainer code {
 }
+
+.nav-link {
+    color: -fx-lbvpn-accent ;
+}

@@ -49,3 +49,13 @@ a {
 	background: ${lbvpnBackground} !important;
 	border-color: ${lbvpnAccent} !important;
 }
+
+.nav-link {
+   color: ${lbvpnAccent}  !important;
+}
+
+.connection.active {
+    background: ${lbvpnBackground} !important;
+    color: ${lbvpnForeground} !important;
+    cursor: pointer; 
+}

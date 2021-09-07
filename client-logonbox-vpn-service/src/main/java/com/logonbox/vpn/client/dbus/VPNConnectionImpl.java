@@ -160,6 +160,12 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 	}
 
 	@Override
+	public String getInterfaceName() {
+		assertRegistered(); 
+		return ctx.getClientService().getStatus(getId()).getDetail().getInterfaceName();
+	}
+
+	@Override
 	public String getUri(boolean withUsername) {
 		assertRegistered();
 		return connection.getUri(withUsername);

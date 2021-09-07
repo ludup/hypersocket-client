@@ -137,10 +137,18 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		public void reset() {
 			UI.this.selectPageForState(false, true);
 		}
-
+		
 		public void connect() {
 			VPNConnection selectedItem = UI.this.connections.getSelectionModel().getSelectedItem();
 			UI.this.connect(selectedItem == null ? UI.this.connections.getItems().get(0) : selectedItem);
+		}
+		
+		public void connectTo(VPNConnection connection) {
+			UI.this.connect(connection);
+		}
+		
+		public void disconnectFrom(VPNConnection connection) {
+			UI.this.disconnect(connection);
 		}
 
 		public void editConnection(JSObject o) {
@@ -226,7 +234,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 
 		public void unjoin(String reason) {
-			disconnect(getSelectedConnection(), reason);
+			UI.this.disconnect(getSelectedConnection(), reason);
 		}
 
 		public void update() {
@@ -257,6 +265,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		public String getUsage() {
 			VPNConnection connection = getConnection();
 			return connection == null ? null : MessageFormat.format(resources.getString("usageDetail"), Util.toHumanSize(connection.getRx()), Util.toHumanSize(connection.getTx()));
+		}
+		
+		public VPNConnection[] getConnections() {
+			return context.getDBus().getVPNConnections().toArray(new VPNConnection[0]);
 		}
 	}
 	
@@ -1144,9 +1156,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	public void setAvailable() {
-		minimize.setVisible(!Main.getInstance().isNoMinimize() && Client.get().isMinimizeAllowed());
+		minimize.setVisible(!Main.getInstance().isNoMinimize() && Client.get().isMinimizeAllowed() && Client.get().isUndecoratedWindow());
 		minimize.setManaged(minimize.isVisible());
-		close.setVisible(!Main.getInstance().isNoClose());
+		close.setVisible(!Main.getInstance().isNoClose() && Client.get().isMinimizeAllowed() && Client.get().isUndecoratedWindow());
 		close.setManaged(close.isVisible());
 		toggleSidebar.setVisible(!Main.getInstance().isNoSidebar());
 		toggleSidebar.setManaged(toggleSidebar.isVisible());
@@ -1776,28 +1788,34 @@ public class UI extends AbstractController implements BusLifecycleListener {
 							setHtmlPage("index.html");
 					} else {
 						Type status = Type.valueOf(sel.getStatus());
+
 						if (connectIfDisconnected && status != Type.DISCONNECTED && status != Type.TEMPORARILY_OFFLINE && !sel.isAuthorized()) {
 							log.info(String.format("Not authorized, requesting authorize"));
 							authorize(sel);
-						} else if (status == Type.CONNECTING || status == Type.AUTHORIZING) {
-							/* We have a connection, a peer configuration and are connected! */
-							log.info(String.format("Joining"));
-							setHtmlPage("joining.html", force);
-						} else if (status == Type.TEMPORARILY_OFFLINE) {
-							/* We are connected, but the server (peer) appears offline */
-							log.info(String.format("Temporarily Offline"));
-							setHtmlPage("temporarilyOffline.html", force);
-						} else if (status == Type.CONNECTED) {
-							/* We have a connection, a peer configuration and are connected! */
-							log.info(String.format("Ready, so showing join UI"));
-							setHtmlPage("joined.html", force);
-						} else if (status == Type.DISCONNECTING) {
-							log.info(String.format("Disconnecting, so showing leaving UI"));
-							setHtmlPage("leaving.html", force);
-						} else {
-							
-							log.info("Disconnected, so showing join UI");
-							setHtmlPage("join.html", force);
+						} else if(isNewUI()) {
+							setHtmlPage("connections.html", true);
+						}
+						else {
+							if (status == Type.CONNECTING || status == Type.AUTHORIZING) {
+								/* We have a connection, a peer configuration and are connected! */
+								log.info(String.format("Joining"));
+								setHtmlPage("joining.html", force);
+							} else if (status == Type.TEMPORARILY_OFFLINE) {
+								/* We are connected, but the server (peer) appears offline */
+								log.info(String.format("Temporarily Offline"));
+								setHtmlPage("temporarilyOffline.html", force);
+							} else if (status == Type.CONNECTED) {
+								/* We have a connection, a peer configuration and are connected! */
+								log.info(String.format("Ready, so showing join UI"));
+								setHtmlPage("joined.html", force);
+							} else if (status == Type.DISCONNECTING) {
+								log.info(String.format("Disconnecting, so showing leaving UI"));
+								setHtmlPage("leaving.html", force);
+							} else {
+								
+								log.info("Disconnected, so showing join UI");
+								setHtmlPage("join.html", force);
+							}
 						}
 					}
 				}
@@ -1909,6 +1927,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private void cancelUpdate() {
 		context.getDBus().getVPN().cancelUpdate();
 		selectPageForState(false, true);
+	}
+	
+	private boolean isNewUI() {
+		return "true".equals(System.getProperty("logonbox.vpn.newUI", "false"));
 	}
 
 	public static void maybeRunLater(Runnable r) {

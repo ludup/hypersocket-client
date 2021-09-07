@@ -85,6 +85,7 @@ public class DOMProcessor {
 		/* Connection */
 		replacements.put("displayName", connection == null ? "" : connection.getDisplayName());
 		replacements.put("name", connection == null || connection.getName() == null ? "" : connection.getName());
+		replacements.put("interfaceName", connection == null || connection.getInterfaceName() == null ? "" : connection.getInterfaceName());
 		replacements.put("server", connection == null ? "" : connection.getHostname());
 		replacements.put("serverUrl", connection == null ? "" : connection.getUri(false));
 		replacements.put("port", connection == null ? "" : String.valueOf(connection.getPort()));

@@ -161,7 +161,9 @@ public class AWTTaskbarTray extends AbstractTray implements AutoCloseable, Tray,
 			var menu = taskbar.getMenu();
 
 			var open = new MenuItem(bundle.getString("open"), new MenuShortcut('o'));
-			open.addActionListener((e) -> context.open());
+			open.addActionListener((e) -> {
+				context.open(); 
+			});
 			menu.add(open);
 			addSeparator(menu);
 

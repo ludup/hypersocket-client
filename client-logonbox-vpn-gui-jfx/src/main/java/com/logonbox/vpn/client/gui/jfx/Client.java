@@ -154,9 +154,9 @@ public class Client extends Application implements X509TrustManager {
 		alert.getDialogPane().setExpandableContent(new Group());
 		alert.getDialogPane().setExpanded(true);
 		alert.getDialogPane().setGraphic(graphic);
-		alert.getDialogPane().autosize();
 		alert.setTitle(title);
 		alert.setHeaderText(headerText);
+		alert.getDialogPane().autosize();
 		return alert;
 	}
     
@@ -213,6 +213,8 @@ public class Client extends Application implements X509TrustManager {
 	private Tray tray;
 
 	private boolean waitingForExitChoice;
+
+	private UI ui;
 
 	@Override
 	public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
@@ -395,7 +397,7 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	public boolean isMinimizeAllowed() {
-		return tray == null || !(tray instanceof AWTTaskbarTray);
+		return ( tray == null || !(tray instanceof AWTTaskbarTray) ) ;
 	}
 
 	public boolean isTrayConfigurable() {
@@ -528,6 +530,8 @@ public class Client extends Application implements X509TrustManager {
 	public void open() {
 		log.info("Open request");
 		Platform.runLater(() -> {
+			if(primaryStage.isIconified())
+				primaryStage.setIconified(false);
 			primaryStage.show();
 			primaryStage.toFront();
 		});
@@ -555,7 +559,7 @@ public class Client extends Application implements X509TrustManager {
 
 	public void options() {
 		open();
-		Platform.runLater(() -> UI.getInstance().options());
+		Platform.runLater(() -> ui.options());
 	}
 
 	@Override
@@ -626,11 +630,11 @@ public class Client extends Application implements X509TrustManager {
 		}
 
 		// Setup the window
-		if (Platform.isSupported(ConditionalFeature.TRANSPARENT_WINDOW)) {
-			primaryStage.initStyle(StageStyle.TRANSPARENT);
-		} else {
-			primaryStage.initStyle(StageStyle.UNDECORATED);
-		}
+//		if (Platform.isSupported(ConditionalFeature.TRANSPARENT_WINDOW)) {
+//			primaryStage.initStyle(StageStyle.TRANSPARENT);
+//		} else {
+//			primaryStage.initStyle(StageStyle.UNDECORATED);
+//		}
 		primaryStage.setTitle(BUNDLE.getString("title"));
 		primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("logonbox-icon256x256.png")));
 		primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("logonbox-icon128x128.png")));
@@ -638,29 +642,7 @@ public class Client extends Application implements X509TrustManager {
 		primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("logonbox-icon48x48.png")));
 		primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("logonbox-icon32x32.png")));
 
-		// Open the actual scene
-		UI fc = openScene(UI.class, null);
-		Scene scene = fc.getScene();
-		Parent node = scene.getRoot();
-//		node.styleProperty().set("-fx-border-color: -fx-lbvpn-background;");
-
-		applyColors(null, node);
-
-		/* Anchor to stretch the content across the borderless window */
-		AnchorPane anchor = new AnchorPane(node);
-		AnchorPane.setBottomAnchor(node, 0d);
-		AnchorPane.setLeftAnchor(node, 0d);
-		AnchorPane.setTopAnchor(node, 0d);
-		AnchorPane.setRightAnchor(node, 0d);
-
-		String[] sizeParts = Main.getInstance().getSize().toLowerCase().split("x");
-		BorderlessScene primaryScene = new BorderlessScene(primaryStage, StageStyle.TRANSPARENT, anchor,
-				Integer.parseInt(sizeParts[0]), Integer.parseInt(sizeParts[1]));
-		if (!Main.getInstance().isNoMove())
-			primaryScene.setMoveControl(node);
-		primaryScene.setSnapEnabled(false);
-		primaryScene.removeDefaultCSS();
-		primaryScene.setResizable(!Main.getInstance().isNoMove());
+		Scene primaryScene = createWindows(primaryStage);
 
 		// Finalise and show
 		Configuration cfg = Configuration.getDefault();
@@ -678,9 +660,6 @@ public class Client extends Application implements X509TrustManager {
 			primaryStage.setHeight(h);
 		}
 		primaryStage.setScene(primaryScene);
-		primaryStage.getScene().getRoot().setEffect(new DropShadow());
-		((Region) primaryStage.getScene().getRoot()).setPadding(new Insets(10, 10, 10, 10));
-		primaryStage.getScene().setFill(Color.TRANSPARENT);
 		primaryStage.show();
 		primaryStage.xProperty().addListener((c, o, n) -> cfg.xProperty().set(n.intValue()));
 		primaryStage.yProperty().addListener((c, o, n) -> cfg.yProperty().set(n.intValue()));
@@ -696,7 +675,7 @@ public class Client extends Application implements X509TrustManager {
 			Platform.runLater(() -> {
 				log.info("Dark mode is now " + isDark);
 				reapplyColors();
-				UI.getInstance().reload();
+				ui.reload();
 			});
 		});
 
@@ -715,7 +694,7 @@ public class Client extends Application implements X509TrustManager {
 			else
 				tray = new DorkBoxTray(this);
 		}
-		fc.setAvailable();
+		ui.setAvailable();
 
 		final SplashScreen splash = SplashScreen.getSplashScreen();
 		if (splash != null) {
@@ -727,7 +706,7 @@ public class Client extends Application implements X509TrustManager {
 //		Configuration.getDefault().saveCookiesProperty().addListener((e) -> updateCookieHandlerState());
 
 	}
-
+	
 	public void verifyHostname(SSLSession sslSession) throws SSLPeerUnverifiedException {
 		try {
 			String hostname = sslSession.getPeerHost();
@@ -795,6 +774,51 @@ public class Client extends Application implements X509TrustManager {
 			throw new SSLPeerUnverifiedException(
 					MessageFormat.format(BUNDLE.getString("certificate.verify.error.failedToParse"), e.getMessage()));
 		}
+	}
+
+	protected Scene createWindows(Stage primaryStage) throws IOException {
+
+		// Open the actual scene
+		ui = openScene(UI.class, null);
+		Scene scene = ui.getScene();
+		Parent node = scene.getRoot();
+		
+		// For line store border 
+//		node.styleProperty().set("-fx-border-color: -fx-lbvpn-background;");
+
+		applyColors(null, node);
+		
+		if(isUndecoratedWindow()) {
+
+			/* Anchor to stretch the content across the borderless window */
+			AnchorPane anchor = new AnchorPane(node);
+			AnchorPane.setBottomAnchor(node, 0d);
+			AnchorPane.setLeftAnchor(node, 0d);
+			AnchorPane.setTopAnchor(node, 0d);
+			AnchorPane.setRightAnchor(node, 0d);
+			
+			String[] sizeParts = Main.getInstance().getSize().toLowerCase().split("x");
+			BorderlessScene primaryScene = new BorderlessScene(primaryStage, StageStyle.TRANSPARENT, anchor,
+					Integer.parseInt(sizeParts[0]), Integer.parseInt(sizeParts[1]));
+			if (!Main.getInstance().isNoMove())
+				primaryScene.setMoveControl(node);
+			primaryScene.setSnapEnabled(false);
+			primaryScene.removeDefaultCSS();
+			primaryScene.setResizable(!Main.getInstance().isNoMove());
+
+			primaryScene.getRoot().setEffect(new DropShadow());
+			((Region) primaryScene.getRoot()).setPadding(new Insets(10, 10, 10, 10));
+			primaryScene.setFill(Color.TRANSPARENT);
+			
+			return primaryScene;
+		}
+		else {
+			return scene;
+		}
+	}
+
+	public boolean isUndecoratedWindow() {
+		return System.getProperty("logonbox.vpn.undecoratedWindow", "true").equals("true");
 	}
 
 	protected void cleanUp() {
@@ -1062,7 +1086,7 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	void reapplyColors() {
-		applyColors(branding, UI.getInstance().getScene().getRoot());
+		applyColors(branding, ui.getScene().getRoot());
 	}
 
 	void writeJavaFXCSS(Branding branding) {

@@ -243,6 +243,11 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 			public long getLastHandshake() {
 				return lastHandshake;
 			}
+
+			@Override
+			public String getInterfaceName() {
+				return iface;
+			}
 		};
 	}
 

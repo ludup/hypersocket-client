@@ -23,6 +23,8 @@ public interface VPNConnection extends DBusInterface {
 	long getId();
 
 	String getName();
+	
+	String getInterfaceName();
 
 	String getDisplayName();
 

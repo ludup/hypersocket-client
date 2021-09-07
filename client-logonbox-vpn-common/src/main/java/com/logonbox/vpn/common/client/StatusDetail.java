@@ -19,6 +19,11 @@ public interface StatusDetail {
 			return 0;
 		}
 
+		@Override
+		public String getInterfaceName() {
+			return "";
+		}
+
 	};
 
 	long getTx();
@@ -26,4 +31,6 @@ public interface StatusDetail {
 	long getRx();
 
 	long getLastHandshake();
+
+	String getInterfaceName();
 }

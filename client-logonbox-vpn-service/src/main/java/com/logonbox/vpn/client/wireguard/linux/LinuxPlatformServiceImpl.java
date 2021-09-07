@@ -205,6 +205,11 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 			public long getLastHandshake() {
 				return lastHandshake;
 			}
+
+			@Override
+			public String getInterfaceName() {
+				return iface;
+			}
 		};
 	}
 
