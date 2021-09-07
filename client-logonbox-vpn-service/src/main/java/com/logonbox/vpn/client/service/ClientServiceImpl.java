@@ -82,7 +82,7 @@ public class ClientServiceImpl implements ClientService {
 	protected Set<Connection> disconnectingClients = new HashSet<>();
 	protected Set<Connection> temporarilyOffline = new HashSet<>();
 
-	private int appsToUpdate;
+	private Set<ExtensionTarget> appsToUpdate = new LinkedHashSet<>();
 	private ConfigurationRepository configurationRepository;
 
 	private ConnectionRepository connectionRepository;
@@ -95,9 +95,7 @@ public class ClientServiceImpl implements ClientService {
 	private ScheduledExecutorService timer;
 	private AtomicLong transientConnectionId = new AtomicLong();
 	private boolean updating;
-
 	private long deferUpdatesUntil;
-
 	private long lastAvailableVersionRetrieved;
 
 	private String lastAvailableVersion;
@@ -737,50 +735,57 @@ public class ClientServiceImpl implements ClientService {
 		}
 
 		try {
-			if (frontEnd.isInteractive()) {
-				if (guiNeedsSeparateUpdate) {
-					/*
-					 * If the client hasn't supplied the extensions it is using, then we can't do
-					 * any updates. It is probably running outside of Forker, so isn't supplied the
-					 * list
-					 */
-					if (frontEnd.getPlace().getBootstrapArchives().isEmpty()) {
-						log.warn(String.format(
-								"Front-end %s did not supply its list of extensions. Probably running in a development environment. Skipping updates.",
-								frontEnd.getPlace().getApp()));
-						appsToUpdate = 0;
-					} else if (Boolean.getBoolean("logonbox.automaticUpdates")) {
+			updateFrontEnd(frontEnd);
+		} finally {
+			startupLock.release();
+		}
+	}
 
-						/* Do the separate GUI update */
-						appsToUpdate = 1;
-						ClientUpdater guiJob = new ClientUpdater(frontEnd.getPlace(), frontEnd.getTarget(), context);
+	protected void updateFrontEnd(VPNFrontEnd frontEnd) {
+		if (frontEnd.isInteractive()) {
+			if (guiNeedsSeparateUpdate) {
+				/*
+				 * If the client hasn't supplied the extensions it is using, then we can't do
+				 * any updates. It is probably running outside of Forker, so isn't supplied the
+				 * list
+				 */
+				if (frontEnd.getPlace().getBootstrapArchives().isEmpty()) {
+					log.warn(String.format(
+							"Front-end %s did not supply its list of extensions. Probably running in a development environment. Skipping updates.",
+							frontEnd.getPlace().getApp()));
+					appsToUpdate.clear();;
+				} else if (Boolean.getBoolean("logonbox.automaticUpdates")) {
 
+					/* Do the separate GUI update */
+					appsToUpdate.add(frontEnd.getTarget());
+					ClientUpdater guiJob = new ClientUpdater(frontEnd.getPlace(), frontEnd.getTarget(), context);
+
+					try {
+						context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate.size()));
 						try {
-							context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
-							try {
-								boolean atLeastOneUpdate = guiJob.update();
-								if (atLeastOneUpdate)
-									log.info("Update complete, at least one found so restarting.");
-								else
-									log.info("No updates available.");
-								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", atLeastOneUpdate, null));
-							} catch (IOException e) {
-								if (log.isDebugEnabled())
-									log.error("Failed to update GUI.", e);
-								else
-									log.error(String.format("Failed to update GUI. %s", e.getMessage()));
-								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, e.getMessage()));
-							}
-						} catch (Exception re) {
-							log.error("GUI refused to update, ignoring.", re);
-							try {
-								context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, null));
-							} catch (DBusException e) {
-								throw new IllegalStateException("Failed to send message.", e);
-							}
+							boolean atLeastOneUpdate = guiJob.update();
+							if (atLeastOneUpdate)
+								log.info("Update complete, at least one found so restarting.");
+							else
+								log.info("No updates available.");
+							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", atLeastOneUpdate, null));
+						} catch (IOException e) {
+							if (log.isDebugEnabled())
+								log.error("Failed to update GUI.", e);
+							else
+								log.error(String.format("Failed to update GUI. %s", e.getMessage()));
+							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, e.getMessage()));
+						}
+					} catch (Exception re) {
+						log.error("GUI refused to update, ignoring.", re);
+						try {
+							context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", false, null));
+						} catch (DBusException e) {
+							throw new IllegalStateException("Failed to send message.", e);
 						}
 					}
 				}
+			}
 //				else if (updating) {
 //					/*
 //					 * If we register while an update is taking place, try to make the client catch
@@ -804,9 +809,6 @@ public class ClientServiceImpl implements ClientService {
 //						throw new IllegalStateException("Failed to send event.", e);
 //					}
 //				}
-			}
-		} finally {
-			startupLock.release();
 		}
 	}
 
@@ -934,7 +936,7 @@ public class ClientServiceImpl implements ClientService {
 						 * If updates are manual, don't try to connect until the GUI connects and does
 						 * it's update
 						 */
-						log.info("GUI Needs update, awaiting GUI to connect.");
+						log.info("Needs update, awaiting GUI to connect.");
 						return;
 					}
 				}
@@ -1017,14 +1019,14 @@ public class ClientServiceImpl implements ClientService {
 			updateThread.interrupt();
 		}
 	}
-
+	
 	public void update(boolean checkOnly) {
 		if (updating)
 			throw new IllegalStateException("Already updating.");
 
 		synchronized (updateLock) {
 			updateThread = Thread.currentThread();
-			appsToUpdate = 0;
+			appsToUpdate.clear();
 			needsUpdate = false;
 			updating = true;
 			allowUpdateCancel = true;
@@ -1058,7 +1060,7 @@ public class ClientServiceImpl implements ClientService {
 					/*
 					 * For the client service, we use the local 'extension place'
 					 */
-					appsToUpdate = 1;
+					appsToUpdate.add(ExtensionTarget.CLIENT_SERVICE);
 					ExtensionPlace defaultExt = ExtensionPlace.getDefault();
 					defaultExt.setDownloadAllExtensions(true);
 					updaters.add(new ClientUpdater(defaultExt, ExtensionTarget.CLIENT_SERVICE, context));
@@ -1075,14 +1077,14 @@ public class ClientServiceImpl implements ClientService {
 					for (VPNFrontEnd fe : frontEnds) {
 						if (!fe.isUpdated()) {
 							guiNeedsSeparateUpdate = false;
-							appsToUpdate++;
+							appsToUpdate.add(fe.getTarget());
 							updaters.add(new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
 						}
 					}
 
 					try {
 						if (!checkOnly) {
-							context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
+							context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate.size()));
 						}
 
 						for (ClientUpdater update : updaters) {
@@ -1106,23 +1108,23 @@ public class ClientServiceImpl implements ClientService {
 								 * instead of restarting immediately, try to update any client extensions too
 								 */
 								if (guiNeedsSeparateUpdate && !frontEnds.isEmpty()) {
-									appsToUpdate = 0;
+									appsToUpdate.clear();
 									for (VPNFrontEnd fe : frontEnds) {
 										if (!fe.isUpdated()) {
 											guiNeedsSeparateUpdate = false;
-											appsToUpdate++;
+											appsToUpdate.add(fe.getTarget());
 											updaters.add(new ClientUpdater(fe.getPlace(), fe.getTarget(), context));
 										}
 									}
-									if (appsToUpdate == 0) {
+									if (appsToUpdate.isEmpty()) {
 										allowUpdateCancel = false;
 										/* Still nothing else to update, we are done */
 										context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, ""));
 										log.info("Update complete, restarting.");
 										/* Delay restart to let signals be sent */
-										getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
+										getTimer().schedule(() -> doRestart(), 5, TimeUnit.SECONDS);
 									} else {
-										context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
+										context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate.size()));
 										int updated = 0;
 										for (ClientUpdater update : updaters) {
 											if(updateCancelled)
@@ -1135,7 +1137,7 @@ public class ClientServiceImpl implements ClientService {
 											log.info("Update complete, restarting.");
 											/* Delay restart to let signals be sent */
 											allowUpdateCancel = false;
-											getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
+											getTimer().schedule(() -> doRestart(), 5, TimeUnit.SECONDS);
 										}
 									}
 								} else {
@@ -1143,7 +1145,7 @@ public class ClientServiceImpl implements ClientService {
 									context.sendMessage(new VPN.UpdateDone("/com/logonbox/vpn", true, ""));
 									log.info("Update complete, restarting.");
 									/* Delay restart to let signals be sent */
-									getTimer().schedule(() -> System.exit(99), 5, TimeUnit.SECONDS);
+									getTimer().schedule(() -> doRestart(), 5, TimeUnit.SECONDS);
 								}
 							} else {
 								context.sendMessage(
@@ -1180,6 +1182,11 @@ public class ClientServiceImpl implements ClientService {
 		}
 
 		needsUpdate = updates > 0;
+	}
+
+	protected void doRestart() {
+		log.info("Restarting with exit 99.");
+		System.exit(99);
 	}
 
 	protected VPNSession createJob(Connection c) {

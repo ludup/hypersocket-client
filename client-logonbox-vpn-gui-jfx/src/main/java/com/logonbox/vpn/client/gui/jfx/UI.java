@@ -375,6 +375,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private Hyperlink minimize;
 	@FXML
 	private Hyperlink toggleSidebar;
+	private String authorizeUri;
 
 	public UI() {
 		instance = this;
@@ -736,8 +737,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			public void handle(VPNConnection.Authorize sig) {
 				disconnectionReason = null;
 				VPNConnection connection = context.getDBus().getVPNConnection(sig.getId());
+				authorizeUri = sig.getUri();
 				maybeRunLater(() -> {
-					setHtmlPage(connection.getUri(false) + sig.getUri());
+//					setHtmlPage(connection.getUri(false) + sig.getUri());
+					selectPageForState(false, false);
 				});
 			}
 		});
@@ -1796,7 +1799,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 							setHtmlPage("connections.html", true);
 						}
 						else {
-							if (status == Type.CONNECTING || status == Type.AUTHORIZING) {
+							if(status == Type.AUTHORIZING) {
+								setHtmlPage(sel.getUri(false) + authorizeUri);
+							}
+							else if (status == Type.CONNECTING || status == Type.AUTHORIZING) {
 								/* We have a connection, a peer configuration and are connected! */
 								log.info(String.format("Joining"));
 								setHtmlPage("joining.html", force);
