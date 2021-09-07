@@ -307,14 +307,14 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		settings.setAppName(bundle.getString("appName"));
 		settings.setSystemTrayIconMode(SystemTrayIconMode.HIDDEN);
 		ToasterFactory.setSettings(settings);
-//		if(SystemUtils.IS_OS_MAC_OSX) {
-//			ToasterFactory.setFactory(new ToasterFactory() {
-//				@Override
-//				public Toaster toaster() {
-//					return new OsXToaster(settings);
-//				}
-//			});
-//		}
+		if(SystemUtils.IS_OS_MAC_OSX) {
+			ToasterFactory.setFactory(new ToasterFactory() {
+				@Override
+				public Toaster toaster() {
+					return new OsXToaster(settings);
+				}
+			});
+		}
 	}
 
 	static int DROP_SHADOW_SIZE = 11;
