@@ -68,9 +68,11 @@ import com.logonbox.vpn.common.client.api.BrandingInfo;
 import javafx.application.Application;
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -701,6 +703,14 @@ public class Client extends Application implements X509TrustManager {
 			splash.close();
 		}
 
+		keepInBounds(primaryStage);
+		Screen.getScreens().addListener(new ListChangeListener<Screen>() {
+			@Override
+			public void onChanged(Change<? extends Screen> c) {
+				keepInBounds(primaryStage);
+			}
+		});
+
 //		this.originalCookieHander = CookieHandler.getDefault();
 //		updateCookieHandlerState();
 //		Configuration.getDefault().saveCookiesProperty().addListener((e) -> updateCookieHandlerState());
@@ -773,6 +783,25 @@ public class Client extends Application implements X509TrustManager {
 
 			throw new SSLPeerUnverifiedException(
 					MessageFormat.format(BUNDLE.getString("certificate.verify.error.failedToParse"), e.getMessage()));
+		}
+	}
+
+	protected void keepInBounds(Stage primaryStage) {
+		ObservableList<Screen> screens = Screen.getScreensForRectangle(primaryStage.getX(), primaryStage.getY(), primaryStage.getWidth(), primaryStage.getHeight());
+		Screen screen = screens.isEmpty() ? Screen.getPrimary() : screens.get(0);
+		Rectangle2D bounds = screen.getVisualBounds();
+		log.info(String.format("Moving into bounds %s from %f,%f", bounds, primaryStage.getX(), primaryStage.getY()));
+		if(primaryStage.getX() < bounds.getMinX()) {
+			primaryStage.setX(bounds.getMinX());
+		}
+		else if(primaryStage.getX() + primaryStage.getWidth() > bounds.getMaxX()) {
+			primaryStage.setX(bounds.getMaxX() - primaryStage.getWidth());
+		}
+		if(primaryStage.getY() < bounds.getMinY()) {
+			primaryStage.setY(bounds.getMinY());
+		}
+		else if(primaryStage.getY() + primaryStage.getHeight() > bounds.getMaxY()) {
+			primaryStage.setY(bounds.getMaxY() - primaryStage.getHeight());
 		}
 	}
 
