@@ -8,10 +8,10 @@ import java.util.concurrent.Callable;
 
 import org.apache.commons.lang3.StringUtils;
 import org.freedesktop.dbus.exceptions.DBusException;
-import org.freedesktop.dbus.interfaces.DBusSigHandler;
 
 import com.logonbox.vpn.client.cli.CLIContext;
 import com.logonbox.vpn.client.cli.StateHelper;
+import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
@@ -76,36 +76,28 @@ public class Connect extends AbstractConnectionCommand implements Callable<Integ
 		Type status = Type.valueOf(connection.getStatus());
 		if (status == Type.DISCONNECTED) {
 			try (StateHelper stateHelper = new StateHelper(connection, cli.getBus())) {
-				DBusSigHandler<VPNConnection.Authorize> sigHandler = new DBusSigHandler<VPNConnection.Authorize>() {
-					@Override
-					public void handle(VPNConnection.Authorize sig) {
-						try {
-							cli.getConsole().err().println(
-									"This connection requires authorization, which is not currently supported by the CLI tools. Please use the GUI to authorize this connection.");
-							stateHelper.interrupt();
-						} catch (IOException ioe) {
-							throw new IllegalStateException("Cannot write to console.", ioe);
-						}
+				if (!cli.isQuiet())
+					out.println(String.format("Connecting to %s", connection.getUri(true)));
+				stateHelper.on(Type.AUTHORIZING, (state, mode) -> {
+					if(mode.equals(Mode.SERVICE)) {
+						out.println("Service auth");
 					}
-				};
-				cli.getBus().addSigHandler(VPNConnection.Authorize.class, connection, sigHandler);
-				try {
+					else {
+						throw new UnsupportedOperationException(
+								String.format("This connection requires an authorization type, %s,  which is not currently supported by the CLI tools.", mode));
+					}
+				});
+				stateHelper.start(Type.CONNECTING);
+				connection.connect();
+				status = stateHelper.waitForState(Type.CONNECTED, Type.DISCONNECTED);
+				if (status == Type.CONNECTED) {
 					if (!cli.isQuiet())
-						out.println(String.format("Connecting to %s", connection.getUri(true)));
-					stateHelper.start(Type.CONNECTING);
-					connection.connect();
-					status = stateHelper.waitForState(Type.CONNECTED, Type.DISCONNECTED);
-					if (status == Type.CONNECTED) {
-						if (!cli.isQuiet())
-							out.println("Ready");
-						return 0;
-					} else {
-						if (!cli.isQuiet())
-							err.println(String.format("Failed to connect to %s", connection.getUri(true)));
-						return 1;
-					}
-				} finally {
-					cli.getBus().removeSigHandler(VPNConnection.Authorize.class, sigHandler);
+						out.println("Ready");
+					return 0;
+				} else {
+					if (!cli.isQuiet())
+						err.println(String.format("Failed to connect to %s", connection.getUri(true)));
+					return 1;
 				}
 			}
 		} else {

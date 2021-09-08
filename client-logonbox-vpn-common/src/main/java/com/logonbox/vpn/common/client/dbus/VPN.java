@@ -52,7 +52,7 @@ public interface VPN extends DBusInterface {
 
 	long getConnectionIdForURI(String uri);
 
-	long createConnection(String uri, boolean connectAtStartup, boolean stayConnected);
+	long createConnection(String uri, boolean connectAtStartup, boolean stayConnected, String mode);
 
 	int getNumberOfConnections();
 

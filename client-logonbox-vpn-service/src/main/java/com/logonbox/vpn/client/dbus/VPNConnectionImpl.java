@@ -65,6 +65,12 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 	}
 
 	@Override
+	public String getMode() {
+		assertRegistered();
+		return connection.getMode().name();
+	}
+
+	@Override
 	public String[] getAllowedIps() {
 		assertRegistered();
 		return connection.getAllowedIps().toArray(new String[0]);

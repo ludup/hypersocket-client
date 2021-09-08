@@ -721,7 +721,7 @@ public class ClientServiceImpl implements ClientService {
 
 							context.sendMessage(new VPNConnection.Authorize(
 									String.format("/com/logonbox/vpn/%d", conx.getConnection().getId()),
-									"/logonBoxVPNClient/"));
+									"/logonBoxVPNClient/", conx.getConnection().getMode().name()));
 
 							/* Done */
 							return;
@@ -841,7 +841,7 @@ public class ClientServiceImpl implements ClientService {
 			try {
 				log.info(String.format("Asking client to authorize %s", connection.getDisplayName()));
 				context.sendMessage(new VPNConnection.Authorize(
-						String.format("/com/logonbox/vpn/%d", connection.getId()), "/logonBoxVPNClient/"));
+						String.format("/com/logonbox/vpn/%d", connection.getId()), "/logonBoxVPNClient/", connection.getMode().name()));
 			} catch (DBusException e) {
 				throw new IllegalStateException("Failed to send message.", e);
 			}

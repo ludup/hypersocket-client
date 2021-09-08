@@ -60,6 +60,8 @@ import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.AbstractDBusClient.BusLifecycleListener;
 import com.logonbox.vpn.common.client.ConfigurationRepository;
+import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.DNSIntegrationMethod;
@@ -742,12 +744,16 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			@Override
 			public void handle(VPNConnection.Authorize sig) {
 				disconnectionReason = null;
-				VPNConnection connection = context.getDBus().getVPNConnection(sig.getId());
 				authorizeUri = sig.getUri();
-				maybeRunLater(() -> {
-//					setHtmlPage(connection.getUri(false) + sig.getUri());
-					selectPageForState(false, false);
-				});
+				if(Connection.Mode.valueOf(sig.getMode()).equals(Connection.Mode.CLIENT)) {
+					maybeRunLater(() -> {
+	//					setHtmlPage(connection.getUri(false) + sig.getUri());
+						selectPageForState(false, false);
+					});
+				}
+				else {
+					LOG.info(String.format("This client doest not handle the authorization mode '%s'", sig.getMode()));
+				}
 			}
 		});
 		bus.addSigHandler(VPNConnection.Connecting.class, connection, new DBusSigHandler<VPNConnection.Connecting>() {
@@ -889,7 +895,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		URI uriObj = Util.getUri(unprocessedUri);
 		context.getOpQueue().execute(() -> {
 			try {
-				context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup, stayConnected);
+				context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup, stayConnected, Mode.CLIENT.name());
 			} catch (Exception e) {
 				showError("Failed to add connection.", e);
 			}
@@ -1396,7 +1402,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				if (connectionId == -1) {
 					if (Main.getInstance().isCreateIfDoesntExist()) {
 						/* No existing configuration */
-						context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), true, true);
+						context.getDBus().getVPN().createConnection(uriObj.toASCIIString(), true, true, Mode.CLIENT.name());
 					} else {
 						showError(MessageFormat.format(bundle.getString("error.uriProvidedDoesntExist"), uriObj));
 					}

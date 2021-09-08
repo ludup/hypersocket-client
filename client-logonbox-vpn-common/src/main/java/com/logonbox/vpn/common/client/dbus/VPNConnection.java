@@ -14,6 +14,8 @@ public interface VPNConnection extends DBusInterface {
 
 	String getHostname();
 
+	String getMode();
+
 	int getPort();
 
 	String getUri(boolean withUsername);
@@ -249,10 +251,16 @@ public interface VPNConnection extends DBusInterface {
 	public static class Authorize extends DBusSignal {
 
 		private final String uri;
+		private final String mode;
 		
-		public Authorize(String path, String uri) throws DBusException {
-			super(path, uri);
+		public Authorize(String path, String uri, String mode) throws DBusException {
+			super(path, uri, mode);
 			this.uri = uri;
+			this.mode = mode;
+		}
+
+		public String getMode() {
+			return mode;
 		}
 
 		public String getUri() {
