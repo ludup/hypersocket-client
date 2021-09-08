@@ -459,9 +459,9 @@ public class ClientServiceImpl implements ClientService {
 	@Override
 	public List<ConnectionStatus> getStatus(String owner) {
 
-		List<ConnectionStatus> ret = new ArrayList<ConnectionStatus>();
+		List<ConnectionStatus> ret = new ArrayList<>();
 		Collection<Connection> connections = connectionRepository.getConnections(owner);
-		List<Connection> added = new ArrayList<Connection>();
+		List<Connection> added = new ArrayList<>();
 		synchronized (activeSessions) {
 			addConnections(ret, connections, added);
 			addConnections(ret, activeSessions.keySet(), added);
@@ -753,7 +753,7 @@ public class ClientServiceImpl implements ClientService {
 					log.warn(String.format(
 							"Front-end %s did not supply its list of extensions. Probably running in a development environment. Skipping updates.",
 							frontEnd.getPlace().getApp()));
-					appsToUpdate.clear();;
+					appsToUpdate.clear();
 				} else if (Boolean.getBoolean("logonbox.automaticUpdates")) {
 
 					/* Do the separate GUI update */
@@ -828,7 +828,7 @@ public class ClientServiceImpl implements ClientService {
 			/*
 			 * Setup a timeout so that clients don't get stuck authorizing if nobody is
 			 * there to authorize.
-			 * 
+			 *
 			 * Put into the map before the event so the status would be correct if some
 			 * client queried it.
 			 */
@@ -902,7 +902,7 @@ public class ClientServiceImpl implements ClientService {
 
 	public void start() throws Exception {
 		boolean automaticUpdates = Boolean
-				.valueOf(configurationRepository.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"));
+				.valueOf(configurationRepository.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, String.valueOf(ConfigurationRepository.AUTOMATIC_UPDATES_DEFAULT)));
 
 		/*
 		 * Regardless of any other configuration or state, always check for updates
@@ -974,15 +974,16 @@ public class ClientServiceImpl implements ClientService {
 		}
 	}
 
+	@Override
 	public void stopService() {
-
+		if(!timer.isShutdown())
+			timer.shutdown();
 		synchronized (activeSessions) {
 			activeSessions.clear();
 			connectingSessions.clear();
 			authorizingClients.clear();
 			temporarilyOffline.clear();
 		}
-		timer.shutdown();
 	}
 
 	@Override
@@ -1019,7 +1020,7 @@ public class ClientServiceImpl implements ClientService {
 			updateThread.interrupt();
 		}
 	}
-	
+
 	public void update(boolean checkOnly) {
 		if (updating)
 			throw new IllegalStateException("Already updating.");
@@ -1069,7 +1070,7 @@ public class ClientServiceImpl implements ClientService {
 					 * For the GUI (and CLI), we get the extension place remotely, as the clients
 					 * themselves are best placed to know what extensions it has and where they
 					 * stored.
-					 * 
+					 *
 					 * However, it's possible the GUI or CLI is not yet running, so we only do this
 					 * if it is available. If this happens we may need to update it as well when it
 					 * eventually starts
@@ -1186,6 +1187,7 @@ public class ClientServiceImpl implements ClientService {
 
 	protected void doRestart() {
 		log.info("Restarting with exit 99.");
+		stopService();
 		System.exit(99);
 	}
 

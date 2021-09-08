@@ -448,6 +448,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		
 		try {
 			clientService.start();
+			Runtime.getRuntime().addShutdownHook(new Thread(() -> clientService.stopService()));
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to start client configuration service.", e);
 		}
@@ -480,8 +481,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		if (path != null) {
 			file = new File(path);
 		} else if (Boolean.getBoolean("hypersocket.development")) {
-			file = new File(System.getProperty("user.home") + File.separator + ".logonbox-vpn-client" + File.separator
-					+ "conf" + File.separator + type + ".properties");
+			file = new File(ClientService.CLIENT_CONFIG_HOME, type + ".properties");
 		} else {
 			file = new File("conf" + File.separator + type + ".properties");
 		}

@@ -7,6 +7,8 @@ public interface ConfigurationRepository {
 	public final static String DNS_INTEGRATION_METHOD = "dnsIntegrationMethod";
 	public final static String AUTOMATIC_UPDATES = "automaticUpdates";
 	public final static String PHASE = "phase";
+	
+	public static final boolean AUTOMATIC_UPDATES_DEFAULT = false;
 
 	String getValue(String name, String defaultValue);
 	

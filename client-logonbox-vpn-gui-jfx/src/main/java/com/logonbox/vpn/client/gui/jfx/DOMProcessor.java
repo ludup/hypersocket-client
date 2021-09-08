@@ -41,6 +41,7 @@ public class DOMProcessor {
 	private Map<String, Collection<String>> collections;
 
 	public DOMProcessor(VPN vpn, VPNConnection connection, Map<String, Collection<String>> collections, String lastErrorMessage, String lastErrorCause, String lastException, Branding branding, ResourceBundle pageBundle, ResourceBundle resources, Element documentElement, String disconnectionReason) {
+		
 		String errorText = "";
 		String exceptionText = "";
 		String errorCauseText = lastErrorCause == null ? "" : lastErrorCause;

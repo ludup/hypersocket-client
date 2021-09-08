@@ -36,7 +36,7 @@ import picocli.CommandLine.Spec;
 public abstract class AbstractDBusClient implements DBusClient {
 
 	public interface BusLifecycleListener {
-		void busInitializer(DBusConnection connection);
+		void busInitializer(DBusConnection connection) throws DBusException;
 
 		default void busGone() {
 		}
@@ -91,7 +91,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		this.supportsAuthorization = supportsAuthorization;
 	}
 
-	public void addBusLifecycleListener(BusLifecycleListener busInitializer) {
+	public void addBusLifecycleListener(BusLifecycleListener busInitializer) throws DBusException {
 		this.busLifecycleListeners.add(busInitializer);
 		if (busAvailable) {
 			busInitializer.busInitializer(conn);
@@ -139,7 +139,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		scheduler.shutdown();
 	}
 
-	protected void init() throws Exception {
+	protected final void init() throws Exception {
 		
 		if (vpn != null) {
 			getLog().debug("Call to init when already have bus.");
@@ -250,7 +250,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		}
 		return map;
 	}
-
+	
 	private void cancelPingTask() {
 		if (pingTask != null) {
 			getLog().info("Stopping pinging.");

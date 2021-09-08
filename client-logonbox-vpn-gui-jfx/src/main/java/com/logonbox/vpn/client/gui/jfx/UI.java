@@ -138,6 +138,12 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			UI.this.selectPageForState(false, true);
 		}
 		
+		public void details(long id) {
+			VPNConnection connection = context.getDBus().getVPNConnection(id);
+			UI.this.connections.getSelectionModel().select(connection);
+			setHtmlPage("details.html");
+		}
+		
 		public void connect() {
 			VPNConnection selectedItem = UI.this.connections.getSelectionModel().getSelectedItem();
 			UI.this.connect(selectedItem == null ? UI.this.connections.getItems().get(0) : selectedItem);
@@ -451,7 +457,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			
 			/* Store locally in preference */
 			beans.put("automaticUpdates", Boolean
-					.valueOf(vpn.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true")));
+					.valueOf(vpn.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, String.valueOf(ConfigurationRepository.AUTOMATIC_UPDATES_DEFAULT))));
 			beans.put("ignoreLocalRoutes", Boolean
 					.valueOf(vpn.getValue(ConfigurationRepository.IGNORE_LOCAL_ROUTES, "true")));
 		}
@@ -1092,7 +1098,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 						maybeRunLater(() -> {
 							reapplyColors();
 							reapplyLogo();
-							selectPageForState(false, true);
+							if(htmlPage == null || !htmlPage.equals("details.html"))
+								selectPageForState(false, true);
 						});
 					});
 				});
@@ -1161,7 +1168,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	public void setAvailable() {
 		minimize.setVisible(!Main.getInstance().isNoMinimize() && Client.get().isMinimizeAllowed() && Client.get().isUndecoratedWindow());
 		minimize.setManaged(minimize.isVisible());
-		close.setVisible(!Main.getInstance().isNoClose() && Client.get().isMinimizeAllowed() && Client.get().isUndecoratedWindow());
+		close.setVisible(!Main.getInstance().isNoClose() && Client.get().isUndecoratedWindow());
 		close.setManaged(close.isVisible());
 		toggleSidebar.setVisible(!Main.getInstance().isNoSidebar());
 		toggleSidebar.setManaged(toggleSidebar.isVisible());
@@ -1369,7 +1376,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	private void processDOM() {
-		DOMProcessor processor = new DOMProcessor(context.getDBus().isBusAvailable() ? context.getDBus().getVPN() : null, getSelectedConnection(), collections, lastErrorMessage, lastErrorCause, lastException,
+		boolean busAvailable = context.getDBus().isBusAvailable();
+		DOMProcessor processor = new DOMProcessor(busAvailable ? context.getDBus().getVPN() : null, busAvailable ? getSelectedConnection() : null, collections, lastErrorMessage, lastErrorCause, lastException,
 				branding, pageBundle, resources, webView.getEngine().getDocument().getDocumentElement(),
 				disconnectionReason);
 		processor.process();
@@ -1604,7 +1612,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	private void reapplyColors() {
-		context.applyColors(branding, getScene().getRoot());
+		context.applyColors(branding, null);
 	}
 
 	private void reapplyLogo() {
@@ -1673,6 +1681,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		LOG.info("Given up waiting for bridge to start");
 		resetAwaingBridgeEstablish();
 		notify(resources.getString("givenUpWaitingForBridgeEstablish"), ToastType.ERROR);
+		selectPageForState(false, false);
 	}
 
 	/*
@@ -1749,34 +1758,31 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	private void selectPageForState(boolean connectIfDisconnected, boolean force) {
 		try {
-//			try {
-//				throw new Exception();
-//			}
-//			catch(Exception e) {
-//				log.info("selectPageForState " + connectIfDisconnected, e);
-//			}
-
 			AbstractDBusClient bridge = context.getDBus();
-			if (bridge.isBusAvailable() && bridge.getVPN().isUpdating() ) {
+			boolean busAvailable = bridge.isBusAvailable();
+			if (busAvailable && bridge.getVPN().isUpdating() ) {
 				setHtmlPage("updating.html");
-			} else if (bridge.isBusAvailable() && bridge.getVPN().isUpdatesEnabled() && bridge.getVPN().isNeedsUpdating()) {
+			} else if (busAvailable && bridge.getVPN().isUpdatesEnabled() && bridge.getVPN().isNeedsUpdating()) {
 				// An update is available
-//				log.warn(String.format("Update is available"));
-//				if (Boolean.valueOf(
-//						context.getDBus().getVPN().getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "true"))) {
-//					update();
-//				} else
+				log.warn(String.format("Update is available"));
+				if(bridge.getVPN().isUpdating()) {
+					setHtmlPage("updating.html");
+				}
+				else if (Boolean.valueOf(
+						context.getDBus().getVPN().getValue(ConfigurationRepository.AUTOMATIC_UPDATES, String.valueOf(ConfigurationRepository.AUTOMATIC_UPDATES_DEFAULT)))) {
+					update();
+				} else
 					setHtmlPage("updateAvailable.html");
 			} else {
-				if (bridge.isBusAvailable() && bridge.getVPN().getMissingPackages().length > 0) {
+				if (busAvailable && bridge.getVPN().getMissingPackages().length > 0) {
 					log.warn(String.format("Missing software packages"));
 					collections.put("packages", Arrays.asList(bridge.getVPN().getMissingPackages()));
 					setHtmlPage("missingSoftware.html");
 				} else {
 					VPNConnection sel = getSelectedConnection();
-					if (sel == null) {
+					if (sel == null || !busAvailable) {
 						/* There are no connections at all */
-						if (bridge.isBusAvailable()) {
+						if (busAvailable) {
 							/* The bridge is connected */
 							if (Main.getInstance().isNoAddWhenNoConnections()) {
 								if (Main.getInstance().isConnect()

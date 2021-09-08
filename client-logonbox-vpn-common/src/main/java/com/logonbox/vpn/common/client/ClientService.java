@@ -1,5 +1,6 @@
 package com.logonbox.vpn.common.client;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
@@ -10,6 +11,9 @@ import com.hypersocket.extensions.JsonExtensionUpdate;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 
 public interface ClientService  {
+	
+	public final static File CLIENT_HOME = new File(System.getProperty("user.home") + File.separator + ".logonbox-vpn-client");	
+	public final static File CLIENT_CONFIG_HOME = new File(CLIENT_HOME, "conf");
 	
 	int CONNECT_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.connectTimeout", "12"));
 	int HANDSHAKE_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.handshakeTimeout", "180"));
@@ -92,4 +96,6 @@ public interface ClientService  {
 	void deferUpdate();
 
 	void cancelUpdate();
+
+	void stopService();
 }

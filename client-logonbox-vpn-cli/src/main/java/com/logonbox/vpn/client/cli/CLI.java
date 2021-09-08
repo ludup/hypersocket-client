@@ -8,6 +8,7 @@ import java.util.ResourceBundle;
 import org.apache.commons.lang3.StringUtils;
 import org.freedesktop.dbus.DBusMatchRule;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
+import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import com.logonbox.vpn.client.cli.commands.Disconnect;
 import com.logonbox.vpn.client.cli.commands.Edit;
 import com.logonbox.vpn.client.cli.commands.Exit;
 import com.logonbox.vpn.client.cli.commands.Show;
+import com.logonbox.vpn.client.cli.commands.Update;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.dbus.DBusClient;
@@ -38,7 +40,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "logonbox-vpn-cli", mixinStandardHelpOptions = true, description = "Command line interface to the LogonBox VPN service.", subcommands = {
 		Connections.class, Connect.class, Create.class, Delete.class, Disconnect.class, Exit.class, Show.class,
-		About.class, Edit.class })
+		About.class, Edit.class, Update.class })
 public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBusClient {
 
 	static Logger log = LoggerFactory.getLogger(CLI.class);
@@ -63,13 +65,14 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 
 	private int appsToUpdate = -1;
 	private int appsUpdated = 0;
-	private boolean awaitingServiceStop = false;
+	private Thread awaitingServiceStop;
 	private ConsoleProvider console;
 	private boolean interactive = false;
 	private Updater updater;
 	private boolean exitWhenDone;
+	private Thread awaitingServiceStart;
 
-	public CLI() {
+	public CLI() throws DBusException {
 		/* TODO: Note this is a temporary hack due to issues with update server */
 		super(ExtensionTarget.VIRTUAL_MACHINE);
 		try {
@@ -77,6 +80,146 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 		} catch (IllegalArgumentException iae) {
 			console = new BufferedDevice();
 		}
+		
+		addBusLifecycleListener(new BusLifecycleListener() {
+
+			@Override
+			public void busInitializer(DBusConnection connection) throws DBusException {
+
+				giveUpWaitingForServiceStart();
+
+				if (monitor) {
+					getBus().addGenericSigHandler(new DBusMatchRule((String) null, "com.logonbox.vpn.VPN", (String) null),
+							(sig) -> {
+								try {
+									getConsole().err().println(sig);
+								} catch (IOException e) {
+									throw new IllegalStateException("Cannot write to console.");
+								}
+							});
+					getBus().addGenericSigHandler(
+							new DBusMatchRule((String) null, "com.logonbox.vpn.Connection", (String) null), (sig) -> {
+								try {
+									getConsole().err().println(sig);
+								} catch (IOException e) {
+									throw new IllegalStateException("Cannot write to console.");
+								}
+							});
+				}
+
+				getBus().addSigHandler(VPN.UpdateStart.class, new DBusSigHandler<VPN.UpdateStart>() {
+					@Override
+					public void handle(VPN.UpdateStart sig) {
+						if (isUpdateCancelled()) {
+							getVPN().cancelUpdate();
+						} else
+							updater.start(sig.getApp(), sig.getTotalBytesExpected());
+					}
+				});
+
+				getBus().addSigHandler(VPN.UpdateComplete.class, new DBusSigHandler<VPN.UpdateComplete>() {
+					@Override
+					public void handle(VPN.UpdateComplete sig) {
+						if (isUpdateCancelled()) {
+							getVPN().cancelUpdate();
+						} else {
+							updater.complete(sig.getApp());
+							appsUpdated++;
+							log.info(String.format("Update of %s complete, have now updated %d of %d apps", sig.getApp(),
+									appsUpdated, appsToUpdate));
+						}
+					}
+				});
+				getBus().addSigHandler(VPN.UpdateProgress.class, new DBusSigHandler<VPN.UpdateProgress>() {
+					@Override
+					public void handle(VPN.UpdateProgress sig) {
+						if (isUpdateCancelled()) {
+							getVPN().cancelUpdate();
+						} else
+							updater.progress(sig.getApp(), sig.getSinceLastProgress(), sig.getTotalSoFar());
+					}
+				});
+				getBus().addSigHandler(VPN.UpdateFailure.class, new DBusSigHandler<VPN.UpdateFailure>() {
+					@Override
+					public void handle(VPN.UpdateFailure sig) {
+						if (updater != null) {
+							updater.failure(sig.getApp(), sig.getMessage());
+							appsUpdated++;
+						}
+					}
+				});
+				getBus().addSigHandler(VPN.UpdateInit.class, new DBusSigHandler<VPN.UpdateInit>() {
+					@Override
+					public void handle(VPN.UpdateInit sig) {
+						appsToUpdate = sig.getApps();
+						appsUpdated = 0;
+						updater = new Updater(CLI.this) {
+							@Override
+							public void close() {
+								super.close();
+								updater = null;
+								appsToUpdate = 0;
+								appsUpdated = 0;
+							}
+						};
+						updater.show();
+					}
+				});
+
+				getBus().addSigHandler(VPN.UpdateDone.class, new DBusSigHandler<VPN.UpdateDone>() {
+					@Override
+					public void handle(VPN.UpdateDone sig) {
+						if (isUpdateCancelled()) {
+							getVPN().cancelUpdate();
+						} else {
+							if (sig.getFailureMessage() == null || sig.getFailureMessage().equals("")) {
+								if (sig.isRestart()) {
+									log.info(String.format("Apps updated, starting restart process"));
+									updater.done();
+									awaitingServiceStop = new Thread() {
+										@Override
+										public void run() {
+											try {
+												Thread.sleep(30000);
+											} catch (InterruptedException e) {
+											}
+											if (awaitingServiceStop != null)
+												updater.failure(null,
+														bundle.getString("client.update.serviceDidNotStopInTime"));
+										}
+									};
+									awaitingServiceStop.start();
+								}
+							} else {
+								updater.failure(null, sig.getFailureMessage());
+							}
+						}
+					}
+				});
+			}
+
+			@Override
+			public void busGone() {
+				if (awaitingServiceStop != null) {
+					// Bridge lost as result of update, wait for it to come back
+					giveUpWaitingForServiceStop();
+					log.info(String.format("Service stopped, awaiting restart"));
+					awaitingServiceStart = new Thread() {
+						@Override
+						public void run() {
+							try {
+								Thread.sleep(30000);
+							} catch (InterruptedException e) {
+							}
+							if (awaitingServiceStop != null)
+								giveUpWaitingForServiceStart();
+						}
+					};
+					awaitingServiceStart.start();
+				} 
+			}
+			
+		});
 	}
 
 	@Override
@@ -152,118 +295,21 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 	protected boolean isInteractive() {
 		return interactive;
 	}
-
-	protected void init() throws Exception {
-		super.init();
-
-		if (monitor) {
-			getBus().addGenericSigHandler(new DBusMatchRule((String) null, "com.logonbox.vpn.VPN", (String) null),
-					(sig) -> {
-						try {
-							getConsole().err().println(sig);
-						} catch (IOException e) {
-							throw new IllegalStateException("Cannot write to console.");
-						}
-					});
-			getBus().addGenericSigHandler(
-					new DBusMatchRule((String) null, "com.logonbox.vpn.Connection", (String) null), (sig) -> {
-						try {
-							getConsole().err().println(sig);
-						} catch (IOException e) {
-							throw new IllegalStateException("Cannot write to console.");
-						}
-					});
+	
+	private void giveUpWaitingForServiceStart() {
+		if(awaitingServiceStart != null) {
+			Thread t = awaitingServiceStart;
+			awaitingServiceStart = null;
+			t.interrupt();
 		}
-
-		getBus().addSigHandler(VPN.UpdateStart.class, new DBusSigHandler<VPN.UpdateStart>() {
-			@Override
-			public void handle(VPN.UpdateStart sig) {
-				if (isUpdateCancelled()) {
-					getVPN().cancelUpdate();
-				} else
-					updater.start(sig.getApp(), sig.getTotalBytesExpected());
-			}
-		});
-
-		getBus().addSigHandler(VPN.UpdateComplete.class, new DBusSigHandler<VPN.UpdateComplete>() {
-			@Override
-			public void handle(VPN.UpdateComplete sig) {
-				if (isUpdateCancelled()) {
-					getVPN().cancelUpdate();
-				} else {
-					updater.complete(sig.getApp());
-					appsUpdated++;
-					log.info(String.format("Update of %s complete, have now updated %d of %d apps", sig.getApp(),
-							appsUpdated, appsToUpdate));
-				}
-			}
-		});
-		getBus().addSigHandler(VPN.UpdateProgress.class, new DBusSigHandler<VPN.UpdateProgress>() {
-			@Override
-			public void handle(VPN.UpdateProgress sig) {
-				if (isUpdateCancelled()) {
-					getVPN().cancelUpdate();
-				} else
-					updater.progress(sig.getApp(), sig.getSinceLastProgress(), sig.getTotalSoFar());
-			}
-		});
-		getBus().addSigHandler(VPN.UpdateFailure.class, new DBusSigHandler<VPN.UpdateFailure>() {
-			@Override
-			public void handle(VPN.UpdateFailure sig) {
-				if (updater != null) {
-					updater.failure(sig.getApp(), sig.getMessage());
-					appsUpdated++;
-				}
-			}
-		});
-		getBus().addSigHandler(VPN.UpdateInit.class, new DBusSigHandler<VPN.UpdateInit>() {
-			@Override
-			public void handle(VPN.UpdateInit sig) {
-				appsToUpdate = sig.getApps();
-				appsUpdated = 0;
-				updater = new Updater(CLI.this) {
-					@Override
-					public void close() {
-						super.close();
-						updater = null;
-						appsToUpdate = 0;
-						appsUpdated = 0;
-					}
-				};
-				updater.show();
-			}
-		});
-
-		getBus().addSigHandler(VPN.UpdateDone.class, new DBusSigHandler<VPN.UpdateDone>() {
-			@Override
-			public void handle(VPN.UpdateDone sig) {
-				if (isUpdateCancelled()) {
-					getVPN().cancelUpdate();
-				} else {
-					if (sig.getFailureMessage() == null || sig.getFailureMessage().equals("")) {
-						if (sig.isRestart()) {
-							log.info(String.format("Connections apps updated, starting restart process"));
-							updater.done();
-							awaitingServiceStop = true;
-							new Thread() {
-								@Override
-								public void run() {
-									try {
-										Thread.sleep(30000);
-									} catch (InterruptedException e) {
-									}
-									if (awaitingServiceStop)
-										updater.failure(null,
-												bundle.getString("client.update.serviceDidNotStopInTime"));
-								}
-							}.start();
-						}
-					} else {
-						updater.failure(null, sig.getFailureMessage());
-					}
-				}
-			}
-		});
+	}
+	
+	private void giveUpWaitingForServiceStop() {
+		if(awaitingServiceStop != null) {
+			Thread t = awaitingServiceStop;
+			awaitingServiceStop = null;
+			t.interrupt();
+		}
 	}
 
 	private boolean isUpdateCancelled() {
@@ -272,7 +318,7 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 
 	@Command(name = "logonbox-vpn-cli-interactive", mixinStandardHelpOptions = true, description = "Interactive shell.", subcommands = {
 			Connections.class, Connect.class, Create.class, Delete.class, Disconnect.class, Exit.class, Show.class,
-			About.class, Edit.class })
+			About.class, Edit.class, Update.class })
 
 	class InteractiveConsole implements Runnable, CLIContext {
 		@Override

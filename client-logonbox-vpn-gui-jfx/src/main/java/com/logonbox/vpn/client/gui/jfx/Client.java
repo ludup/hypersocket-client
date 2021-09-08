@@ -9,6 +9,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.net.CookieHandler;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.CookieStore;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -66,7 +70,6 @@ import com.logonbox.vpn.common.client.api.Branding;
 import com.logonbox.vpn.common.client.api.BrandingInfo;
 
 import javafx.application.Application;
-import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
@@ -133,7 +136,7 @@ public class Client extends Application implements X509TrustManager {
 	static final boolean useLocalHTTPService = System.getProperty("logonbox.vpn.useLocalHTTPService", "false")
 			.equals("true");
 
-	//	private CookieHandler originalCookieHander;
+	private CookieHandler originalCookieHander;
 	private static Client instance;
 	
 	public static Alert createAlertWithOptOut(AlertType type, String title, String headerText, String message,
@@ -410,77 +413,29 @@ public class Client extends Application implements X509TrustManager {
 		return tray;
 	}
 
-//	protected void updateCookieHandlerState() {
-//		boolean isPersistJar = !(CookieHandler.getDefault() instanceof CookieManager);
+	protected void updateCookieHandlerState() {
+		CookieHandler default1 = CookieHandler.getDefault();
+		boolean isPersistJar = default1 instanceof CookieManager;
 //		boolean wantsPeristJar = Configuration.getDefault().saveCookiesProperty().get();
-//		if(isPersistJar != wantsPeristJar) {
-//			if(wantsPeristJar) {
-//				log.info("Using Webkit cookie manager");
-//				CookieHandler.setDefault(originalCookieHander);
-//			}
-//			else {
-//				log.info("Using in memory cookie manager");
-//				/* This cookie handler simulates clearing the
-//				 * cookies by returning null for gets until the 
-//				 * first put. The cookies will have actually been persisted.
-//				 */
-//				CookieHandler.setDefault(new CookieManager() {
-//					
-//					Set<String> requestedCookies = new HashSet<>();
-//
-//				    public void
-//				        put(URI uri, Map<String, List<String>> responseHeaders)
-//				        throws IOException
-//				    {
-//				    	List<String> cookieHeaders = responseHeaders.get("Set-Cookie");
-//				    	for(String cookieHeader : cookieHeaders) {
-//				    		/* We only need the cookie name */
-//				    		int idx = cookieHeader.indexOf('=');
-//				    		if(idx != -1) {
-//				    			String cookieName = cookieHeader.substring(0, idx);
-//				    			requestedCookies.add(cookieName);
-//				    		}
-//				    	}
-//				    	originalCookieHander.put(uri, responseHeaders);
-//				    }
-//
-//					@Override
-//					public Map<String, List<String>> get(URI uri, Map<String, List<String>> requestHeaders)
-//							throws IOException {
-//						// TODO Auto-generated method stub
-//						Map<String, List<String>> map = originalCookieHander.get(uri, requestHeaders);
-//						List<String> cookies = map.get("Cookie");
-//						if(cookies != null) {
-//					    	log.info("Getting cookie for " + uri + ": " + requestHeaders + " ============ " + map + " >>>>>>>>>> " + cookies + " (" + cookies.size() + ")");
-//							List<String> actualCookies = new ArrayList<>();
-//							for(String cookieList : cookies) {
-//								List<String> actualCookie = new ArrayList<>();
-//								for(String cookie : cookieList.split(";")) {
-//									cookie = cookie.trim();
-//									int idx = cookie.indexOf('=');
-//									String cookieName = cookie.substring(0, idx);
-//									if(requestedCookies.contains(cookieName)) {
-//										actualCookie.add(cookie);
-//									}
-//								}
-//								String actualCookieList = String.join(";", actualCookie);
-//								actualCookies.add(actualCookieList);
-//							}
-//							Map<String, List<String>> newMap = new HashMap<>(map);
-//							if(actualCookies.isEmpty()) {
-//								newMap.remove("Cookie");
-//							}
-//							else {
-//								newMap.put("Cookie", actualCookies);
-//							}
-//							return newMap;
-//						}
-//						return map;
-//					}
-//				});
-//			}
-//		}
-//	}
+		boolean wantsPeristJar = false;
+		if(isPersistJar != wantsPeristJar) {
+			if(wantsPeristJar) {
+				log.info("Using in custom cookie manager");
+				CookieManager mgr = createCookieManager();
+				CookieHandler.setDefault(mgr);
+			}
+			else {
+				log.info("Using Webkit cookie manager");
+				CookieHandler.setDefault(originalCookieHander);
+			}
+		}
+	}
+
+	protected CookieManager createCookieManager() {
+		CookieStore store =new CustomCookieStore();
+		CookieManager mgr = new CookieManager(store, CookiePolicy.ACCEPT_ORIGINAL_SERVER);
+		return mgr;
+	}
 
 	public boolean isWaitingForExitChoice() {
 		return waitingForExitChoice;
@@ -711,9 +666,9 @@ public class Client extends Application implements X509TrustManager {
 			}
 		});
 
-//		this.originalCookieHander = CookieHandler.getDefault();
-//		updateCookieHandlerState();
-//		Configuration.getDefault().saveCookiesProperty().addListener((e) -> updateCookieHandlerState());
+		this.originalCookieHander = CookieHandler.getDefault();
+		updateCookieHandlerState();
+		Configuration.getDefault().saveCookiesProperty().addListener((e) -> updateCookieHandlerState());
 
 	}
 	
@@ -1005,6 +960,9 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	void applyColors(Branding branding, Parent node) {
+		if(node == null && ui != null)
+			node = ui.getScene().getRoot();
+		
 		this.branding = branding;
 
 		ObservableList<String> ss = node.getStylesheets();
@@ -1115,7 +1073,7 @@ public class Client extends Application implements X509TrustManager {
 	}
 
 	void reapplyColors() {
-		applyColors(branding, ui.getScene().getRoot());
+		applyColors(branding, null);
 	}
 
 	void writeJavaFXCSS(Branding branding) {

@@ -28,13 +28,27 @@
 			</div>
 		</div>
 	</div>
+	<footer class="fixed-bottom m-3">
+		<div class="container">
+			<div class="row">
+				<div class="col-6 pt-2">
+					<a href="options.html"><i
+						class="fa fa-cogs"></i><span data-i18n="options">Options</span></a>
+				</div>
+				<div class="col-6 text-end">
+					<a href="addLogonBoxVPN.html" class="align-middle"><i
+						class="fa fa-plus-circle fa-3x"></i></a>
+				</div>
+			</div>
+		</div>
+	</footer>
 
 
 	<script type="text/javascript">
 		function rebuildConnections() {
 			$('.row').off('mouseenter');
 			$('.row').off('mouseleave');
-            $('.row').off('click');
+			$('.row').off('click');
 			try {
 				var connections = bridge.getConnections();
 				var template = $('#connectionTemplate');
@@ -44,7 +58,7 @@
 				for (var i = 0; i < connections.length; i++) {
 					var connection = connections[i];
 					var connectionEl = template.clone();
-					connectionEl.attr('data-connection', connection.getPath());
+					connectionEl.attr('data-connection', connection.getId());
 					var nameEl = connectionEl.find('.connection-name')[0];
 					/* Name */
 					$(nameEl).html(connection.getDisplayName());
@@ -108,9 +122,9 @@
 			$('.row').on('mouseleave', function() {
 				$(this).removeClass('active');
 			});
-            $('.row').on('click', function() {
-                window.location = 'details.html#' + this.attr('data-connection');
-            });
+			$('.row').off('click').on('click', function() {
+				bridge.details(parseInt($(this).attr('data-connection')));
+			});
 		}
 
 		function uiReady() {
