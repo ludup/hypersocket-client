@@ -1,15 +1,88 @@
 package com.logonbox.vpn.common.client;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.MessageDigest;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
+import org.ini4j.Profile.Section;
 
 public class Util {
 
 	private static final boolean IS_64BIT = is64bit0();
+
+	public static String titleUnderline(int len) {
+		return repeat(len, '=');
+	}
+	
+	public static String repeat(int times, char ch) {
+		StringBuilder l = new StringBuilder();
+		for(int i = 0 ; i < times; i++) {
+			l.append('=');
+		}
+		return l.toString();
+	}
+
+	public static String hash(byte[] in) {
+		try {
+			MessageDigest md = MessageDigest.getInstance("SHA-1");
+			md.update(in);
+			byte[] bytes = md.digest();
+			return Base64.getEncoder().encodeToString(bytes);
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to hash.", e);
+		}
+	}
+
+	public static List<String> toStringList(Section section, String key) {
+		List<String> n = new ArrayList<>();
+		String val = section.get(key, "");
+		if (!val.equals("")) {
+			for (String a : val.split(",")) {
+				n.add(a.trim());
+			}
+		}
+		return n;
+	}
+	
+	public static String getOS() {
+		if (SystemUtils.IS_OS_WINDOWS) {
+			return "windows";
+		} else if (SystemUtils.IS_OS_LINUX) {
+			return "linux";
+		} else if (SystemUtils.IS_OS_MAC_OSX) {
+			return "osx";
+		} else {
+			return "other";
+		}
+	}
+	
+	public static String getDeviceName() {
+		String hostname = SystemUtils.getHostName();
+		if (StringUtils.isBlank(hostname)) {
+			try {
+				hostname = InetAddress.getLocalHost().getHostName();
+			} catch (Exception e) {
+				hostname = "Unknown Host";
+			}
+		}
+		String os = System.getProperty("os.name");
+		if (SystemUtils.IS_OS_WINDOWS) {
+			os = "Windows";
+		} else if (SystemUtils.IS_OS_LINUX) {
+			os = "Linux";
+		} else if (SystemUtils.IS_OS_MAC_OSX) {
+			os = "Mac OSX";
+		}
+		return os + " " + hostname;
+	}
 	
 	public static byte[] decodeHexString(String hexString) {
 		if (hexString.length() % 2 == 1) {

@@ -580,8 +580,8 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public String getValue(String name, String defaultValue) {
-		return configurationRepository.getValue(name, defaultValue);
+	public String getValue(String key, String defaultValue) {
+		return configurationRepository.getValue(key, defaultValue);
 	}
 
 	@Override
@@ -890,9 +890,14 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public void setValue(String name, String value) {
-		configurationRepository.setValue(name, value);
-		if (name.equals(ConfigurationRepository.LOG_LEVEL)) {
+	public String[] getKeys() {
+		return configurationRepository.getKeys();
+	}
+
+	@Override
+	public void setValue(String key, String value) {
+		configurationRepository.setValue(key, value);
+		if (key.equals(ConfigurationRepository.LOG_LEVEL)) {
 			if (StringUtils.isBlank(value))
 				org.apache.log4j.Logger.getRootLogger().setLevel(getContext().getDefaultLogLevel());
 			else

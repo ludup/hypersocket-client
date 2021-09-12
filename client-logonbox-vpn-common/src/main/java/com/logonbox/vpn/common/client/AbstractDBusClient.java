@@ -66,6 +66,12 @@ public abstract class AbstractDBusClient implements DBusClient {
 	private ScheduledFuture<?> pingTask;
 	private boolean supportsAuthorization;
 	private ExtensionTarget target;
+	private PromptingCertManager certManager;
+	/**
+	 * Matches the identifier in logonbox VPN server
+	 * PeerConfigurationAuthenticationProvider.java
+	 */
+	public static final String DEVICE_IDENTIFIER = "LBVPNDID";
 
 	protected AbstractDBusClient(ExtensionTarget target) {
 		this.target = target;
@@ -127,16 +133,31 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	public List<VPNConnection> getVPNConnections() {
-		lazyInit();
 		List<VPNConnection> l = new ArrayList<>();
-		for (String id : vpn.getConnections()) {
+		for (String id : getVPN().getConnections()) {
 			l.add(getVPNConnection(Long.parseLong(id)));
 		}
 		return l;
 	}
+	
+	public PromptingCertManager getCertManager() {
+		if(certManager == null) {
+			certManager = createCertManager();
+			certManager.installCertificateVerifier();
+		}
+		return certManager;
+	}
+
+	public ScheduledExecutorService getScheduler() {
+		return scheduler;
+	}
 
 	protected void exit() {
 		scheduler.shutdown();
+	}
+	
+	protected void disconnectFromBus() {
+		conn.disconnect();
 	}
 
 	protected final void init() throws Exception {
@@ -197,8 +218,8 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	protected void lazyInit() {
-		if (vpn == null) {
-			synchronized (initLock) {
+		synchronized (initLock) {
+			if (vpn == null) {
 				getLog().info("Trying connect to DBus");
 				try {
 					init();
@@ -266,6 +287,10 @@ public abstract class AbstractDBusClient implements DBusClient {
 			if (busAvailable) {
 				busAvailable = false;
 				vpn = null;
+				if(conn != null) {
+					conn.disconnect();
+					conn = null;
+				}
 				for (BusLifecycleListener b : busLifecycleListeners) {
 					b.busGone();
 				}
@@ -292,4 +317,6 @@ public abstract class AbstractDBusClient implements DBusClient {
 			}, 5, TimeUnit.SECONDS);
 		}
 	}
+
+	protected abstract PromptingCertManager createCertManager();
 }

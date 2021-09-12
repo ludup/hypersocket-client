@@ -4,13 +4,14 @@ import java.io.PrintWriter;
 import java.util.concurrent.Callable;
 
 import com.logonbox.vpn.client.cli.CLIContext;
+import com.logonbox.vpn.client.cli.ConsoleProvider;
 
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
-@Command(name = "update", mixinStandardHelpOptions = true, description = "Update the client.")
+@Command(name = "update", usageHelpAutoWidth = true, mixinStandardHelpOptions = true, description = "Update the client.")
 public class Update implements Callable<Integer> {
 
 	@Spec
@@ -25,27 +26,32 @@ public class Update implements Callable<Integer> {
 	@Override
 	public Integer call() throws Exception {
 		CLIContext cli = (CLIContext) spec.parent().userObject();
-		PrintWriter writer = cli.getConsole().out();
+		ConsoleProvider console = cli.getConsole();
+		PrintWriter writer = console.out();
 		cli.getVPN().checkForUpdate();
 		if(cli.getVPN().isNeedsUpdating()) {
 			if(checkOnly) {
 				writer.println(String.format("Version %s available.", cli.getVPN().getAvailableVersion()));
+				console.flush();
 				return 0;
 			}
 			else if(!yes) {
-				String answer = cli.getConsole().readLine("Version %s available. Update? (Y)/N: ", cli.getVPN().getAvailableVersion()).toLowerCase();
+				String answer = console.readLine("Version %s available. Update? (Y)/N: ", cli.getVPN().getAvailableVersion()).toLowerCase();
 				if(!answer.equals("") && !answer.equals("y") && !answer.equals("yes")) {
 					writer.println("Cancelled");
+					console.flush();
 					return 1;
 				}
 			}
 		}
 		else {
 			writer.println("You are on the latest version.");
+			console.flush();
 			return 3;
 		}
 		
 		cli.getVPN().update();
+		Thread.sleep(1000000);
 		
 		return 0;
 	}

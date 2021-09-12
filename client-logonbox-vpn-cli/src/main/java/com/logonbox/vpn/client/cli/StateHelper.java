@@ -4,11 +4,14 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
@@ -22,6 +25,7 @@ import com.logonbox.vpn.common.client.dbus.VPNConnection.Failed;
 import com.logonbox.vpn.common.client.dbus.VPNConnection.TemporarilyOffline;
 
 public class StateHelper implements Closeable {
+	static Logger log = LoggerFactory.getLogger(StateHelper.class);
 	
 	public interface StateChange {
 		void state(Type state, Mode mode) throws Exception;
@@ -40,6 +44,7 @@ public class StateHelper implements Closeable {
 	private Object lock = new Object();
 	private boolean interrupt;
 	private Map<Type, StateChange> onState = new HashMap<>();
+	private Exception error;
 
 	public StateHelper(VPNConnection connection, DBusConnection bus) throws DBusException {
 		this.connection = connection;
@@ -165,10 +170,17 @@ public class StateHelper implements Closeable {
 				if (ms < 0)
 					throw new InterruptedException("Timeout.");
 			}
+			if(error != null) {
+				if(error instanceof RuntimeException)
+					throw (RuntimeException)error;
+				else
+					throw new IllegalStateException(error);
+			}
 			return currentState;
 		}
 
 		finally {
+			error = null;
 			interrupt = false;
 		}
 	}
@@ -198,20 +210,32 @@ public class StateHelper implements Closeable {
 
 	void stateChange() {
 		synchronized (lock) {
-			currentState = Type.valueOf(connection.getStatus());
-			if(onState.containsKey(currentState))  {
+			Type newState = Type.valueOf(connection.getStatus());
+			if(!Objects.equals(currentState, newState)) { 
+				log.info(String.format("State change from %s to %s", currentState, newState));
+				currentState = newState;
 				try {
-					onState.get(currentState).state(currentState, Mode.valueOf(connection.getMode()));
-				} catch (Exception e) {
-					throw new IllegalStateException("Failed state change.", e);
+					if(onState.containsKey(currentState))  {
+						try {
+							onState.get(currentState).state(currentState, Mode.valueOf(connection.getMode()));
+						} catch (Exception e) {
+							error = e;
+							interrupt = true;
+							log.debug("Failed state change.", e);
+						}
+					}
+				}
+				finally {
+					lock.notifyAll();
 				}
 			}
-			lock.notifyAll();
 		}
 	}
 
 	public void start(Type state) {
 		currentState = state;
+		error = null;
+		interrupt = false;
 	}
 	
 	public void on(Type type, StateChange run) {

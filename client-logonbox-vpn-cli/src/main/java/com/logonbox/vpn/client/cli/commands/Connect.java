@@ -10,6 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.freedesktop.dbus.exceptions.DBusException;
 
 import com.logonbox.vpn.client.cli.CLIContext;
+import com.logonbox.vpn.client.cli.ConsoleProvider;
 import com.logonbox.vpn.client.cli.StateHelper;
 import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
@@ -20,7 +21,7 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-@Command(name = "connect", mixinStandardHelpOptions = true, description = "Connect a VPN.")
+@Command(name = "connect", usageHelpAutoWidth = true,  mixinStandardHelpOptions = true, description = "Connect a VPN.")
 public class Connect extends AbstractConnectionCommand implements Callable<Integer> {
 
 	@Spec
@@ -32,8 +33,9 @@ public class Connect extends AbstractConnectionCommand implements Callable<Integ
 	@Override
 	public Integer call() throws Exception {
 		CLIContext cli = (CLIContext) spec.parent().userObject();
-		PrintWriter out = cli.getConsole().out();
-		PrintWriter err = cli.getConsole().err();
+		ConsoleProvider console = cli.getConsole();
+		PrintWriter out = console.out();
+		PrintWriter err = console.err();
 
 		VPNConnection connection = null;
 
@@ -66,6 +68,8 @@ public class Connect extends AbstractConnectionCommand implements Callable<Integ
 			}
 		} else
 			connection = c.get(0);
+		
+		console.flush();
 
 		return doConnect(cli, out, err, connection);
 
@@ -76,11 +80,13 @@ public class Connect extends AbstractConnectionCommand implements Callable<Integ
 		Type status = Type.valueOf(connection.getStatus());
 		if (status == Type.DISCONNECTED) {
 			try (StateHelper stateHelper = new StateHelper(connection, cli.getBus())) {
-				if (!cli.isQuiet())
+				if (!cli.isQuiet()) {
 					out.println(String.format("Connecting to %s", connection.getUri(true)));
+					cli.getConsole().flush();
+				}
 				stateHelper.on(Type.AUTHORIZING, (state, mode) -> {
 					if(mode.equals(Mode.SERVICE)) {
-						out.println("Service auth");
+						register(cli, connection, out, err);
 					}
 					else {
 						throw new UnsupportedOperationException(
@@ -89,20 +95,34 @@ public class Connect extends AbstractConnectionCommand implements Callable<Integ
 				});
 				stateHelper.start(Type.CONNECTING);
 				connection.connect();
-				status = stateHelper.waitForState(Type.CONNECTED, Type.DISCONNECTED);
-				if (status == Type.CONNECTED) {
-					if (!cli.isQuiet())
-						out.println("Ready");
-					return 0;
-				} else {
-					if (!cli.isQuiet())
-						err.println(String.format("Failed to connect to %s", connection.getUri(true)));
-					return 1;
+				try {
+					status = stateHelper.waitForState(Type.CONNECTED, Type.DISCONNECTED);
+					if (status == Type.CONNECTED) {
+						if (!cli.isQuiet())
+							out.println("Ready");
+						cli.getConsole().flush();
+						return 0;
+					} else {
+						if (!cli.isQuiet())
+							err.println(String.format("Failed to connect to %s", connection.getUri(true)));
+						cli.getConsole().flush();
+						return 1;
+					}
+				}
+				catch(Exception e) {
+					disconnect(connection, cli);
+					log.info("Connection failed.", e);
+					err.println(String.format("Failed to connect. %s", e.getMessage()));
+					if(e.getMessage() == null)
+						e.printStackTrace(err);
+					cli.getConsole().flush();
+					return 2;
 				}
 			}
 		} else {
 			err.println(String.format("Request to connect an already connected or connecting to %s",
 					connection.getUri(true)));
+			cli.getConsole().flush();
 			return 1;
 		}
 	}

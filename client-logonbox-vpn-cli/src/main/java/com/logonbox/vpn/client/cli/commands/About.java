@@ -5,6 +5,7 @@ import java.util.concurrent.Callable;
 
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.cli.CLIContext;
+import com.logonbox.vpn.client.cli.ConsoleProvider;
 import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.dbus.VPN;
 
@@ -22,7 +23,8 @@ public class About implements Callable<Integer> {
 	public Integer call() throws Exception {
 		CLIContext cli = (CLIContext) spec.parent().userObject();
 		cli.about();
-		PrintWriter writer = cli.getConsole().out();
+		ConsoleProvider console = cli.getConsole();
+		PrintWriter writer = console.out();
 		if(HypersocketVersion.getVersion("com.logonbox/client-logonbox-vpn-cli").indexOf("-SNAPSHOT") != -1) {
 
 			try {
@@ -51,6 +53,7 @@ public class About implements Callable<Integer> {
 			writer.println(String.format("Used Memory: %s", Util.toHumanSize(usedMemory)));
 			
 		}
+		console.flush();
 		
 		return 0;
 	}

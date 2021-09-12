@@ -51,4 +51,19 @@ public class BufferedDevice implements ConsoleProvider {
 	public PrintWriter err() throws IOException {
 		return err;
 	}
+
+	@Override
+	public void flush() throws IOException {
+		out.flush();
+	}
+
+	@Override
+	public boolean isAnsi() {
+		return false;
+	}
+
+	@Override
+	public int width() {
+		return 80;
+	}
 }

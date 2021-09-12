@@ -58,9 +58,9 @@ public interface VPN extends DBusInterface {
 
 	long connect(String uri);
 
-	String getValue(String name, String defaultValue);
+	String getValue(String key, String defaultValue);
 	
-	void setValue(String name, String value); 
+	void setValue(String key, String value); 
 	
 	void disconnectAll();
 
@@ -69,6 +69,8 @@ public interface VPN extends DBusInterface {
 	void deregister();
 	
 	void deferUpdate();
+
+	String[] getKeys();
 
 //
 
@@ -211,7 +213,7 @@ public interface VPN extends DBusInterface {
 		}
 	}
 
-	public class UpdateProgress extends DBusSignal {
+	public static class UpdateProgress extends DBusSignal {
 
 		private final String app;
 		private final long sinceLastProgress;
@@ -245,7 +247,7 @@ public interface VPN extends DBusInterface {
 
 	}
 
-	public class UpdateStart extends DBusSignal {
+	public static  class UpdateStart extends DBusSignal {
 
 		private final String app;
 		private final long totalBytesExpected;
@@ -266,7 +268,7 @@ public interface VPN extends DBusInterface {
 
 	}
 
-	public class UpdateInit extends DBusSignal {
+	public static class UpdateInit extends DBusSignal {
 
 		private final int apps;
 
@@ -281,7 +283,7 @@ public interface VPN extends DBusInterface {
 
 	}
 
-	public class UpdateComplete extends DBusSignal {
+	public static class UpdateComplete extends DBusSignal {
 
 		private final String app;
 		private final long totalBytesTransfered;
@@ -302,7 +304,7 @@ public interface VPN extends DBusInterface {
 
 	}
 
-	public class UpdateFailure extends DBusSignal {
+	public static class UpdateFailure extends DBusSignal {
 
 		private final String app;
 		private final String message;
@@ -329,7 +331,7 @@ public interface VPN extends DBusInterface {
 
 	}
 
-	public class UpdateDone extends DBusSignal {
+	public static class UpdateDone extends DBusSignal {
 
 		private final boolean restart;
 		private final String failureMessage;

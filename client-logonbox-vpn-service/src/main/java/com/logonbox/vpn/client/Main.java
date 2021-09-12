@@ -24,6 +24,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -45,6 +49,7 @@ import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
 import org.freedesktop.dbus.connections.impl.DirectConnection;
 import org.freedesktop.dbus.connections.transports.TransportFactory;
 import org.freedesktop.dbus.exceptions.DBusException;
+import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.freedesktop.dbus.messages.Message;
 import org.freedesktop.dbus.utils.Util;
 import org.slf4j.Logger;
@@ -105,6 +110,8 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	private Map<String, VPNFrontEnd> frontEnds = Collections.synchronizedMap(new HashMap<>());
 	private EmbeddedDBusDaemon daemon;
 	private Level defaultLogLevel;
+	private ScheduledExecutorService queue = Executors.newSingleThreadScheduledExecutor();
+	private ScheduledFuture<?> connTask;
 
 	@Option(names = { "-a", "--address" }, description = "Address of Bus.")
 	private String address;
@@ -233,6 +240,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	}
 
 	public void shutdown() {
+		queue.shutdown();
 		shutdownEmbeddeDaemon();
 		System.exit(0);
 	}
@@ -288,6 +296,146 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			}
 		}
 	}
+	
+	private boolean connect() throws DBusException, IOException {
+		if(connTask != null) {
+			connTask.cancel(false);
+			connTask = null;
+		}
+		
+		String newAddress = address;
+		if (SystemUtils.IS_OS_LINUX && !embeddedBus) {
+			if (newAddress != null) {
+				log.info(String.format("Connectin to DBus @%s", newAddress));
+				conn = DBusConnection.getConnection(newAddress, true, true);
+				log.info(String.format("Ready on DBus @%s", newAddress));
+			} else if (OS.isAdministrator()) {
+				if(sessionBus) {
+					log.info("Per configuration, connecting to Session DBus");
+					conn = DBusConnection.getConnection(DBusBusType.SESSION);
+					log.info("Ready on Session DBus");
+					newAddress = conn.getAddress().getRawAddress();
+				}
+				else {
+					log.info("Connecting to System DBus");
+					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
+					log.info("Ready on System DBus");
+					newAddress = conn.getAddress().getRawAddress();
+				}
+			} else {
+				log.info("Not administrator, connecting to Session DBus");
+				conn = DBusConnection.getConnection(DBusBusType.SESSION);
+				log.info("Ready on Session DBus");
+				newAddress = conn.getAddress().getRawAddress();
+			}
+		} else {
+			if (newAddress == null) {
+				if (SystemUtils.IS_OS_UNIX && !tcpBus) {
+					log.info("Using UNIX domain socket bus");
+					newAddress = DirectConnection.createDynamicSession();
+				} else {
+					log.info("Using TCP bus");
+					newAddress = DirectConnection.createDynamicTCPSession();
+				}
+			}
+
+			BusAddress busAddress = new BusAddress(newAddress);
+			if (!busAddress.hasGuid()) {
+				newAddress += ",guid=" + TransportFactory.genGUID();
+				busAddress = new BusAddress(newAddress);
+			}
+			if(busAddress.isListeningSocket()) {
+				newAddress = newAddress.replace(",listen=true", "");
+				busAddress = new BusAddress(newAddress);
+			}
+			
+			boolean startedBus = false;
+			if(daemon == null) {
+				BusAddress listenBusAddress = new BusAddress(newAddress);
+				String listenAddress = newAddress;
+				if(!listenBusAddress.isListeningSocket()) {
+					listenAddress = newAddress + ",listen=true";
+					listenBusAddress = new BusAddress(listenAddress);
+				}
+	
+				log.info(String.format("Starting embedded bus on address %s (auth types: %s)", listenBusAddress.getRawAddress(), toAuthTypesString(authTypes)));
+				daemon = new EmbeddedDBusDaemon();
+				daemon.setAuthTypes(authTypes);
+				daemon.setAddress(listenBusAddress);
+				daemon.startInBackground();
+				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
+				startedBus = true;
+			}
+
+			log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
+			for (int i = 0; i < 6; i++) {
+				try {
+					conn = DBusConnection.getConnection(busAddress.getRawAddress());
+					log.info(String.format("Connected to embedded DBus %s", busAddress.getRawAddress()));
+					break;
+				} catch (DBusException dbe) {
+					if (i > 4)
+						throw dbe;
+					try {
+						Thread.sleep(500);
+					} catch (InterruptedException e) {
+						throw new IOException("Interrupted. ", e);
+					}
+				}
+			}
+			
+			/* Not ideal but we need read / write access to the domain socket from
+			 * non-root users. 
+			 * 
+			 * TODO secure this a bit. at least use a group permission
+			 */
+			if(startedBus) {
+				if( ( Platform.isLinux() || Util.isMacOs() ) && busAddress.getBusType().equals(AddressBusTypes.UNIX)) {
+					if(StringUtils.isNotBlank(busAddress.getPath())) {
+						Path path = Paths.get(busAddress.getPath());
+						Files.setPosixFilePermissions(path, new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
+					}
+				}
+			}
+		}
+		log.info(String.format("Requesting name from Bus %s", newAddress));
+
+		Properties properties = new Properties();
+		properties.put("address", newAddress);
+		File dbusPropertiesFile = getDBusPropertiesFile();
+		try (FileOutputStream out = new FileOutputStream(dbusPropertiesFile)) {
+			properties.store(out, "LogonBox VPN Client Service");
+		}
+		
+		conn.addSigHandler(org.freedesktop.dbus.interfaces.Local.Disconnected.class, new DBusSigHandler<org.freedesktop.dbus.interfaces.Local.Disconnected>() {
+
+			@Override
+			public void handle(org.freedesktop.dbus.interfaces.Local.Disconnected sig) {
+				try {
+					conn.removeSigHandler(org.freedesktop.dbus.interfaces.Local.Disconnected.class, this);
+				} catch (DBusException e1) {
+				}
+				log.info("Disconnected from Bus, retrying");
+				conn = null;
+				connTask = queue.schedule(() -> {
+					try {
+						connect();
+						publishDefaultServices();
+					} catch (DBusException | IOException e) {
+					}
+				}, 10, TimeUnit.SECONDS);
+				
+			}
+		});
+
+		try {
+			conn.requestBusName("com.logonbox.vpn");
+			return true;
+		} catch (Exception e) {
+			log.error("Failed to connect to DBus. No remote state monitoring or management.", e);
+			return false;
+		}
+	}
 
 	private boolean configureDBus() throws Exception {
 		/*
@@ -321,107 +469,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			}
 		}
 
-		File dbusPropertiesFile = getDBusPropertiesFile();
-
-		if (SystemUtils.IS_OS_LINUX && !embeddedBus) {
-			if (address != null) {
-				log.info(String.format("Connected to DBus @%s", address));
-				conn = DBusConnection.getConnection(address, true, true);
-				log.info(String.format("Ready to DBus @%s", address));
-			} else if (OS.isAdministrator()) {
-				if(sessionBus) {
-					log.info("Per configuration, connecting to Session DBus");
-					conn = DBusConnection.getConnection(DBusBusType.SESSION);
-					log.info("Ready to Session DBus");
-					address = conn.getAddress().getRawAddress();
-				}
-				else {
-					log.info("Connected to System DBus");
-					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
-					log.info("Ready to System DBus");
-					address = conn.getAddress().getRawAddress();
-				}
-			} else {
-				log.info("Not administrator, connecting to Session DBus");
-				conn = DBusConnection.getConnection(DBusBusType.SESSION);
-				log.info("Ready to Session DBus");
-				address = conn.getAddress().getRawAddress();
-			}
-		} else {
-			if (address == null) {
-				if (SystemUtils.IS_OS_UNIX && !tcpBus) {
-					log.info("Using UNIX domain socket bus");
-					address = DirectConnection.createDynamicSession();
-				} else {
-					log.info("Using TCP bus");
-					address = DirectConnection.createDynamicTCPSession();
-				}
-			}
-
-			BusAddress busAddress = new BusAddress(address);
-			if (!busAddress.hasGuid()) {
-				address += ",guid=" + TransportFactory.genGUID();
-				busAddress = new BusAddress(address);
-			}
-			if(busAddress.isListeningSocket()) {
-				address = address.replace(",listen=true", "");
-				busAddress = new BusAddress(address);
-			}
-			
-			BusAddress listenBusAddress = new BusAddress(address);
-			String listenAddress = address;
-			if(!listenBusAddress.isListeningSocket()) {
-				listenAddress = address + ",listen=true";
-				listenBusAddress = new BusAddress(listenAddress);
-			}
-
-			log.info(String.format("Starting embedded bus on address %s (auth types: %s)", listenBusAddress.getRawAddress(), toAuthTypesString(authTypes)));
-			daemon = new EmbeddedDBusDaemon();
-			daemon.setAuthTypes(authTypes);
-			daemon.setAddress(listenBusAddress);
-			daemon.startInBackground();
-			log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
-
-			log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
-			for (int i = 0; i < 6; i++) {
-				try {
-					conn = DBusConnection.getConnection(busAddress.getRawAddress());
-					log.info(String.format("Connected to embedded DBus %s", busAddress.getRawAddress()));
-					break;
-				} catch (DBusException dbe) {
-					if (i > 4)
-						throw dbe;
-					Thread.sleep(500);
-				}
-			}
-			
-			/* Not ideal but we need read / write access to the domain socket from
-			 * non-root users. 
-			 * 
-			 * TODO secure this a bit. at least use a group permission
-			 */
-			if( ( Platform.isLinux() || Util.isMacOs() ) && busAddress.getBusType().equals(AddressBusTypes.UNIX)) {
-				if(StringUtils.isNotBlank(busAddress.getPath())) {
-					Path path = Paths.get(busAddress.getPath());
-					Files.setPosixFilePermissions(path, new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
-				}
-			}
-		}
-		log.info(String.format("Requesting name from Bus %s", address));
-
-		Properties properties = new Properties();
-		properties.put("address", address);
-		try (FileOutputStream out = new FileOutputStream(dbusPropertiesFile)) {
-			properties.store(out, "LogonBox VPN Client Service");
-		}
-
-		try {
-			conn.requestBusName("com.logonbox.vpn");
-		} catch (Exception e) {
-			log.error("Failed to connect to DBus. No remote state monitoring or management.", e);
-			return false;
-		}
-		return true;
+		return connect();
 	}
 
 	private String toAuthTypesString(int authTypes) {

@@ -1,9 +1,11 @@
 package com.logonbox.vpn.client.cli.commands;
 
+import java.io.PrintWriter;
 import java.net.URI;
 import java.util.concurrent.Callable;
 
 import com.logonbox.vpn.client.cli.CLIContext;
+import com.logonbox.vpn.client.cli.ConsoleProvider;
 import com.logonbox.vpn.client.cli.StateHelper;
 import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
@@ -16,7 +18,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-@Command(name = "create", mixinStandardHelpOptions = true, description = "Create a new VPN connection.")
+@Command(name = "create", usageHelpAutoWidth = true, mixinStandardHelpOptions = true, description = "Create a new VPN connection.")
 public class Create extends AbstractConnectionCommand implements Callable<Integer> {
 
 	@Spec
@@ -51,9 +53,13 @@ public class Create extends AbstractConnectionCommand implements Callable<Intege
 		CLIContext cli = getCLI();
 
 		long connectionId = cli.getVPN().getConnectionIdForURI(uriObj.toASCIIString());
+		ConsoleProvider console = cli.getConsole();
+		PrintWriter err = console.err();
+		PrintWriter out = console.out();
 		if (connectionId > 0) {
 			if (!cli.isQuiet())
-				cli.getConsole().err().println(String.format("Connection for %s already exists", uriObj));
+				err.println(String.format("Connection for %s already exists", uriObj));
+			console.flush();
 			return 1;
 		}
 
@@ -66,7 +72,7 @@ public class Create extends AbstractConnectionCommand implements Callable<Intege
 				try (StateHelper stateHelper = new StateHelper(connection, cli.getBus())) {
 					stateHelper.on(Type.AUTHORIZING, (state, mode) -> {
 						if (mode.equals(Mode.SERVICE)) {
-							cli.getConsole().out().println("Service auth");
+							register(cli, connection, out, err);
 						} else {
 							throw new UnsupportedOperationException(String.format(
 									"This connection requires an authorization type, %s,  which is not currently supported by the CLI tools.",
@@ -77,13 +83,16 @@ public class Create extends AbstractConnectionCommand implements Callable<Intege
 					connection.connect();
 					Type status = stateHelper.waitForState(Type.DISCONNECTED, Type.CONNECTED);
 					if (status == Type.CONNECTED) {
-						if (!cli.isQuiet())
-							cli.getConsole().out().println("Ready");
+						if (!cli.isQuiet()) {
+							out.println("Ready");
+							console.flush();
+						}
 						return 0;
 					} else {
-						if (!cli.isQuiet())
-							cli.getConsole().err()
-									.println(String.format("Failed to connect to %s", connection.getUri(true)));
+						if (!cli.isQuiet()) {
+							err.println(String.format("Failed to connect to %s", connection.getUri(true)));
+							console.flush();
+						}
 						return 1;
 					}
 				}

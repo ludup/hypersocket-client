@@ -20,6 +20,11 @@ public class Updater {
 	public boolean isCancelled() {
 		return cancelled;
 	}
+	public void awaitingRestart() {
+		progressBar.setMessage(bundle.getString("client.update.awaitingRestart"));
+		progressBar.setVal(progressBar.getMax());
+		
+	}
 
 	public void awaitingNewService() {
 		progressBar.setMessage(bundle.getString("client.update.awaitingServiceStart"));
@@ -62,5 +67,6 @@ public class Updater {
 	public void show() {
 		progressBar.setVal(progressBar.getMin());
 	}
+
 
 }

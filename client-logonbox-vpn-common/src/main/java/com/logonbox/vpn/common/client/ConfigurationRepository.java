@@ -10,7 +10,9 @@ public interface ConfigurationRepository {
 	
 	public static final boolean AUTOMATIC_UPDATES_DEFAULT = false;
 
-	String getValue(String name, String defaultValue);
+	String getValue(String key, String defaultValue);
 	
-	void setValue(String name, String value); 
+	void setValue(String key, String value);
+
+	String[] getKeys(); 
 }

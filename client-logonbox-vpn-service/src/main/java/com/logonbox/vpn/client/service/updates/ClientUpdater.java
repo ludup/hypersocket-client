@@ -192,7 +192,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	protected void onUpdateComplete(long totalBytesTransfered, int totalUpdates) {
 		try {
-			cctx.sendMessage(new VPN.UpdateComplete("/com/logonbox/vpn", ExtensionPlace.getDefault().getApp(),
+			cctx.sendMessage(new VPN.UpdateComplete("/com/logonbox/vpn", extensionPlace.getApp(),
 					totalBytesTransfered));
 		} catch (DBusException e) {
 			throw new IllegalStateException("Failed to send event.", e);

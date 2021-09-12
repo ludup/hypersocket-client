@@ -8,7 +8,7 @@ import org.freedesktop.dbus.messages.DBusSignal;
 @DBusInterfaceName("com.logonbox.vpn.Connection")
 public interface VPNConnection extends DBusInterface {
 
-	void update(String name, String uri, boolean connectAtStartup);
+	void update(String name, String uri, boolean connectAtStartup, boolean stayConnected);
 
 	long save();
 
@@ -143,6 +143,8 @@ public interface VPNConnection extends DBusInterface {
 	String getPostDown();
 
 	String getPath();
+
+	String parse(String configIniFile);
 
 	public static class Connected extends DBusSignal {
 		public Connected(String path) throws DBusException {

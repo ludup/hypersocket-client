@@ -68,6 +68,12 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
+	public String[] getKeys() {
+		assertRegistered();
+		return ctx.getClientService().getKeys();
+	}
+
+	@Override
 	public String getAvailableVersion() {
 		assertRegistered();
 		return ctx.getClientService().getAvailableVersion();
@@ -114,11 +120,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public void update() {
 		assertRegistered();
-		new Thread("Updater") {
-			public void run() {
-				ctx.getClientService().update();
-			}
-		}.start();
+		ctx.getClientService().update();
 	}
 
 	@Override

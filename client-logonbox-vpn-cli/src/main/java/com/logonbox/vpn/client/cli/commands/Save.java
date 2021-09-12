@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 import com.logonbox.vpn.client.cli.CLIContext;
+import com.logonbox.vpn.client.cli.ConsoleProvider;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
 import picocli.CommandLine.Command;
@@ -11,7 +12,7 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-@Command(name = "save", mixinStandardHelpOptions = true, description = "Save a temporary connection as a permanent one.")
+@Command(name = "save", usageHelpAutoWidth = true, mixinStandardHelpOptions = true, description = "Save a temporary connection as a permanent one.")
 public class Save extends AbstractConnectionCommand implements Callable<Integer> {
 
 	@Spec
@@ -24,7 +25,7 @@ public class Save extends AbstractConnectionCommand implements Callable<Integer>
 	public Integer call() throws Exception {
 		CLIContext cli = getCLI();
 		String pattern = getPattern(cli, names);
-
+		ConsoleProvider console = cli.getConsole();
 		final List<VPNConnection> c = getConnectionsMatching(pattern, cli);
 		if (c.isEmpty())
 			throw new IllegalArgumentException(String.format("No connection matches %s", pattern));
@@ -33,9 +34,11 @@ public class Save extends AbstractConnectionCommand implements Callable<Integer>
 			long id = connection.save();
 			if (wasTransient) {
 				connection = cli.getVPNConnection(id);
-				if(!cli.isQuiet())
-					cli.getConsole().out()
+				if(!cli.isQuiet()) {
+					console.out()
 							.println(String.format("Saved %s, ID is now %d", connection.getUri(true), connection.getId()));
+					console.flush();
+				}
 			}
 		}
 

@@ -5,12 +5,13 @@ import java.io.PrintWriter;
 import org.apache.commons.lang3.StringUtils;
 
 import com.logonbox.vpn.client.cli.CLIContext;
+import com.logonbox.vpn.client.cli.ConsoleProvider;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 
-@Command(name = "show", mixinStandardHelpOptions = true, description = "Show connection details.")
+@Command(name = "show", usageHelpAutoWidth = true, mixinStandardHelpOptions = true, description = "Show connection details.")
 public class Show extends AbstractConnectionCommand {
 
 	@Parameters(description = "Show connection details.")
@@ -20,10 +21,12 @@ public class Show extends AbstractConnectionCommand {
 	public Integer call() throws Exception {
 		CLIContext cli = getCLI();
 		String pattern = getPattern(cli, names);
+		ConsoleProvider console = cli.getConsole();
 		for (VPNConnection c : getConnectionsMatching(pattern, cli)) {
-			printConnection(cli.getConsole().out(), c);
-			cli.getConsole().out().println();
+			printConnection(console.out(), c);
+			console.out().println();
 		}
+		console.flush();
 		return 0;
 	}
 
@@ -33,12 +36,16 @@ public class Show extends AbstractConnectionCommand {
 		writer.println(String.format(" Name: %s", connection.getName()));
 		writer.println(String.format(" Uri: %s", connection.getUri(true)));
 		writer.println(String.format(" Status: %s", connection.getStatus()));
+		writer.println(String.format(" Mode: %s", connection.getMode()));
 		writer.println(String.format(" Transient: %s", connection.isTransient() ? "Yes" : "No"));
 		writer.println(String.format(" Authorized: %s", connection.isAuthorized() ? "Yes" : "No"));
 		writer.println(String.format(" Shared: %s", connection.isShared() ? "Yes" : "No"));
+		writer.println(String.format(" Connect At Startup: %s", connection.isConnectAtStartup() ? "Yes" : "No"));
+		writer.println(String.format(" Stay Connected: %s", connection.isStayConnected() ? "Yes" : "No"));
 		writer.println(String.format(" Owner: %s", connection.getOwner()));
 		if(connection.isAuthorized()) {
 			writer.println(String.format("VPN"));
+			writer.println(String.format(" Interface: %s", connection.getInterfaceName()));
 			writer.println(String.format(" Address: %s", connection.getAddress()));
 			writer.println(String.format(" Endpoint: %s:%d", connection.getEndpointAddress(), connection.getEndpointPort()));
 			writer.println(String.format(" DNS: %s", String.join(",", connection.getDns())));
