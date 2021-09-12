@@ -14,4 +14,10 @@ public interface ConsoleProvider {
 	PrintWriter out() throws IOException;
 
 	PrintWriter err() throws IOException;
+	
+	void flush() throws IOException;
+	
+	boolean isAnsi();
+
+	int width();
 }

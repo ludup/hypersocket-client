@@ -4,6 +4,7 @@ import java.awt.Taskbar;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Callable;
+import java.util.prefs.Preferences;
 
 import javax.swing.UIManager;
 
@@ -16,8 +17,11 @@ import org.slf4j.LoggerFactory;
 import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
+import com.logonbox.vpn.common.client.PromptingCertManager;
 
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.scene.control.Alert.AlertType;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -236,5 +240,28 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 			Client.get().open();
 		}
 
+	}
+
+	@Override
+	protected PromptingCertManager createCertManager() {
+		return new PromptingCertManager(Client.BUNDLE) {
+
+			@Override
+			protected boolean isToolkitThread() {
+				return Platform.isFxApplicationThread();
+			}
+
+			@Override
+			protected void runOnToolkitThread(Runnable r) {
+				Platform.runLater(r);
+			}
+
+			@Override
+			protected boolean promptForCertificate(PromptType alertType, String title,
+					String content, String key, String hostname, String message, Preferences preference) {
+				return Client.get().promptForCertificate(AlertType.valueOf(alertType.name()), title, content, key, hostname, message, preference);
+			}
+			
+		};
 	}
 }

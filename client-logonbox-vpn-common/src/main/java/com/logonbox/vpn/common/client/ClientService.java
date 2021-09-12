@@ -98,4 +98,6 @@ public interface ClientService  {
 	void cancelUpdate();
 
 	void stopService();
+
+	String[] getKeys();
 }

@@ -580,8 +580,8 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public String getValue(String name, String defaultValue) {
-		return configurationRepository.getValue(name, defaultValue);
+	public String getValue(String key, String defaultValue) {
+		return configurationRepository.getValue(key, defaultValue);
 	}
 
 	@Override
@@ -721,7 +721,7 @@ public class ClientServiceImpl implements ClientService {
 
 							context.sendMessage(new VPNConnection.Authorize(
 									String.format("/com/logonbox/vpn/%d", conx.getConnection().getId()),
-									"/logonBoxVPNClient/"));
+									"/logonBoxVPNClient/", conx.getConnection().getMode().name()));
 
 							/* Done */
 							return;
@@ -841,7 +841,7 @@ public class ClientServiceImpl implements ClientService {
 			try {
 				log.info(String.format("Asking client to authorize %s", connection.getDisplayName()));
 				context.sendMessage(new VPNConnection.Authorize(
-						String.format("/com/logonbox/vpn/%d", connection.getId()), "/logonBoxVPNClient/"));
+						String.format("/com/logonbox/vpn/%d", connection.getId()), "/logonBoxVPNClient/", connection.getMode().name()));
 			} catch (DBusException e) {
 				throw new IllegalStateException("Failed to send message.", e);
 			}
@@ -890,9 +890,14 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	@Override
-	public void setValue(String name, String value) {
-		configurationRepository.setValue(name, value);
-		if (name.equals(ConfigurationRepository.LOG_LEVEL)) {
+	public String[] getKeys() {
+		return configurationRepository.getKeys();
+	}
+
+	@Override
+	public void setValue(String key, String value) {
+		configurationRepository.setValue(key, value);
+		if (key.equals(ConfigurationRepository.LOG_LEVEL)) {
 			if (StringUtils.isBlank(value))
 				org.apache.log4j.Logger.getRootLogger().setLevel(getContext().getDefaultLogLevel());
 			else

@@ -1,4 +1,4 @@
-package com.logonbox.vpn.client.gui.jfx;
+package com.logonbox.vpn.common.client;
 
 import java.security.AccessController;
 import java.security.KeyStore;
@@ -13,8 +13,9 @@ import javax.net.ssl.TrustManagerFactorySpi;
 public final class ClientTrustProvider extends Provider {
 	static final String TRUST_PROVIDER_ALG = "ClientTrustAlgorithm";
 	private static final String TRUST_PROVIDER_ID = "ClientTrustProvider";
+	private static TrustManager trustManager;
 
-	public ClientTrustProvider() {
+	public ClientTrustProvider(TrustManager trustManager) {
 		super(TRUST_PROVIDER_ID, "0.1", "Delegates to UI.");
 		AccessController.doPrivileged(new PrivilegedAction<Void>() {
 			public Void run() {
@@ -23,6 +24,7 @@ public final class ClientTrustProvider extends Provider {
 				return null;
 			}
 		});
+		ClientTrustProvider.trustManager = trustManager;
 	}
 
 	public final static class ClientTrustManagerFactory extends TrustManagerFactorySpi {
@@ -36,7 +38,7 @@ public final class ClientTrustProvider extends Provider {
 		}
 
 		protected TrustManager[] engineGetTrustManagers() {
-			return new TrustManager[] { Client.get() };
+			return new TrustManager[] { trustManager };
 		}
 
 		public static String getAlgorithm() {

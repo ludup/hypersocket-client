@@ -24,6 +24,7 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.updates.ClientUpdater;
 import com.logonbox.vpn.common.client.ConnectionImpl;
 import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
@@ -64,6 +65,12 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	public boolean isUpdatesEnabled() {
 		assertRegistered();
 		return ctx.getClientService().isUpdatesEnabled();
+	}
+
+	@Override
+	public String[] getKeys() {
+		assertRegistered();
+		return ctx.getClientService().getKeys();
 	}
 
 	@Override
@@ -113,11 +120,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public void update() {
 		assertRegistered();
-		new Thread("Updater") {
-			public void run() {
-				ctx.getClientService().update();
-			}
-		}.start();
+		ctx.getClientService().update();
 	}
 
 	@Override
@@ -221,7 +224,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
-	public long createConnection(String uri, boolean connectAtStartup, boolean stayConnected) {
+	public long createConnection(String uri, boolean connectAtStartup, boolean stayConnected, String mode) {
 		assertRegistered();
 		ConnectionImpl connection = new ConnectionImpl();
 		try {
@@ -233,6 +236,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 			VPNFrontEnd fe = ctx.getFrontEnd(DBusConnection.getCallInfo().getSource());
 			connection.setOwner(fe == null ? System.getProperty("user.name") : fe.getUsername());
 			connection.setConnectAtStartup(connectAtStartup);
+			connection.setMode(Mode.valueOf(mode));
 			connection.setStayConnected(stayConnected);
 			return ctx.getClientService().create(connection).getId();
 		}

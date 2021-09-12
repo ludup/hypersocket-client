@@ -10,6 +10,8 @@ import java.util.List;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -78,6 +80,10 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Column(nullable = false)
 	private String path = "/app";
 
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, columnDefinition =  "varchar(255) default 'CLIENT'")
+	private Mode mode = Mode.CLIENT;
+
 	@Column(columnDefinition = "boolean default false")
 	private boolean stayConnected;
 
@@ -107,6 +113,16 @@ public class ConnectionImpl implements Connection, Serializable {
 	@Override
 	public void setRouteAll(boolean routeAll) {
 		this.routeAll = routeAll;
+	}
+
+	@Override
+	public Mode getMode() {
+		return mode;
+	}
+
+	@Override
+	public void setMode(Mode mode) {
+		this.mode = mode;
 	}
 
 	@Override
