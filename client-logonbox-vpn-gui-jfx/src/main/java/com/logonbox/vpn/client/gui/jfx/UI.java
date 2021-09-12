@@ -63,6 +63,7 @@ import com.hypersocket.json.input.InputField;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.AbstractDBusClient.BusLifecycleListener;
+import com.logonbox.vpn.common.client.AuthenticationCancelledException;
 import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.Connection.Mode;
@@ -189,7 +190,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 			log.info("Left authorization.");
 			if(error)
-				throw new IOException("Authentication cancelled.");
+				throw new AuthenticationCancelledException();
 		}
 
 		@Override
@@ -218,7 +219,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				public void run() {
 					try {
 						serviceClient.register(selectedConnection);
-					} catch (IOException | URISyntaxException e) {
+					} catch(AuthenticationCancelledException ae) {
+						// Ignore, handled elsewhere
+					}catch (IOException | URISyntaxException e) {
 						maybeRunLater(() -> ui.showError("Failed to register.", e));
 					}
 				}
