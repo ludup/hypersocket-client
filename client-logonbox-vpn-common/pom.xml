@@ -26,23 +26,23 @@
 			<groupId>com.github.hypfvieh</groupId>
 			<artifactId>dbus-java</artifactId>
 			<version>4.0.0-SNAPSHOT</version>
-		</dependency>  
-        <dependency>
-            <groupId>com.github.hypfvieh</groupId>
-            <artifactId>dbus-java-transport-tcp</artifactId>
-            <version>4.0.0-SNAPSHOT</version>
-        </dependency>  
-        <dependency>
-            <groupId>com.github.hypfvieh</groupId>
-            <artifactId>dbus-java-transport-native-unixsocket</artifactId>
-            <version>4.0.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.ini4j</groupId>
-            <artifactId>ini4j</artifactId>
-            <version>0.5.4</version>
-        </dependency>
-        
+		</dependency>
+		<dependency>
+			<groupId>com.github.hypfvieh</groupId>
+			<artifactId>dbus-java-transport-tcp</artifactId>
+			<version>4.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.hypfvieh</groupId>
+			<artifactId>dbus-java-transport-native-unixsocket</artifactId>
+			<version>4.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.ini4j</groupId>
+			<artifactId>ini4j</artifactId>
+			<version>0.5.4</version>
+		</dependency>
+
 		<dependency>
 			<groupId>javax.persistence</groupId>
 			<artifactId>javax.persistence-api</artifactId>
@@ -60,6 +60,15 @@
 		</dependency>
 	</dependencies>
 	<repositories>
+		<repository>
+			<id>jdaptive-ext-snapshots</id>
+			<name>artifactory.javassh.com-snapshots</name>
+			<url>https://artifactory.jadaptive.com/ext-snapshots-local</url>
+			<snapshots/>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+		</repository>
 		<repository>
 			<id>ext-snapshots-local</id>
 			<name>ext-snapshots-local</name>
