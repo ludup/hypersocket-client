@@ -537,7 +537,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			beans.put("phase", "");
 			beans.put("automaticUpdates", "true");
 			beans.put("ignoreLocalRoutes", "true");
-			beans.put("dnsIntegrationMethods", DNSIntegrationMethod.AUTO.name());
+			beans.put("dnsIntegrationMethod", DNSIntegrationMethod.AUTO.name());
 		} else {
 			try {
 				Map<String, String> phases = vpn.getPhases();
@@ -1496,6 +1496,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	private String getBaseHtml() {
 		String htmlPage = this.htmlPage;
+		if(htmlPage == null)
+			return htmlPage;
 		int idx = htmlPage.indexOf('?');
 		if (idx != -1) {
 			htmlPage = htmlPage.substring(0, idx);
