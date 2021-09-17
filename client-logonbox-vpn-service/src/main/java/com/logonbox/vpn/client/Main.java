@@ -45,6 +45,7 @@ import org.freedesktop.dbus.connections.BusAddress;
 import org.freedesktop.dbus.connections.SASL;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
+import org.freedesktop.dbus.connections.impl.DirectConnection;
 import org.freedesktop.dbus.connections.transports.TransportFactory;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
@@ -336,12 +337,13 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				 *
 				 * TODO: switch to domain sockets all around with dbus-java 4.0.0+ :)
 				 */
-				if (/* SystemUtils.IS_OS_UNIX && */!tcpBus) {
+
+				if (SystemUtils.IS_OS_UNIX && !tcpBus) {
 					log.info("Using UNIX domain socket bus");
-					newAddress = TransportFactory.createDynamicSession("unix", true);
+					newAddress = DirectConnection.createDynamicSession();
 				} else {
 					log.info("Using TCP bus");
-					newAddress = TransportFactory.createDynamicSession("tcp", true);
+					newAddress = DirectConnection.createDynamicTCPSession();
 				}
 			}
 
@@ -369,32 +371,30 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 				log.info(String.format("Starting embedded bus on address %s (auth types: %s)",
 						listenBusAddress.getRawAddress(), toAuthTypesString(authTypes)));
-				daemon = new EmbeddedDBusDaemon(listenBusAddress);
+				daemon = new EmbeddedDBusDaemon();
+				daemon.setAuthTypes(authTypes);
+				daemon.setAddress(listenBusAddress);
 				daemon.startInBackground();
-				long sleepMs = 200;
-				long waited = 0;
-
-				while (!daemon.isRunning()) {
-					if (waited >= MAX_WAIT) {
-						throw new RuntimeException(
-								"EmbeddedDbusDaemon not started in the specified time of " + MAX_WAIT + " ms");
-					}
-
+				
+				log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
+				for (int i = 0; i < 6; i++) {
 					try {
-						Thread.sleep(sleepMs);
-					} catch (InterruptedException _ex) {
+						conn = DBusConnection.getConnection(busAddress.getRawAddress());
+						log.info(String.format("Connected to embedded DBus %s", busAddress.getRawAddress()));
 						break;
+					} catch (DBusException dbe) {
+						if (i > 4)
+							throw dbe;
+						try {
+							Thread.sleep(500);
+						} catch (InterruptedException e) {
+						}
 					}
-
-					waited += sleepMs;
 				}
 
 				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
 				startedBus = true;
 			}
-
-			log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
-			conn = DBusConnection.getConnection(busAddress.getRawAddress());
 
 			/*
 			 * Not ideal but we need read / write access to the domain socket from non-root
