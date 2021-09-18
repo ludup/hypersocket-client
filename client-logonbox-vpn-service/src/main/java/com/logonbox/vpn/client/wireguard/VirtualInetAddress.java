@@ -6,14 +6,14 @@ import java.util.Enumeration;
 
 import org.apache.commons.lang3.SystemUtils;
 
-public interface VirtualInetAddress {
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
+
+public interface VirtualInetAddress<P extends PlatformService<?>> {
 
 	boolean isUp();
 
 	/**
 	 * Entirely disconnect and delete the interface.
-	 * 
-	 * @throws IOException on any I/O error
 	 */
 	void delete() throws IOException;
 
@@ -59,5 +59,11 @@ public interface VirtualInetAddress {
 	void up() throws IOException;
 	
 	void dns(String[] dns) throws IOException;
+
+	VirtualInetAddress<P> method(DNSIntegrationMethod method);
+
+	DNSIntegrationMethod method();
+
+	P getPlatform();
 
 }

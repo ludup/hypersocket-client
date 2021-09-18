@@ -2,6 +2,7 @@ package com.logonbox.vpn.client;
 
 import java.util.Collection;
 
+import org.apache.log4j.Level;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.messages.Message;
 
@@ -30,4 +31,6 @@ public interface LocalContext {
 	DBusConnection getConnection();
 
 	Collection<VPNFrontEnd> getFrontEnds();
+
+	Level getDefaultLogLevel();
 }

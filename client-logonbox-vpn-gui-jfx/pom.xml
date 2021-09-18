@@ -29,6 +29,18 @@
 					</archive>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>com.nervepoint</groupId>
+				<artifactId>google-translate-v2-java-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>process-resources</phase>
+						<goals>
+							<goal>translate</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 
@@ -62,6 +74,11 @@
 			<version>${javafx.version}</version>
 		</dependency>
 		<dependency>
+		    <groupId>org.apache.commons</groupId>
+		    <artifactId>commons-text</artifactId>
+		    <version>1.9</version>
+		</dependency>
+		<dependency>
 			<groupId>org.openjfx</groupId>
 			<artifactId>javafx-fxml</artifactId>
 			<version>${javafx.version}</version>
@@ -74,7 +91,7 @@
 		<dependency>
 			<groupId>uk.co.bithatch</groupId>
 			<artifactId>FX-BorderlessScene</artifactId>
-			<version>5.0.3</version>
+			<version>5.0.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
@@ -86,20 +103,20 @@
 			<artifactId>two-slices</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
+        <dependency>
+            <groupId>org.controlsfx</groupId>
+            <artifactId>controlsfx</artifactId>
+            <version>11.1.0</version>
+        </dependency>
 		<dependency>
 			<groupId>com.github.hypfvieh</groupId>
 			<artifactId>dbus-java</artifactId>
-			<version>3.3.1-SNAPSHOT</version>
+			<version>3.3.1-LB-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.kordamp.bootstrapfx</groupId>
 			<artifactId>bootstrapfx-core</artifactId>
 			<version>0.4.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.ini4j</groupId>
-			<artifactId>ini4j</artifactId>
-			<version>0.5.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.kordamp.ikonli</groupId>
@@ -116,6 +133,17 @@
 			<artifactId>slf4j-log4j12</artifactId>
 			<version>1.7.30</version>
 		</dependency>
+		<dependency>
+		      <groupId>com.github.Dansoftowner</groupId>
+		      <artifactId>jSystemThemeDetector</artifactId>
+		      <version>3.6</version>
+		</dependency>
+        <dependency>
+            <groupId>de.jangassen</groupId>
+            <artifactId>jfa</artifactId>
+            <version>1.2.0</version>
+            <optional>true</optional>
+        </dependency>
 		<dependency>
 			<groupId>com.dorkbox</groupId>
 			<artifactId>SystemTray</artifactId>
@@ -141,8 +169,6 @@
 					<groupId>ch.qos.logback</groupId>
 					<artifactId>logback-classic</artifactId>
 				</exclusion>
-				<!-- <exclusion> <groupId>org.slf4j</groupId> <artifactId>slf4j-api</artifactId> 
-					</exclusion> -->
 				<exclusion>
 					<groupId>org.jetbrains.kotlin</groupId>
 					<artifactId>kotlin-stdlib-jdk8</artifactId>
@@ -172,6 +198,14 @@
 	</profiles>
 
 	<repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <releases />
+        </repository>
 		<repository>
 			<id>public-releases</id>
 			<name>public-releases</name>

@@ -1,7 +1,6 @@
 package com.logonbox.vpn.common.client;
 
 import java.io.File;
-import java.rmi.activation.UnknownObjectException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,14 +36,14 @@ import picocli.CommandLine.Spec;
 public abstract class AbstractDBusClient implements DBusClient {
 
 	public interface BusLifecycleListener {
-		void busInitializer(DBusConnection connection);
+		void busInitializer(DBusConnection connection) throws DBusException;
 
 		default void busGone() {
 		}
 	}
 
 	final static int DEFAULT_TIMEOUT = 10000;
-	static Logger log = LoggerFactory.getLogger(AbstractDBusClient.class);
+	static Logger log;
 
 	private static final String BUS_NAME = "com.logonbox.vpn";
 
@@ -67,18 +66,23 @@ public abstract class AbstractDBusClient implements DBusClient {
 	private ScheduledFuture<?> pingTask;
 	private boolean supportsAuthorization;
 	private ExtensionTarget target;
+	private PromptingCertManager certManager;
+	/**
+	 * Matches the identifier in logonbox VPN server
+	 * PeerConfigurationAuthenticationProvider.java
+	 */
+	public static final String DEVICE_IDENTIFIER = "LBVPNDID";
 
 	protected AbstractDBusClient(ExtensionTarget target) {
 		this.target = target;
 		scheduler = Executors.newScheduledThreadPool(1);
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
-				if(vpn != null) {
+				if (vpn != null) {
 					try {
 						vpn.deregister();
-					}
-					catch(Exception e) {
-						log.warn("De-registrating failed. Maybe service is already gone.");
+					} catch (Exception e) {
+						getLog().warn("De-registrating failed. Maybe service is already gone.");
 					}
 				}
 			}
@@ -93,7 +97,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		this.supportsAuthorization = supportsAuthorization;
 	}
 
-	public void addBusLifecycleListener(BusLifecycleListener busInitializer) {
+	public void addBusLifecycleListener(BusLifecycleListener busInitializer) throws DBusException {
 		this.busLifecycleListeners.add(busInitializer);
 		if (busAvailable) {
 			busInitializer.busInitializer(conn);
@@ -114,6 +118,8 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 	public VPN getVPN() {
 		lazyInit();
+		if(vpn == null)
+			throw new IllegalStateException("Bus not available.");
 		return vpn;
 	}
 
@@ -127,37 +133,65 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	public List<VPNConnection> getVPNConnections() {
-		lazyInit();
 		List<VPNConnection> l = new ArrayList<>();
-		for (String id : vpn.getConnections()) {
+		for (String id : getVPN().getConnections()) {
 			l.add(getVPNConnection(Long.parseLong(id)));
 		}
 		return l;
+	}
+	
+	public PromptingCertManager getCertManager() {
+		if(certManager == null) {
+			certManager = createCertManager();
+			certManager.installCertificateVerifier();
+		}
+		return certManager;
+	}
+
+	public ScheduledExecutorService getScheduler() {
+		return scheduler;
 	}
 
 	protected void exit() {
 		scheduler.shutdown();
 	}
+	
+	protected void disconnectFromBus() {
+		conn.disconnect();
+	}
 
-	protected void init() throws Exception {
+	protected final void init() throws Exception {
+		
+		if (vpn != null) {
+			getLog().debug("Call to init when already have bus.");
+			return;
+		}
 
-		log.debug("Getting bus.");
-		String busAddress = this.busAddress;
-		if (StringUtils.isNotBlank(busAddress)) {
-			conn = DBusConnection.getConnection(busAddress);
-		} else {
-			if (sessionBus) {
-				conn = DBusConnection.getConnection(DBusBusType.SESSION);
+		if(conn == null || !conn.isConnected()) {
+			String busAddress = this.busAddress;
+			if (StringUtils.isNotBlank(busAddress)) {
+				getLog().debug("Getting bus. " + this.busAddress);
+				conn = DBusConnection.getConnection(busAddress);
 			} else {
-				String fixedAddress = getServerDBusAddress();
-				if (fixedAddress == null) {
-					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
+				if (sessionBus) {
+					getLog().debug("Getting session bus.");
+					conn = DBusConnection.getConnection(DBusBusType.SESSION);
 				} else {
-					conn = DBusConnection.getConnection(fixedAddress);
+					String fixedAddress = getServerDBusAddress();
+					if (fixedAddress == null) {
+						getLog().debug("Getting system bus.");
+						conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
+					} else {
+						getLog().debug("Getting fixed bus " + fixedAddress);
+						conn = DBusConnection.getConnection(fixedAddress);
+					}
 				}
 			}
+			getLog().info("Got bus connection.");
 		}
-		log.debug("Got bus connection.");
+		else {
+			getLog().info("Already have bus connection.");
+		}
 
 		conn.addSigHandler(new DBusMatchRule((String) null, "org.freedesktop.DBus.Local", "Disconnected"),
 				new DBusSigHandler<Local.Disconnected>() {
@@ -175,84 +209,114 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	protected abstract boolean isInteractive();
+	
+	protected Logger getLog() {
+		if(log == null) {
+			log = LoggerFactory.getLogger(AbstractDBusClient.class);
+		}
+		return log;
+	}
 
 	protected void lazyInit() {
-		if (vpn == null) {
-			synchronized (initLock) {
-				log.info("Trying connect to DBus");
+		synchronized (initLock) {
+			if (vpn == null) {
+				getLog().info("Trying connect to DBus");
 				try {
 					init();
 				} catch (UnknownObject | DBusException | ServiceUnknown dbe) {
 					busGone();
 				} catch (RuntimeException re) {
+					re.printStackTrace();
 					throw re;
 				} catch (Exception e) {
+					e.printStackTrace();
 					throw new IllegalStateException("Failed to initialize.", e);
 				}
 			}
 		}
 	}
 
-	private void loadRemote() throws DBusException { 
-		vpn = conn.getRemoteObject(BUS_NAME, ROOT_OBJECT_PATH, VPN.class);
+	private void loadRemote() throws DBusException {
+		VPN newVpn = conn.getRemoteObject(BUS_NAME, ROOT_OBJECT_PATH, VPN.class);
 		ExtensionPlace place = ExtensionPlace.getDefault();
-		vpn.register(System.getProperty("user.name"), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
+		getLog().info("Got remote object, registering with DBus.");
+		newVpn.register(getEffectiveUser(), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
 				place.getUrls().stream().map(placeUrl -> placeUrl.toExternalForm()).collect(Collectors.toList())
-						.toArray(new String[0]), supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()), target.name());
+						.toArray(new String[0]),
+				supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()), target.name());
+		vpn = newVpn;
 		busAvailable = true;
-		log.info("Registered with DBus.");
+		getLog().info("Registered with DBus.");
 		pingTask = scheduler.scheduleAtFixedRate(() -> {
-			if (vpn != null) {
-				try {
-					vpn.ping();
-				} catch (Exception e) {
-					busGone();
+			synchronized(initLock) {
+				if (vpn != null) {
+					try {
+						vpn.ping();
+					} catch (Exception e) {
+						busGone();
+					}
 				}
 			}
 		}, 5, 5, TimeUnit.SECONDS);
 	}
 
+	protected String getEffectiveUser() {
+		return System.getProperty("user.name");
+	}
+
 	private Map<String, String> toStringMap(Map<String, File> bootstrapArchives) {
 		Map<String, String> map = new HashMap<String, String>();
-		for(Map.Entry<String, File> en : bootstrapArchives.entrySet()) { 
+		for (Map.Entry<String, File> en : bootstrapArchives.entrySet()) {
 			map.put(en.getKey(), en.getValue().getAbsolutePath());
 		}
 		return map;
 	}
-
+	
 	private void cancelPingTask() {
 		if (pingTask != null) {
-			log.info("Stopping pinging.");
+			getLog().info("Stopping pinging.");
 			pingTask.cancel(false);
 			pingTask = null;
 		}
 	}
 
 	private void busGone() {
-		cancelPingTask();
+		synchronized (initLock) {
+			cancelPingTask();
 
-		if (busAvailable) {
-			busAvailable = false;
-			vpn = null;
-			for (BusLifecycleListener b : busLifecycleListeners) {
-				b.busGone();
+			if (busAvailable) {
+				busAvailable = false;
+				vpn = null;
+				if(conn != null) {
+					conn.disconnect();
+					conn = null;
+				}
+				for (BusLifecycleListener b : busLifecycleListeners) {
+					b.busGone();
+				}
 			}
+
+			/*
+			 * Only really likely to happen with the embedded bus. As the service itself
+			 * hosts it.
+			 */
+			scheduler.schedule(() -> {
+				synchronized (initLock) {
+					try {
+						init();
+					} catch (DBusException | ServiceUnknown dbe) {
+						if(getLog().isDebugEnabled())
+							getLog().debug("Init() failed, retrying");
+						busGone();
+					} catch (RuntimeException re) {
+						throw re;
+					} catch (Exception e) {
+						throw new IllegalStateException("Failed to schedule new connection.", e);
+					}
+				}
+			}, 5, TimeUnit.SECONDS);
 		}
-
-		/*
-		 * Only really likely to happen with the embedded bus. As the service itself
-		 * hosts it.
-		 */
-		scheduler.schedule(() -> {
-			try {
-				init();
-			} catch (DBusException | ServiceUnknown dbe) {
-				busGone();
-			} catch (RuntimeException re) {
-				throw re;
-			} catch (Exception e) {
-				throw new IllegalStateException("Failed to schedule new connection.", e);
-			}
-		}, 5, TimeUnit.SECONDS);
 	}
+
+	protected abstract PromptingCertManager createCertManager();
 }

@@ -32,9 +32,11 @@ import org.slf4j.LoggerFactory;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
+import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.client.wireguard.windows.service.NetworkConfigurationService;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.client.impl.jna.win32.Kernel32;
 import com.sshtools.forker.common.XAdvapi32;
@@ -121,6 +123,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 						String description = args[1].trim();
 						if(description.equals("WireGuard Tunnel")) {
 							WindowsIP vaddr = new WindowsIP(name, description, this);
+							configureVirtualAddress(vaddr);
 							ips.add(vaddr);
 							break;
 						}
@@ -230,6 +233,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			LOG.info(String.format("No existing unused interfaces, creating new one (%s) for public key .", name,
 					configuration.getUserPublicKey()));
 			ip = new WindowsIP(name, "Wintun Userspace Tunnel", this);
+			configureVirtualAddress(ip);
 			LOG.info(String.format("Created %s", name));
 		} else
 			LOG.info(String.format("Using %s", ip.getName()));
@@ -307,7 +311,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			try {
 				ip.up();
 			}
-			catch(IOException ioe) {
+			catch(IOException  | RuntimeException ioe) {
 				/* Just installed service failed, clean it up */
 				if(install) {
 					ip.delete(); 
@@ -325,7 +329,17 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		ip = waitForFirstHandshake(configuration, ip, connectionStarted);
 		
 		/* DNS */
-		dns(configuration, ip);
+		try {
+			dns(configuration, ip);
+		}
+		catch(IOException | RuntimeException ioe) {
+			try {
+				doDisconnect(ip, logonBoxVPNSession);
+			}
+			catch(Exception e) {
+			}
+			throw ioe;
+		}
 
 		return ip;
 
@@ -618,5 +632,15 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 	protected void writeInterface(Connection configuration, Writer writer) {
 		PrintWriter pw = new PrintWriter(writer, true);
 		pw.println(String.format("Address = %s", configuration.getAddress()));
+	}
+
+	@Override
+	public void runHook(VPNSession session, String hookScript) throws IOException {
+		runHookViaPipeToShell(session, OsUtil.getPathOfCommandInPathOrFail("cmd.exe").toString(), "/c", hookScript);
+	}
+
+	@Override
+	public DNSIntegrationMethod dnsMethod() {
+		return DNSIntegrationMethod.NETSH;
 	}
 }

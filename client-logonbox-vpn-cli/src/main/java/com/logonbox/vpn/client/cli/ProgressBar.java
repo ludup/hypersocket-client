@@ -1,8 +1,9 @@
 package com.logonbox.vpn.client.cli;
 
-import java.io.IOException;
+import static org.fusesource.jansi.Ansi.ansi;
 
 import org.apache.commons.lang3.StringUtils;
+import org.fusesource.jansi.Ansi.Erase;
 
 public class ProgressBar {
 
@@ -65,35 +66,9 @@ public class ProgressBar {
 		updateBar();
 	}
 
-	public int getHeaderSize() {
-		return headerSize;
-	}
-
-	public void setHeaderSize(int headerSize) {
-		this.headerSize = headerSize;
-		updateBar();
-	}
-
-	public int getProgressSize() {
-		return progressSize;
-	}
-
-	public void setProgressSize(int progressSize) {
-		this.progressSize = progressSize;
-		updateBar();
-	}
-
-	public int getMessageSize() {
-		return messageSize;
-	}
-
-	public void setMessageSize(int messageSize) {
-		this.messageSize = messageSize;
-		updateBar();
-	}
-
 	protected void updateBar() {
 		try {
+			calcParts();
 			int v = Math.min(max, Math.max(min, val));
 			int pc = (int) (((float) (v - min) / (float) (max - min)) * (float) progressSize);
 			StringBuilder progress = new StringBuilder();
@@ -104,21 +79,41 @@ public class ProgressBar {
 					progress.append("-");
 				}
 			}
-			cli.getConsole().out()
-					.print(String.format("%-" + headerSize + "s |%s| %-" + messageSize + "s\r",
-							header == null ? "" : StringUtils.left(header, headerSize), progress,
-							message == null ? "" : StringUtils.left(message, messageSize)));
-		} catch (IOException ioe) {
+			ConsoleProvider console = cli.getConsole();
+			String hdr = String.format("%-" + headerSize + "s |%s| %-" + messageSize + "s",
+					header == null ? "" : StringUtils.left(header, headerSize), progress,
+					message == null ? "" : StringUtils.left(message, messageSize));
+			if (console.isAnsi()) {
+				console.out().print(ansi().cursorToColumn(0).append(hdr).eraseLine(Erase.FORWARD).cursorToColumn(0));
+			} else {
+				console.out().print(hdr + "\r");
+			}
+			console.flush();
+		} catch (Exception ioe) {
 			throw new IllegalStateException("Failed to clear.", ioe);
 		}
 	}
 
 	public void clear() {
 		try {
-			cli.getConsole().out().print(String
-					.format("%-" + headerSize + "s  %-" + progressSize + "s  %" + messageSize + "s\r", "", "", ""));
-		} catch (IOException ioe) {
+			calcParts();
+			ConsoleProvider console = cli.getConsole();
+			if (console.isAnsi()) {
+				console.out().print(ansi().eraseLine());
+			} else {
+				console.out().print(String
+						.format("%-" + headerSize + "s  %-" + progressSize + "s  %" + messageSize + "s\r", "", "", ""));
+			}
+			console.flush();
+		} catch (Exception ioe) {
 			throw new IllegalStateException("Failed to clear.", ioe);
 		}
+	}
+
+	private void calcParts() {
+		int rem = cli.getConsole().width() - 5;
+		headerSize = (int) ((float) rem / 5f);
+		progressSize = (int) ((float) rem / 3.75f);
+		messageSize = (int) ((float) rem / 1.875);
 	}
 }

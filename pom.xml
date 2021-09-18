@@ -1,5 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.hypersocket</groupId>
@@ -50,7 +49,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<javafx.version>11.0.2</javafx.version>
+		<javafx.version>16</javafx.version>
 	</properties>
 
 	<modules>
@@ -58,6 +57,7 @@
 		<module>client-logonbox-vpn-common</module>
 		<module>client-logonbox-vpn-gui-jfx</module>
 		<module>client-logonbox-vpn-cli</module>
+		<!-- <module>client-logonbox-vpn-winsrv</module> -->
 	</modules>
 
 	<dependencies>
@@ -128,6 +128,10 @@
 							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
 							<addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
 						</manifest>
+                        <manifestEntries>
+                          <X-Extension-Version>${project.version}</X-Extension-Version>
+                          <X-Extension-Priority>1</X-Extension-Priority>
+                        </manifestEntries>
 					</archive>
 				</configuration>
 			</plugin>
@@ -152,6 +156,9 @@
 						<goals>
 							<goal>jar</goal>
 						</goals>
+						<configuration>
+						      <skip>true</skip>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
@@ -242,28 +249,6 @@
 		</pluginManagement>
 	</build>
 
-	<profiles>
-		<profile>
-			<activation>
-				<jdk>[9,)</jdk>
-			</activation>
-			<build>
-				<pluginManagement>
-					<plugins>
-						<plugin>
-							<groupId>org.apache.maven.plugins</groupId>
-							<artifactId>maven-javadoc-plugin</artifactId>
-							<configuration>
-								<!-- TODO: Why is this STILL broken! -->
-								<javadocExecutable>${java.home}/bin/javadoc</javadocExecutable>
-							</configuration>
-						</plugin>
-					</plugins>
-				</pluginManagement>
-			</build>
-		</profile>
-	</profiles>
-
 	<repositories>
 		<repository>
 			<id>opensource-snapshots</id>
@@ -274,28 +259,52 @@
 			</releases>
 		</repository>
 		<repository>
+			<id>sonatype-oss-snapshots</id>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots />
+			<url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+		</repository>
+	</repositories>
+
+	<pluginRepositories>
+		<pluginRepository>
+			<id>libs-releases</id>
+			<url>https://artifactory.jadaptive.com/libs-releases-local</url>
+			<releases />
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</pluginRepository>
+		<pluginRepository>
+			<id>libs-snapshots</id>
+			<url>https://artifactory.jadaptive.com/libs-snapshots-local</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots />
+		</pluginRepository>
+		<pluginRepository>
 			<id>opensource-releases</id>
 			<url>https://artifactory.jadaptive.com/opensource-releases</url>
 			<releases />
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
-		</repository>
-	</repositories>
-
-	<pluginRepositories>
-		<pluginRepository>
-			<id>sonatype-oss-shapshots-plugins</id>
-			<url>https://oss.sonatype.org/content/groups/public</url>
-			<snapshots />
-			<releases>
-				<enabled>false</enabled>
-			</releases>
 		</pluginRepository>
 		<pluginRepository>
 			<id>opensource-snapshots</id>
 			<url>https://artifactory.jadaptive.com/opensource-snapshots</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
 			<snapshots />
+		</pluginRepository>
+		<pluginRepository>
+			<id>sonatype-oss-shapshots-plugins</id>
+			<url>https://oss.sonatype.org/content/groups/public</url>
+			<snapshots/>
 			<releases>
 				<enabled>false</enabled>
 			</releases>

@@ -5,6 +5,7 @@ public interface ConnectionStatus {
 	public enum Type {
 		DISCONNECTING,
 		DISCONNECTED,
+		TEMPORARILY_OFFLINE,
 		AUTHORIZING,
 		CONNECTING,
 		CONNECTED;	

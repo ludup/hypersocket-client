@@ -12,31 +12,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.wireguard.AbstractVirtualInetAddress;
-import com.logonbox.vpn.client.wireguard.DNSIntegrationMethod;
 import com.logonbox.vpn.client.wireguard.IpUtil;
-import com.logonbox.vpn.client.wireguard.VirtualInetAddress;
+import com.logonbox.vpn.client.wireguard.OsUtil;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.sshtools.forker.client.OSCommand;
 import com.sshtools.forker.services.Service;
 import com.sshtools.forker.services.Services;
 import com.sun.jna.platform.win32.Advapi32Util;
 import com.sun.jna.platform.win32.WinReg;
 
-public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInetAddress {
+public class WindowsIP extends AbstractVirtualInetAddress<WindowsPlatformServiceImpl> {
 	enum IpAddressState {
 		HEADER, IP, MAC
 	}
 
 	final static Logger LOG = LoggerFactory.getLogger(WindowsIP.class);
 
-	private DNSIntegrationMethod method = DNSIntegrationMethod.AUTO;
-	private WindowsPlatformServiceImpl platform;
 	private Object lock = new Object();
 	private String displayName;
 	private Set<String> domainsAdded = new LinkedHashSet<String>();
 	
 	public WindowsIP(String name, String displayName, WindowsPlatformServiceImpl platform) {
-		this.platform = platform;
-		this.name = name;
+		super(platform, name); 
 		this.displayName = displayName;
 	}
 
@@ -46,7 +43,7 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 			if (isUp()) {
 				down();
 			}
-			platform.uninstall(getServiceName());
+			getPlatform().uninstall(getServiceName());
 		}
 	}
 
@@ -54,22 +51,7 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	public void down() throws IOException {
 		synchronized (lock) {
 			try {
-
-				String currentDomains = Advapi32Util.registryGetStringValue
-		                (WinReg.HKEY_LOCAL_MACHINE,
-		                        "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList");
-				Set<String> currentDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
-				for(String dnsName : domainsAdded) {
-					LOG.info(String.format("Removing domain %s from search", dnsName));
-					currentDomainList.remove(dnsName);
-				}
-				String newDomains = String.join(",", currentDomainList);
-				if(!Objects.equals(currentDomains, newDomains)) {
-					LOG.info(String.format("Final domain search %s", newDomains));
-					Advapi32Util.registrySetStringValue
-		            (WinReg.HKEY_LOCAL_MACHINE,
-		                    "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList", newDomains);
-				}
+				unsetDns();
 				Services.get().stopService(getService());
 			} catch (IOException ioe) {
 				throw ioe;
@@ -77,15 +59,6 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 				throw new IOException("Failed to take interface down.", e);
 			}
 		}
-	}
-
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = super.hashCode();
-		result = prime * result + ((name == null) ? 0 : name.hashCode());
-		result = prime * result + ((peer == null) ? 0 : peer.hashCode());
-		return result;
 	}
 
 	@Override
@@ -102,12 +75,12 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 	protected Service getService() throws IOException {
 		Service service = Services.get().getService(getServiceName());
 		if (service == null)
-			throw new IOException(String.format("No service for interface %s.", name));
+			throw new IOException(String.format("No service for interface %s.", getName()));
 		return service;
 	}
 
 	protected String getServiceName() {
-		return WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + name;
+		return WindowsPlatformServiceImpl.TUNNEL_SERVICE_NAME_PREFIX + "$" + getName();
 	}
 
 	public boolean isInstalled() {
@@ -121,18 +94,9 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 		}
 	}
 
-	public DNSIntegrationMethod method() {
-		return method;
-	}
-
-	public VirtualInetAddress method(DNSIntegrationMethod method) {
-		this.method = method;
-		return this;
-	}
-
 	@Override
 	public String toString() {
-		return "Ip [name=" + name + ", peer=" + peer + "]";
+		return "Ip [name=" + getName() + ", peer=" + getPeer() + "]";
 	}
 
 	@Override
@@ -160,49 +124,98 @@ public class WindowsIP extends AbstractVirtualInetAddress implements VirtualInet
 
 	@Override
 	public void dns(String[] dns) throws IOException {
-		String[] dnsAddresses = IpUtil.filterAddresses(dns);
-		if(dnsAddresses.length > 2) {
-			LOG.warn("Windows only supports a maximum of 2 DNS servers. %d were supplied, the last %d will be ignored.", dnsAddresses.length, dnsAddresses.length - 2);
-		}
-		if(dnsAddresses.length > 1) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", dnsAddresses[0], "secondary");	
-		} 
-		else if(dnsAddresses.length < 2) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", "none", "secondary");	
-		}
-		if(dnsAddresses.length > 0) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", dnsAddresses[0], "primary");	
-		} 
-		else if(dnsAddresses.length < 1) {
-			OSCommand.adminCommand("netsh", "interface", "ipv4", "set", "dnsservers", name, "static", "none", "primary");	
-		}
+		if (dns == null || dns.length == 0) {
+			unsetDns();
+		} else {
+			DNSIntegrationMethod method = calcDnsMethod();
+			try {
+				LOG.info(String.format("Setting DNS for %s to %s using %s", getName(),
+						String.join(", ", dns), method));
+				switch (method) {
+				case NETSH:
+					/* Ipv4 */
+					String[] dnsAddresses = IpUtil.filterIpV4Addresses(dns);
+					if(dnsAddresses.length > 2) {
+						LOG.warn("Windows only supports a maximum of 2 DNS servers. %d were supplied, the last %d will be ignored.", dnsAddresses.length, dnsAddresses.length - 2);
+					}
 
-		String[] dnsNames = IpUtil.filterNames(dns);
-		String currentDomains = null;
-		try {
-			currentDomains = Advapi32Util.registryGetStringValue
-	                (WinReg.HKEY_LOCAL_MACHINE,
-	                        "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList");
-		}
-		catch(Exception e) {
-			//
-		}
-		Set<String> newDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
-		for(String dnsName : dnsNames) {
-			if(!newDomainList.contains(dnsName)) {
-				LOG.info(String.format("Adding domain %s to search", dnsName));
-				newDomainList.add(dnsName);
+					OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv4", "delete", "dnsservers", getName(), "all"));
+					if(dnsAddresses.length > 0) {
+						OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv4", "add", "dnsserver", getName(), dnsAddresses[0], "index=1", "no"));	
+					} 
+					if(dnsAddresses.length > 1) {
+						OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv4", "add", "dnsserver", getName(), dnsAddresses[1], "index=2", "no"));	
+					} 
+
+					/* Ipv6 */
+					dnsAddresses = IpUtil.filterIpV6Addresses(dns);
+					if(dnsAddresses.length > 2) {
+						LOG.warn("Windows only supports a maximum of 2 DNS servers. %d were supplied, the last %d will be ignored.", dnsAddresses.length, dnsAddresses.length - 2);
+					}
+
+					OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv6", "delete", "dnsservers", getName(), "all"));
+					if(dnsAddresses.length > 0) {
+						OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv6", "add", "dnsserver", getName(), dnsAddresses[0], "index=1", "no"));	
+					} 
+					if(dnsAddresses.length > 1) {
+						OSCommand.adminCommand(OsUtil.debugCommandArgs("netsh", "interface", "ipv6", "add", "dnsserver", getName(), dnsAddresses[1], "index=2", "no"));	
+					} 
+
+					String[] dnsNames = IpUtil.filterNames(dns);
+					String currentDomains = null;
+					try {
+						currentDomains = Advapi32Util.registryGetStringValue
+				                (WinReg.HKEY_LOCAL_MACHINE,
+				                        "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList");
+					}
+					catch(Exception e) {
+						//
+					}
+					Set<String> newDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains.split(",")));
+					for(String dnsName : dnsNames) {
+						if(!newDomainList.contains(dnsName)) {
+							LOG.info(String.format("Adding domain %s to search", dnsName));
+							newDomainList.add(dnsName);
+						}
+					}
+					String newDomains = String.join(",", newDomainList);
+					if(!Objects.equals(currentDomains, newDomains)) {
+						domainsAdded.clear();
+						domainsAdded.addAll(newDomainList);
+						LOG.info(String.format("Final domain search %s", newDomains));
+						Advapi32Util.registrySetStringValue
+			            (WinReg.HKEY_LOCAL_MACHINE,
+			                    "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList", newDomains);
+					}
+					break;
+				case NONE:
+					break;
+				default:
+					throw new UnsupportedOperationException(String.format("DNS integration method %s not supported.", method));
+				}
+			}
+			finally {
+				LOG.info("Done setting DNS");
 			}
 		}
-		String newDomains = String.join(",", newDomainList);
+		
+	}
+
+	private void unsetDns() {
+		String currentDomains = Advapi32Util.registryGetStringValue
+                (WinReg.HKEY_LOCAL_MACHINE,
+                        "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList");
+		Set<String> currentDomainList = new LinkedHashSet<>(StringUtils.isBlank(currentDomains) ? Collections.emptySet() : Arrays.asList(currentDomains));
+		for(String dnsName : domainsAdded) {
+			LOG.info(String.format("Removing domain %s from search", dnsName));
+			currentDomainList.remove(dnsName);
+		}
+		String newDomains = String.join(",", currentDomainList);
 		if(!Objects.equals(currentDomains, newDomains)) {
-			domainsAdded.clear();
-			domainsAdded.addAll(newDomainList);
 			LOG.info(String.format("Final domain search %s", newDomains));
 			Advapi32Util.registrySetStringValue
             (WinReg.HKEY_LOCAL_MACHINE,
                     "System\\CurrentControlSet\\Services\\TCPIP\\Parameters", "SearchList", newDomains);
-		}
+		}		
 	}
-
 }

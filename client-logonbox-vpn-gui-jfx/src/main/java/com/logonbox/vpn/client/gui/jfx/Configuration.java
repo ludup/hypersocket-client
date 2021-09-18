@@ -9,7 +9,9 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.logonbox.vpn.common.client.Connection;
 
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -24,14 +26,21 @@ public class Configuration {
 	public static final String TRAY_MODE_LIGHT = "light";
 	public static final String TRAY_MODE_AUTO = "auto";
 	public static final String TRAY_MODE_OFF = "off";
+	
+	public static final String DARK_MODE_AUTO = "auto";
+	public static final String DARK_MODE_ALWAYS = "always";
+	public static final String DARK_MODE_NEVER = "never";
 
 	private StringProperty temporaryOnStartConnection = new SimpleStringProperty();
 	private StringProperty saveCredentialsConnections = new SimpleStringProperty();
 	private StringProperty trayMode = new SimpleStringProperty();
+	private StringProperty darkMode = new SimpleStringProperty();
+	private StringProperty logLevel = new SimpleStringProperty();
 	private IntegerProperty w = new SimpleIntegerProperty();
 	private IntegerProperty h = new SimpleIntegerProperty();
 	private IntegerProperty x = new SimpleIntegerProperty();
 	private IntegerProperty y = new SimpleIntegerProperty();
+	private BooleanProperty saveCookies = new SimpleBooleanProperty();
 
 	//
 	private final static Configuration DEFAULT_INSTANCE = new Configuration(
@@ -130,9 +139,19 @@ public class Configuration {
 		trayMode.set(node.get("trayMode", TRAY_MODE_AUTO));
 		trayMode.addListener(new StringPreferenceUpdateChangeListener(node, "trayMode"));
 
+		darkMode.set(node.get("darkMode", DARK_MODE_AUTO));
+		darkMode.addListener(new StringPreferenceUpdateChangeListener(node, "darkMode"));
+
+		logLevel.set(node.get("logLevel", null));
+		logLevel.addListener(new StringPreferenceUpdateChangeListener(node, "logLevel"));
+
 		saveCredentialsConnections.set(node.get("saveCredentialsConnections", ""));
 		saveCredentialsConnections
 				.addListener(new StringPreferenceUpdateChangeListener(node, "saveCredentialsConnections"));
+		
+		saveCookies.set(node.getBoolean("saveCookies", false));
+		saveCookies
+				.addListener(new BooleanPreferenceUpdateChangeListener(node, "saveCookies"));
 
 		
 	}
@@ -151,6 +170,10 @@ public class Configuration {
 		String creds = saveCredentialsConnections.get();
 		saveCredentialsConnections.set(String.join(",",
 				new HashSet<>(StringUtils.isBlank(creds) ? Collections.emptyList() : Arrays.asList(creds.split(",")))));
+	}
+	
+	public BooleanProperty saveCookiesProperty() {
+		return saveCookies;
 	}
 
 	public IntegerProperty wProperty() {
@@ -174,7 +197,15 @@ public class Configuration {
 	}
 
 	public StringProperty trayModeProperty() {
-		return temporaryOnStartConnection;
+		return trayMode;
+	}
+
+	public StringProperty darkModeProperty() {
+		return darkMode;
+	}
+
+	public StringProperty logLevelProperty() {
+		return logLevel;
 	}
 
 	static void putColor(String key, Preferences p, Color color) {

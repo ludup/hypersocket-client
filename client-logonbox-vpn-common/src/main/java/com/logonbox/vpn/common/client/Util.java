@@ -1,11 +1,89 @@
 package com.logonbox.vpn.common.client;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.MessageDigest;
+import java.text.CharacterIterator;
+import java.text.StringCharacterIterator;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
+import org.ini4j.Profile.Section;
+
 public class Util {
+
+	private static final boolean IS_64BIT = is64bit0();
+
+	public static String titleUnderline(int len) {
+		return repeat(len, '=');
+	}
+	
+	public static String repeat(int times, char ch) {
+		StringBuilder l = new StringBuilder();
+		for(int i = 0 ; i < times; i++) {
+			l.append('=');
+		}
+		return l.toString();
+	}
+
+	public static String hash(byte[] in) {
+		try {
+			MessageDigest md = MessageDigest.getInstance("SHA-1");
+			md.update(in);
+			byte[] bytes = md.digest();
+			return Base64.getEncoder().encodeToString(bytes);
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to hash.", e);
+		}
+	}
+
+	public static List<String> toStringList(Section section, String key) {
+		List<String> n = new ArrayList<>();
+		String val = section.get(key, "");
+		if (!val.equals("")) {
+			for (String a : val.split(",")) {
+				n.add(a.trim());
+			}
+		}
+		return n;
+	}
+	
+	public static String getOS() {
+		if (SystemUtils.IS_OS_WINDOWS) {
+			return "windows";
+		} else if (SystemUtils.IS_OS_LINUX) {
+			return "linux";
+		} else if (SystemUtils.IS_OS_MAC_OSX) {
+			return "osx";
+		} else {
+			return "other";
+		}
+	}
+	
+	public static String getDeviceName() {
+		String hostname = SystemUtils.getHostName();
+		if (StringUtils.isBlank(hostname)) {
+			try {
+				hostname = InetAddress.getLocalHost().getHostName();
+			} catch (Exception e) {
+				hostname = "Unknown Host";
+			}
+		}
+		String os = System.getProperty("os.name");
+		if (SystemUtils.IS_OS_WINDOWS) {
+			os = "Windows";
+		} else if (SystemUtils.IS_OS_LINUX) {
+			os = "Linux";
+		} else if (SystemUtils.IS_OS_MAC_OSX) {
+			os = "Mac OSX";
+		}
+		return os + " " + hostname;
+	}
+	
 	public static byte[] decodeHexString(String hexString) {
 		if (hexString.length() % 2 == 1) {
 			throw new IllegalArgumentException("Invalid hexadecimal String supplied.");
@@ -30,6 +108,11 @@ public class Util {
 			throw new IllegalArgumentException("Invalid Hexadecimal Character: " + hexChar);
 		}
 		return digit;
+	}
+
+	public static int byteSwap(int a) {
+		return ((a & 0xff000000) >>> 24) | ((a & 0x00ff0000) >>> 8) | ((a & 0x0000ff00) << 8)
+				| ((a & 0x000000ff) << 24);
 	}
 
 	/**
@@ -103,17 +186,35 @@ public class Util {
 		return uri;
 	}
 
-	public static String toHumanSize(long l) {
-		if(l < 1024) {
-			return String.format("%dB", l);
+	public static String toHumanSize(long bytes) {
+		long absB = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
+		if (absB < 1024) {
+			return bytes + " B";
 		}
-		else if(l < 1048576)
-			return String.format("%dKiB", l / 1024);
-		else if(l < 1073741824)
-			return String.format("%dMiB", l / 1024 / 1024);
-		else if(l < 1073741824 * 1024)
-			return String.format("%dGiB", l / 1024 / 1024 / 1024);
-		else 
-			return String.format("%dTiB", l / 1024 / 1024 / 1024 / 1024);
+		long value = absB;
+		CharacterIterator ci = new StringCharacterIterator("KMGTPE");
+		for (int i = 40; i >= 0 && absB > 0xfffccccccccccccL >> i; i -= 10) {
+			value >>= 10;
+			ci.next();
+		}
+		value *= Long.signum(bytes);
+		return String.format("%.1f %ciB", value / 1024.0, ci.current());
+	}
+
+	public static boolean is64bit() {
+		return IS_64BIT;
+	}
+
+	private static boolean is64bit0() {
+		String systemProp = System.getProperty("com.ibm.vm.bitmode");
+		if (systemProp != null) {
+			return "64".equals(systemProp);
+		}
+		systemProp = System.getProperty("sun.arch.data.model");
+		if (systemProp != null) {
+			return "64".equals(systemProp);
+		}
+		systemProp = System.getProperty("java.vm.version");
+		return systemProp != null && systemProp.contains("_64");
 	}
 }

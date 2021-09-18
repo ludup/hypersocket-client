@@ -1,6 +1,11 @@
 /* Stylesheet for dynamic styles used by local HTML pages. The simple variables in
  these are replaced. Sadly, these need to be important, as the "user local stylesheet" is
  loaded before others */
+ 
+ body, html {
+    background-color: ${lbvpnBase} !important;
+    color: ${lbvpnBaseInverse} !important;
+ }
 
 .navbar-inverse {
   background-color: ${lbvpnBackground} !important;
@@ -31,6 +36,7 @@
 a:focus, a:hover {
     color: ${lbvpnBackground} !important;
     text-decoration: underline !important;
+    cursor: pointer; 
 }
 
 a {
@@ -38,9 +44,18 @@ a {
     text-decoration: none !important;
 }
 
-.btn-primary {
+.btn-primary, .btn-primary:active, .btn-primary:hover {
 	color: ${lbvpnForeground} !important;
 	background: ${lbvpnBackground} !important;
 	border-color: ${lbvpnAccent} !important;
 }
 
+.nav-link {
+   color: ${lbvpnAccent}  !important;
+}
+
+.connection.active {
+    background: ${lbvpnBackground} !important;
+    color: ${lbvpnForeground} !important;
+    cursor: pointer; 
+}

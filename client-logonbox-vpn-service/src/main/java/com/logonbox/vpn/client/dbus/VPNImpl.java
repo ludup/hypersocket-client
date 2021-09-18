@@ -24,6 +24,7 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.updates.ClientUpdater;
 import com.logonbox.vpn.common.client.ConnectionImpl;
 import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
@@ -58,6 +59,24 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	public boolean isNeedsUpdating() {
 		assertRegistered();
 		return ctx.getClientService().isNeedsUpdating();
+	}
+	
+	@Override
+	public boolean isUpdatesEnabled() {
+		assertRegistered();
+		return ctx.getClientService().isUpdatesEnabled();
+	}
+
+	@Override
+	public String[] getKeys() {
+		assertRegistered();
+		return ctx.getClientService().getKeys();
+	}
+
+	@Override
+	public String getAvailableVersion() {
+		assertRegistered();
+		return ctx.getClientService().getAvailableVersion();
 	}
 
 	@Override
@@ -101,11 +120,19 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public void update() {
 		assertRegistered();
-		new Thread("Updater") {
-			public void run() {
-				ctx.getClientService().update();
-			}
-		}.start();
+		ctx.getClientService().update();
+	}
+
+	@Override
+	public void checkForUpdate() {
+		assertRegistered();
+		ctx.getClientService().checkForUpdate();
+	}
+
+	@Override
+	public void deferUpdate() {
+		assertRegistered();
+		ctx.getClientService().deferUpdate();
 	}
 
 	@Override
@@ -118,6 +145,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public void register(String username, boolean interactive, String id, String dirPath, String[] urls,
 			boolean supportsAuthorization, Map<String, String> archives, String target) {
+		log.info(String.format("Register client %s", id));
 		VPNFrontEnd frontEnd = null;
 		String source = DBusConnection.getCallInfo().getSource();
 		if(ctx.hasFrontEnd(source)) {
@@ -162,7 +190,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public void cancelUpdate() {
 		assertRegistered();
-		log.warn("cancelUpdate() NOT YET IMPLEMENTED");
+		ctx.getClientService().cancelUpdate();
 	}
 
 	@Override
@@ -196,7 +224,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
-	public long createConnection(String uri, boolean connectAtStartup) {
+	public long createConnection(String uri, boolean connectAtStartup, boolean stayConnected, String mode) {
 		assertRegistered();
 		ConnectionImpl connection = new ConnectionImpl();
 		try {
@@ -208,6 +236,8 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 			VPNFrontEnd fe = ctx.getFrontEnd(DBusConnection.getCallInfo().getSource());
 			connection.setOwner(fe == null ? System.getProperty("user.name") : fe.getUsername());
 			connection.setConnectAtStartup(connectAtStartup);
+			connection.setMode(Mode.valueOf(mode));
+			connection.setStayConnected(stayConnected);
 			return ctx.getClientService().create(connection).getId();
 		}
 	}
@@ -274,5 +304,15 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 			}
 		}
 		return active;
+	}
+
+	@Override
+	public long getMaxMemory() {
+		return Runtime.getRuntime().maxMemory();
+	}
+
+	@Override
+	public long getFreeMemory() {
+		return Runtime.getRuntime().freeMemory();
 	}
 }

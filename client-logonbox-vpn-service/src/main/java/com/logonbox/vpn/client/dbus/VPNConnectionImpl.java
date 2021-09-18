@@ -1,16 +1,24 @@
 package com.logonbox.vpn.client.dbus;
 
+import java.io.IOException;
+import java.io.StringReader;
 import java.util.Arrays;
 
 import org.apache.commons.lang3.StringUtils;
 import org.freedesktop.dbus.annotations.DBusInterfaceName;
+import org.ini4j.Ini;
+import org.ini4j.Profile.Section;
 
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.Keys;
+import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
 @DBusInterfaceName("com.logonbox.vpn.Connection")
 public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnection {
+	static final String PRIVATE_KEY_NOT_AVAILABLE = "PRIVATE_KEY_NOT_AVAILABLE";
 
 	private Connection connection;
 	private LocalContext ctx;
@@ -19,6 +27,55 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 		super(ctx);
 		this.connection = connection;
 		this.ctx = ctx;
+	}
+
+	@Override
+	public String parse(String configIniFile) {
+		try {
+			Ini ini = new Ini(new StringReader(configIniFile));
+	
+			/* Interface (us) */
+			Section interfaceSection = ini.get("Interface");
+			setAddress(interfaceSection.get("Address"));
+			setDns(Util.toStringList(interfaceSection, "DNS").toArray(new String[0]));
+	
+			String privateKey = interfaceSection.get("PrivateKey");
+			if (privateKey != null && hasPrivateKey() && !privateKey.equals(PRIVATE_KEY_NOT_AVAILABLE)) {
+				/*
+				 * TODO private key should be removed from server at this point
+				 */
+				setUserPrivateKey(privateKey);
+				setUserPublicKey(Keys.pubkey(privateKey).getBase64PublicKey());
+			} else if (!hasPrivateKey()) {
+				throw new IllegalStateException(
+						"Did not receive private key from server, and we didn't generate one on the client. Connection impossible.");
+			}
+			setPreUp(interfaceSection.containsKey("PreUp") ?  String.join("\n", interfaceSection.getAll("PreUp")) : "");
+			setPostUp(interfaceSection.containsKey("PostUp") ? String.join("\n", interfaceSection.getAll("PostUp")) : "");
+			setPreDown(interfaceSection.containsKey("PreDown") ? String.join("\n", interfaceSection.getAll("PreDown")) : "");
+			setPostDown(interfaceSection.containsKey("PostDown") ? String.join("\n", interfaceSection.getAll("PostDown")) : "");
+	
+			/* Custom LogonBox */
+			Section logonBoxSection = ini.get("LogonBox");
+			if (logonBoxSection != null) {
+				setRouteAll("true".equals(logonBoxSection.get("RouteAll")));
+			}
+	
+			/* Peer (them) */
+			Section peerSection = ini.get("Peer");
+			setPublicKey(peerSection.get("PublicKey"));
+			String[] endpoint = peerSection.get("Endpoint").split(":");
+			setEndpointAddress(endpoint[0]);
+			setEndpointPort(Integer.parseInt(endpoint[1]));
+			setPeristentKeepalive(Integer.parseInt(peerSection.get("PersistentKeepalive")));
+			setAllowedIps(Util.toStringList(peerSection, "AllowedIPs").toArray(new String[0]));
+			
+			return "";
+		}
+		catch(IOException ioe) {
+			return ioe.getMessage();
+		}
+		
 	}
 
 	@Override
@@ -61,6 +118,12 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 	public String getAddress() {
 		assertRegistered();
 		return StringUtils.defaultIfBlank(connection.getAddress(), "");
+	}
+
+	@Override
+	public String getMode() {
+		assertRegistered();
+		return connection.getMode().name();
 	}
 
 	@Override
@@ -156,6 +219,12 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 	public String getStatus() {
 		assertRegistered();
 		return ctx.getClientService().getStatusType(connection).name();
+	}
+
+	@Override
+	public String getInterfaceName() {
+		assertRegistered(); 
+		return ctx.getClientService().getStatus(getId()).getDetail().getInterfaceName();
 	}
 
 	@Override
@@ -295,10 +364,11 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 	}
 
 	@Override
-	public void update(String name, String uri, boolean connectAtStartup) {
+	public void update(String name, String uri, boolean connectAtStartup, boolean stayConnected) {
 		assertRegistered();
 		connection.setName(name.equals("") ? null : name);
 		connection.setConnectAtStartup(connectAtStartup);
+		connection.setStayConnected(stayConnected);
 		connection.updateFromUri(uri);
 		if(!isTransient())
 			save();
@@ -396,6 +466,23 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 	public long getTx() {
 		assertRegistered();
 		return ctx.getClientService().getStatus(connection.getId()).getDetail().getTx();
+	}
+
+	@Override
+	public boolean isStayConnected() {
+		assertRegistered();
+		return connection.isStayConnected();
+	}
+
+	@Override
+	public void setStayConnected(boolean stayConnected) {
+		assertRegistered();
+		connection.setStayConnected(stayConnected);
+	}
+
+	@Override
+	public boolean isTemporarilyOffline() {
+		return ctx.getClientService().getStatus(connection.getId()).getStatus() == ConnectionStatus.Type.TEMPORARILY_OFFLINE;
 	}
 
 }

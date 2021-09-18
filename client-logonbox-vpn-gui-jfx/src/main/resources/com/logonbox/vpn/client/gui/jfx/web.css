@@ -8,6 +8,16 @@
 	transform: translateX(-50%) translateY(-50%);
 }
 
+.full-height-container {
+	position: absolute;
+	top: 50%;
+	width: 100%;
+	-moz-transform: translateY(-50%);
+	-webkit-transform: translateY(-50%);
+	transform: translateY(-50%);
+}
+
+
 #header img {
 	height: 35px;
 }
@@ -50,4 +60,22 @@
 
 .has-spinner.btn.active .spinner {
 	min-width: 20px;
+}
+
+#exceptionContainer {
+    background-color: #ccc;
+}
+
+#exceptionContainer pre {
+    overflow: auto;
+    height: 15em;
+    font-size: 0.75em;
+    line-height: 0.85em;
+}
+
+#exceptionContainer code {
+}
+
+.nav-link {
+    color: -fx-lbvpn-accent ;
 }

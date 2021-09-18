@@ -10,6 +10,7 @@ public class Updater {
 
 	private boolean cancelled;
 	private ProgressBar progressBar;
+	private boolean quiet;
 
 	public Updater(CLI cli) {
 		progressBar = new ProgressBar(cli);
@@ -19,6 +20,11 @@ public class Updater {
 
 	public boolean isCancelled() {
 		return cancelled;
+	}
+	public void awaitingRestart() {
+		progressBar.setMessage(bundle.getString("client.update.awaitingRestart"));
+		progressBar.setVal(progressBar.getMax());
+		
 	}
 
 	public void awaitingNewService() {
@@ -62,5 +68,6 @@ public class Updater {
 	public void show() {
 		progressBar.setVal(progressBar.getMin());
 	}
+
 
 }

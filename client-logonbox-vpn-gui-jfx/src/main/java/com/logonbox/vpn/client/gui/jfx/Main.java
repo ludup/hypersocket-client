@@ -1,20 +1,28 @@
 package com.logonbox.vpn.client.gui.jfx;
 
-import java.awt.Image;
+import java.awt.Taskbar;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Callable;
+import java.util.prefs.Preferences;
 
 import javax.swing.UIManager;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
+import org.apache.log4j.Level;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hypersocket.extensions.ExtensionTarget;
+import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
+import com.logonbox.vpn.common.client.PromptingCertManager;
 
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.scene.control.Alert.AlertType;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -22,7 +30,12 @@ import picocli.CommandLine.Parameters;
 
 @Command(name = "logonbox-vpn-gui", mixinStandardHelpOptions = true, description = "Start the LogonBox VPN graphical user interface.")
 public class Main extends AbstractDBusClient implements Callable<Integer> {
-	static Logger log = LoggerFactory.getLogger(Main.class);
+	static Logger log;
+	
+	/**
+	 * Used to get version from Maven meta-data
+	 */
+	public static final String ARTIFACT_COORDS = "com.hypersocket/client-logonbox-vpn-gui-jfx";
 
 	private static Main instance;
 
@@ -67,24 +80,31 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	@Option(names = { "-n", "--create" }, description = "Create a new connection if one with the provided URI does not exist (requires URI parameter).")
 	private boolean createIfDoesntExist;
 
+	@Option(names = { "-u", "--as-user" }, description = "Act on behalf of another user, only an adminstrator can do this.")
+	private String asUser;
+
 	@Parameters(index = "0", arity = "0..1", description = "Connect to a particular server using a URI. Acceptable formats include <server[<port>]> or https://<server[<port>]>[/path]. If a pre-configured connection matching this URI already exists, it will be used.")
 	private String uri;
+
+	private Level defaultLogLevel;
 
 	public Main() {
 		super(ExtensionTarget.CLIENT_GUI);
 		instance = this;
 		setSupportsAuthorization(true);
 
-		// http://stackoverflow.com/questions/24159825/changing-application-dock-icon-javafx-programatically
-		try {
-			if (SystemUtils.IS_OS_MAC_OSX) {
-				Class<?> appClazz = Class.forName("com.apple.eawt.Application");
-				Object app = appClazz.getMethod("getApplication").invoke(null);
-				appClazz.getMethod("setDockIconImage", Image.class).invoke(app, java.awt.Toolkit.getDefaultToolkit()
-						.getImage(Main.class.getResource("hypersocket-icon128x128.png")));
-			}
-		} catch (Exception e) {
-			// Won't work on Windows or Linux.
+		if(Taskbar.isTaskbarSupported()) {
+	        try {
+	    		final Taskbar taskbar = Taskbar.getTaskbar();
+	    		if(SystemUtils.IS_OS_MAC_OSX)
+		            taskbar.setIconImage(java.awt.Toolkit.getDefaultToolkit()
+							.getImage(Main.class.getResource("mac-logo128px.png")));
+	    		else
+		            taskbar.setIconImage(java.awt.Toolkit.getDefaultToolkit()
+							.getImage(Main.class.getResource("logonbox-icon128x128.png")));
+	        } catch (final UnsupportedOperationException e) {
+	        } catch (final SecurityException e) {
+	        }
 		}
 
 		String logConfigPath = System.getProperty("hypersocket.logConfiguration", "");
@@ -98,9 +118,18 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 			else
 				PropertyConfigurator.configure(Main.class.getResource("/default-log4j-gui.properties"));
 		}
+		
+		String cfgLevel = Configuration.getDefault().logLevelProperty().get();
+		defaultLogLevel = org.apache.log4j.Logger.getRootLogger().getLevel();
+		if(StringUtils.isNotBlank(cfgLevel)) {
+			org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(cfgLevel));
+		}
+		log = LoggerFactory.getLogger(Main.class);
 
+		log.info(String.format("LogonBox VPN Client GUI, version %s", HypersocketVersion.getVersion(ARTIFACT_COORDS)));
+		log.info(String.format("OS: %s", System.getProperty("os.name") + " / " + System.getProperty("os.arch") + " (" + System.getProperty("os.version") + ")"));
 		try {
-			log.info("I am currently using working directory " + new File(".").getCanonicalPath());
+			log.info(String.format("CWD: %s", new File(".").getCanonicalPath()));
 		} catch (IOException e) {
 		}
 	}
@@ -111,10 +140,18 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	 * technique!). Because we are launched from BoostrapMain, this is what it
 	 * detects. To work around this LauncherImpl.launchApplication() is used
 	 * directly, which is an internal API.
+	 * 
+	 * TODO With the new forker arrangement, this is no longer the case. So
+	 *      check if this is still required.  This is one of the reasons for 
+	 *      the new bootstrap arrangement.
 	 */
 	public Integer call() throws Exception {
-		com.sun.javafx.application.LauncherImpl.launchApplication(Client.class, null, new String[0]);
+		Application.launch(Client.class, new String[0]);
 		return 0;
+	}
+	
+	public Level getDefaultLogLevel() {
+		return defaultLogLevel;
 	}
 
 	public boolean isNoAddWhenNoConnections() {
@@ -190,6 +227,10 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 		return true;
 	}
 
+	protected String getEffectiveUser() {
+		return StringUtils.isBlank(asUser) ? super.getEffectiveUser() : asUser;
+	}
+
 	/**
 	 * @param args
 	 */
@@ -204,5 +245,28 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 			Client.get().open();
 		}
 
+	}
+
+	@Override
+	protected PromptingCertManager createCertManager() {
+		return new PromptingCertManager(Client.BUNDLE) {
+
+			@Override
+			protected boolean isToolkitThread() {
+				return Platform.isFxApplicationThread();
+			}
+
+			@Override
+			protected void runOnToolkitThread(Runnable r) {
+				Platform.runLater(r);
+			}
+
+			@Override
+			protected boolean promptForCertificate(PromptType alertType, String title,
+					String content, String key, String hostname, String message, Preferences preference) {
+				return Client.get().promptForCertificate(AlertType.valueOf(alertType.name()), title, content, key, hostname, message, preference);
+			}
+			
+		};
 	}
 }

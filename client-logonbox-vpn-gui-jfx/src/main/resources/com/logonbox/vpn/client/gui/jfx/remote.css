@@ -1,12 +1,76 @@
+/* TODO: It seems the brandless header support is broken  in 2.4 server.
+Should not need the following 2 styles */
+
 #header {
 	display: none !important;
 }
 
 footer {
 	display: none !important;
-}
-
+} 
 
 .form-scheme-heading {
 	display: none !important;
+}
+
+
+
+
+
+ body, html {
+    background-color: ${lbvpnBase} !important;
+    color: ${lbvpnBaseInverse} !important;
+ }
+
+.navbar-inverse {
+  background-color: ${lbvpnBackground} !important;
+}
+
+#footer, #header { 
+  background-color: ${lbvpnBackground} !important;
+  color: ${lbvpnForeground} !important;
+}
+
+.large-button-active {
+   color: ${lbvpnBackground} !important;
+}
+
+.large-button:hover {
+  color: ${lbvpnBackground} !important;
+}
+
+.progress-bar {
+  background-color: ${lbvpnBackground} !important; 
+}
+
+.slider-handle {
+    background-color: ${lbvpnBackground} !important;
+    background-image: linear-gradient(to bottom, ${lbvpnBackground}, ${lbvpnBackground}) !important;
+}
+
+a:focus, a:hover {
+    color: ${lbvpnBackground} !important;
+    text-decoration: underline !important;
+    cursor: pointer; 
+}
+
+a {
+    color: ${lbvpnBackground} !important;
+    text-decoration: none !important;
+}
+
+.btn-primary, .btn-primary:active, .btn-primary:hover {
+    color: ${lbvpnForeground} !important;
+    background: ${lbvpnBackground} !important;
+    border-color: ${lbvpnAccent} !important;
+}
+
+.nav-link {
+   color: ${lbvpnAccent}  !important;
+}
+
+.connection.active {
+    background: ${lbvpnBackground} !important;
+    color: ${lbvpnForeground} !important;
+    cursor: pointer; 
 }

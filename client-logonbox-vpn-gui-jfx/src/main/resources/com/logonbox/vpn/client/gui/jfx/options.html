@@ -3,73 +3,166 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link href="bootstrap-5.0.0-beta3-dist/css/bootstrap.min.css"
+<link href="bootstrap-5.0.2-dist/css/bootstrap.min.css"
 	rel="stylesheet">
 <link href="web.css" rel="stylesheet">
 <link href="fontawesome/css/font-awesome.min.css" rel="stylesheet">
 </head>
 <body>
 	<script src="jquery-3.5.1.min.js"></script>
-	<script src="bootstrap-5.0.0-beta3-dist/js/bootstrap.bundle.min.js"></script>
+	<script src="bootstrap-5.0.2-dist/js/bootstrap.bundle.min.js"></script>
 	<script src="web.js"></script>
-	<div id="wrap">
-		<div id="main" class="container clear-top mt-3">
-			<small style="float:right;"><a href="about.html" data-i18n="about">About</a></small>
-			<h1 data-i18n="options">Options</h1>
+	<div id="wrap" class="m-3">
+		<div id="main" class="container clear-top">
+			<div class="row">
+				<div class="col-9">
+					<h1 data-i18n="options">Options</h1>
+				</div>
+				<div class="col-3 text-end""> 
+					<small><a href="about.html"><i class="fa fa-info-circle"></i>&nbsp;<span data-i18n="about">About</span></a></small>
+				</div>
+			</div>
 			<form id="optionsForm">
-<!-- 
-				<h4 data-i18n="updates">Updates</h4>
-				<div class="form-check">
-					<input type="checkbox" class="form-check-input"
-						id="automaticUpdates" /> <label for="automaticUpdates"
-						data-i18n="automaticUpdates">Automatic Updates</label>
-					<p>
-						<small id="phaseHelp" data-i18n="automaticUpdatesHelp"
+				<div data-conditional="updatesEnabled">
+					<h4 data-i18n="updates">Updates</h4>
+					<div class="form-check">
+						<input type="checkbox" class="form-check-input"
+							id="automaticUpdates" /> <label for="automaticUpdates"
+							data-i18n="automaticUpdates">Automatic Updates</label>
+						<p>
+							<small id="automaticUpdatesHelp" data-i18n="automaticUpdatesHelp"
+								class="form-text text-muted">Help</small>
+						</p>
+					</div>
+
+					<div class="form-group" data-conditional="!tracksServerVersion"
+						style="display: none;">
+						<label for="phase" data-i18n="phase">Update Channel</label> <select
+							class="form-control" id="phase">
+						</select> <small id="phaseHelp" data-i18n="phaseHelp"
 							class="form-text text-muted">Help</small>
-					</p>
+					</div>
 				</div>
-
-				<div class="form-group" data-visibility="!tracksServerVersion"
-					style="display: none;">
-					<label for="phase" data-i18n="phase">Update Channel</label> <select
-						class="form-control" id="phase">
-					</select> <small id="phaseHelp" data-i18n="phaseHelp"
-						class="form-text text-muted">Help</small>
-				</div> -->
-
-				<h4 data-i18n="tray">Tray</h4>
-
-				<div class="form-group">
-					<label for="trayMode" data-i18n="trayMode">Tray Mode</label> <select
-						class="form-control" id="trayMode">
-					</select> <small id="trayModeHelp" data-i18n="trayModeHelp"
-						class="form-text text-muted">Tray Mode Help</small>
+                
+                <h4 data-i18n="appearance">Appearance</h4>
+                <div class="form-group">
+                        <label for="darkMode" data-i18n="darkMode">Dark Mode</label> <select
+                            class="form-control" id="darkMode">
+                        </select> <small id="darkModeHelp" data-i18n="darkModeHelp"
+                            class="form-text text-muted">Dark Mode Help</small>
+                </div>
+                    
+				<div data-conditional="trayConfigurable">
+					<div class="form-group">
+						<label for="trayMode" data-i18n="trayMode">Tray Mode</label> <select
+							class="form-control" id="trayMode">
+						</select> <small id="trayModeHelp" data-i18n="trayModeHelp"
+							class="form-text text-muted">Tray Mode Help</small>
+					</div>
 				</div>
-
-
-				<button id="save" type="submit" class="btn btn-primary" data-i18n="save">Save</button>
+                <div class="form-group mb-3 mt-3">
+                    <a href="#advancedOptions" data-bs-toggle="collapse" data-i18n="advancedOptions"></a>
+                </div>
+                <div id="advancedOptions" class="collapse">
+					<div class="form-group">
+						<label for="logLevel" data-i18n="logLevel">Log Level</label> <select
+							class="form-control" id="logLevel">
+						</select> <small id="logLevelHelp" data-i18n="logLevelHelp"
+							class="form-text text-muted">Log Level Help</small>
+					</div>
+					<div class="mt-3" class="form-group">
+						<label for="dnsIntegrationMethod" data-i18n="dnsIntegrationMethod">DNS
+							integration</label> <select class="form-control" id="dnsIntegrationMethod">
+						</select> <small id="dnsIntegrationMethodHelp"
+							data-i18n="dnsIntegrationMethodHelp" class="form-text text-muted">DNS
+							Integration Help</small>
+					</div>
+					<div class="form-check mt-3">
+						<input type="checkbox" class="form-check-input"
+							id="ignoreLocalRoutes" /> <label for="ignoreLocalRoutes"
+							data-i18n="ignoreLocalRoutes">Ignore Local Routes</label>
+						<p>
+							<small id="ignoreLocalRoutesHelp"
+								data-i18n="ignoreLocalRoutesHelp" class="form-text text-muted">Help</small>
+						</p>
+					</div> 
+	                <!-- <div class="form-check mt-3">
+	                    <input type="checkbox" class="form-check-input"
+	                        id="saveCookies" /> <label for="saveCookies"
+	                        data-i18n="saveCookies">Save Logon Cookies</label>
+	                    <p>
+	                        <small id="saveCookiesHelp"
+	                            data-i18n="saveCookiesHelp" class="form-text text-muted">Help</small>
+	                    </p>
+	                </div> -->
+		        </div>
+				<button id="save" type="submit" class="btn btn-primary"
+					data-i18n="save">Save</button>
 			</form>
 		</div>
 	</div>
 	<script type="text/javascript">
-	$(function() {
-		for (var i = 0; i < trayModes.length; i++) {
-			$('#trayMode').append('<option ' + (trayModes[i] == trayMode ? 'selected="selected"' : '') + ' value="' + trayModes[i] + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
-		}
-		/* for (var i = 0; i < phases.length; i++) {
-			$('#phase').append('<option ' + (phases[i].getName() == phase ? 'selected=""' : '') + '>' + phases[i].getName() + '</option>');
-		}
-		$('#automaticUpdates').prop('checked', automaticUpdates); */
-		$("#optionsForm").submit(function(event) {
-			$('#save').buttonLoader('start');
-			bridge.saveOptions({
-				'trayMode': 		$('#trayMode').val(),
-				'phase': 			$('#phase').val(),
-				'automaticUpdates':	$('#automaticUpdates').is(':checked')
+		function uiReady() {
+			if ($('#trayMode').length) {
+				for (var i = 0; i < trayModes.length; i++) {
+					$('#trayMode').append('<option ' + (trayModes[i] == trayMode ? 'selected="selected"' : '') + ' value="' + trayModes[i] + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
+				}
+			}
+            if ($('#darkMode').length) {
+                for (var i = 0; i < darkModes.length; i++) {
+                    $('#darkMode').append('<option ' + (darkModes[i] == darkMode ? 'selected="selected"' : '') + ' value="' + darkModes[i] + '">' + pageBundle.getString('darkMode.' + darkModes[i]) + '</option>');
+                }
+            }
+
+            /* $('#saveCookies').prop('checked', saveCookies); */
+			for (var i = 0; i < logLevels.length; i++) {
+				$('#logLevel').append('<option ' + (logLevels[i] == logLevel ? 'selected="selected"' : '') + ' value="' + logLevels[i] + '">' + pageBundle.getString('logLevel.' + logLevels[i]) + '</option>');
+			}
+
+			for (var i = 0; i < dnsIntegrationMethods.length; i++) {
+				$('#dnsIntegrationMethod').append('<option ' + (dnsIntegrationMethods[i] == dnsIntegrationMethod ? 'selected="selected"' : '') + ' value="' + dnsIntegrationMethods[i] + '">' + pageBundle.getString('dnsIntegrationMethod.' + dnsIntegrationMethods[i]) + '</option>');
+			}
+
+			if ($('#phase').length) {
+				for (var i = 0; i < phases.length; i++) {
+					$('#phase').append('<option ' + (phases[i].getName() == phase ? 'selected=""' : '') + '>' + phases[i].getName() + '</option>');
+				}
+			}
+
+			if ($('#automaticUpdates').length) {
+				$('#automaticUpdates').prop('checked', automaticUpdates);
+			}
+
+			if ($('#ignoreLocalRoutes').length) {
+				$('#ignoreLocalRoutes').prop('checked', ignoreLocalRoutes);
+			}
+
+			$('#optionsForm').submit(function(event) {
+				$('#save').buttonLoader('start');
+				var ser = {
+					logLevel : $('#logLevel').val(),
+					dnsIntegrationMethod : $('#dnsIntegrationMethod').val()/* ,
+	                saveCookies: $('#saveCookies').is(':checked') */
+				};
+				if ($('#trayMode').length) {
+					ser['trayMode'] = $('#trayMode').val();
+				}
+                if ($('#darkMode').length) {
+                    ser['darkMode'] = $('#darkMode').val();
+                }
+				if ($('#phase').length) {
+					ser['phase'] = $('#phase').val();
+				}
+				if ($('#automaticUpdates').length) {
+					ser['automaticUpdates'] = $('#automaticUpdates').is(':checked');
+				}
+				if ($('#ignoreLocalRoutes').length) {
+					ser['ignoreLocalRoutes'] = $('#ignoreLocalRoutes').is(':checked');
+				}
+				bridge.saveOptions(ser);
+				event.preventDefault();
 			});
-			event.preventDefault();
-		});
-	});
+		};
 	</script>
 </body>
 </html>

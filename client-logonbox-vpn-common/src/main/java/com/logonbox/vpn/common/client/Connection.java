@@ -5,6 +5,14 @@ import java.net.URISyntaxException;
 import java.util.List;
 
 public interface Connection {
+	
+	public enum Mode {
+		CLIENT, SERVICE, NODE, PROVIDER
+	}
+	
+	Mode getMode();
+	
+	void setMode(Mode mode);
 
 	default boolean isTransient() {
 		return getId() == null || getId() < 0;

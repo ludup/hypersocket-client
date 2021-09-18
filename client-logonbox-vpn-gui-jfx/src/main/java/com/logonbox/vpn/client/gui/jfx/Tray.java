@@ -7,4 +7,14 @@ public interface Tray extends AutoCloseable {
 	final static ResourceBundle bundle = ResourceBundle.getBundle(Tray.class.getName());
 	
 	boolean isActive();
+	
+	void reload();
+	
+	default boolean isConfigurable() {
+		return true;
+	}
+	
+	void setProgress(int progress);
+
+	void setAttention(boolean enabled, boolean critical);
 }

@@ -26,7 +26,9 @@ import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
+import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.logonbox.vpn.common.client.StatusDetail;
 import com.sshtools.forker.client.OSCommand;
 
@@ -101,10 +103,6 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 
 	@Override
 	public List<LinuxIP> ips(boolean wireguardOnly) {
-		/*
-		 * TODO: Check if this is still needed, the pure Java version looks like it
-		 * might be OK
-		 */
 		List<LinuxIP> l = new ArrayList<>();
 		LinuxIP lastLink = null;
 		try {
@@ -115,6 +113,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 					String name = a[1].trim();
 					if (!wireguardOnly || (wireguardOnly && name.startsWith(getInterfacePrefix()))) {
 						l.add(lastLink = new LinuxIP(name, this));
+						configureVirtualAddress(lastLink);
 						state = IpAddressState.MAC;
 					}
 				} else if (lastLink != null) {
@@ -131,7 +130,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 						if (r.startsWith("inet ")) {
 							String[] a = r.split("\\s+");
 							if (a.length > 1) {
-								lastLink.addresses.add(a[1]);
+								lastLink.getAddresses().add(a[1]);
 							}
 							state = IpAddressState.HEADER;
 						}
@@ -144,15 +143,6 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 			}
 		}
 		return l;
-	}
-
-	protected boolean exists(String name, Iterable<LinuxIP> links) {
-		try {
-			find(name, links);
-			return true;
-		} catch (IllegalArgumentException iae) {
-			return false;
-		}
 	}
 
 	protected LinuxIP find(String name, Iterable<LinuxIP> links) {
@@ -183,7 +173,7 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	public String[] getMissingPackages() {
 		if (new File("/etc/debian_version").exists()) {
 			Set<String> missing = new LinkedHashSet<>(Arrays.asList("wireguard-tools"));
-			if (doesCommandExist(getWGCommand()))
+			if (OsUtil.doesCommandExist(getWGCommand()))
 				missing.remove("wireguard-tools");
 			return missing.toArray(new String[0]);
 		} else {
@@ -215,23 +205,19 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 			public long getLastHandshake() {
 				return lastHandshake;
 			}
-		};
-	}
 
-	boolean doesCommandExist(String command) {
-		for (String dir : System.getenv("PATH").split(File.pathSeparator)) {
-			File wg = new File(dir, command);
-			if (wg.exists())
-				return true;
-		}
-		return false;
+			@Override
+			public String getInterfaceName() {
+				return iface;
+			}
+		};
 	}
 
 	@Override
 	protected LinuxIP createVirtualInetAddress(NetworkInterface nif) throws IOException {
 		LinuxIP ip = new LinuxIP(nif.getName(), this);
 		for (InterfaceAddress addr : nif.getInterfaceAddresses()) {
-			ip.addresses.add(addr.getAddress().toString());
+			ip.getAddresses().add(addr.getAddress().toString());
 		}
 		return ip;
 	}
@@ -318,11 +304,29 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		LinuxIP ok = waitForFirstHandshake(configuration, ip, connectionStarted);
 
 		/* DNS */
-		dns(configuration, ip);
+		try {
+			dns(configuration, ip);
+		} catch (IOException | RuntimeException ioe) {
+//			try {
+//				doDisconnect(ip, session);
+//			} catch (Exception e) {
+//			}
+//			throw ioe;
+			log.error("TODO TEMPORARY FALL THROUGH:", ioe);
+		}
 
 		/* Set the routes */
-		log.info(String.format("Setting routes for %s", ip.getName()));
-		setRoutes(session, ip);
+		try {
+			log.info(String.format("Setting routes for %s", ip.getName()));
+			setRoutes(session, ip);
+		} catch (IOException | RuntimeException ioe) {
+//			try {
+//				doDisconnect(ip, session);
+//			} catch (Exception e) {
+//			}
+//			throw ioe;
+			log.error("TODO TEMPORARY FALL THROUGH:", ioe);
+		}
 
 		return ok;
 	}
@@ -363,5 +367,29 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 	public LinuxIP getByPublicKey(String publicKey) {
 		// TODO Auto-generated method stub
 		throw new UnsupportedOperationException("TODO");
+	}
+
+	@Override
+	public void runHook(VPNSession session, String hookScript) throws IOException {
+		runHookViaPipeToShell(session, OsUtil.getPathOfCommandInPathOrFail("bash").toString(), "-c", hookScript);
+	}
+
+	@Override
+	public DNSIntegrationMethod dnsMethod() {
+		File f = new File("/etc/resolv.conf");
+		try {
+			String p = f.getCanonicalFile().getAbsolutePath();
+			if (p.equals(f.getAbsolutePath())) {
+				return DNSIntegrationMethod.RAW;
+			} else if (p.equals("/run/NetworkManager/resolv.conf")) {
+				return DNSIntegrationMethod.NETWORK_MANAGER;
+			} else if (p.equals("/run/systemd/resolve/stub-resolv.conf")) {
+				return DNSIntegrationMethod.SYSTEMD;
+			} else if (p.equals("/run/resolvconf/resolv.conf")) {
+				return DNSIntegrationMethod.RESOLVCONF;
+			}
+		} catch (IOException ioe) {
+		}
+		return DNSIntegrationMethod.RAW;
 	}
 }

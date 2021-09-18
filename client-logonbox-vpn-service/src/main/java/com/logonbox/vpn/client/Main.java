@@ -5,19 +5,29 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -26,16 +36,22 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
+import org.apache.log4j.Level;
 import org.apache.log4j.PropertyConfigurator;
 import org.freedesktop.dbus.bin.EmbeddedDBusDaemon;
 import org.freedesktop.dbus.connections.BusAddress;
+import org.freedesktop.dbus.connections.BusAddress.AddressBusTypes;
+import org.freedesktop.dbus.connections.SASL;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
 import org.freedesktop.dbus.connections.impl.DirectConnection;
 import org.freedesktop.dbus.connections.transports.TransportFactory;
 import org.freedesktop.dbus.exceptions.DBusException;
+import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.freedesktop.dbus.messages.Message;
+import org.freedesktop.dbus.utils.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +65,7 @@ import com.logonbox.vpn.client.service.updates.ClientUpdater;
 import com.logonbox.vpn.client.service.vpn.ConnectionRepositoryImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.client.wireguard.linux.LinuxPlatformServiceImpl;
-import com.logonbox.vpn.client.wireguard.osx.OSXPlatformServiceImpl;
+import com.logonbox.vpn.client.wireguard.osx.BrewOSXPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.windows.WindowsPlatformServiceImpl;
 import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.ConfigurationRepository;
@@ -58,6 +74,7 @@ import com.logonbox.vpn.common.client.ConnectionRepository;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 import com.sshtools.forker.common.OS;
+import com.sun.jna.Platform;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -67,6 +84,8 @@ import picocli.CommandLine.Option;
 public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 	final static int DEFAULT_TIMEOUT = 10000;
+
+	private static final long MAX_WAIT = TimeUnit.SECONDS.toMillis(10);
 
 	static Logger log = LoggerFactory.getLogger(Main.class);
 
@@ -92,6 +111,9 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	private DBusConnection conn;
 	private Map<String, VPNFrontEnd> frontEnds = Collections.synchronizedMap(new HashMap<>());
 	private EmbeddedDBusDaemon daemon;
+	private Level defaultLogLevel;
+	private ScheduledExecutorService queue = Executors.newSingleThreadScheduledExecutor();
+	private ScheduledFuture<?> connTask;
 
 	@Option(names = { "-a", "--address" }, description = "Address of Bus.")
 	private String address;
@@ -109,9 +131,14 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	private boolean noRegistrationRequired;
 
 	@Option(names = { "-t",
-			"--tcp-bus" }, description = "Force use of TCP DBus service. Usually it is enabled by default for anything other than Linux.")
+			"--tcp-bus" }, description = "Force use of TCP DBus service. Usually it is enabled by default for Windows only.")
 	private boolean tcpBus;
-	
+
+	@Option(names = { "-u", "--auth" }, description = "Mask of SASL authentication method to use.")
+	private int authTypes = SASL.AUTH_ANON;
+
+	private ConfigurationRepositoryImpl configurationRepository;
+
 	public Main() throws Exception {
 		instance = this;
 		if (SystemUtils.IS_OS_LINUX) {
@@ -119,14 +146,21 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		} else if (SystemUtils.IS_OS_WINDOWS) {
 			platform = new WindowsPlatformServiceImpl();
 		} else if (SystemUtils.IS_OS_MAC_OSX) {
-			platform = new OSXPlatformServiceImpl();
+//			if(OsUtil.doesCommandExist("wg"))
+			platform = new BrewOSXPlatformServiceImpl();
+//			else
+//				platform = new OSXPlatformServiceImpl();
 		} else
 			throw new UnsupportedOperationException(
 					String.format("%s not currently supported.", System.getProperty("os.name")));
 	}
-	
+
 	public static Main get() {
 		return instance;
+	}
+
+	public Level getDefaultLogLevel() {
+		return defaultLogLevel;
 	}
 
 	@Override
@@ -162,17 +196,30 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		}
 
 		try {
-			log.info(String.format("LogonBox VPN Client, version %s", HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS)));
 
 			if (!buildServices()) {
 				System.exit(3);
 			}
 
-			if (!configureDBus()) {
+			/*
+			 * Have database, so enough to get configuration for log level, we can start
+			 * logging now
+			 */
+			String cfgLevel = configurationRepository.getValue(ConfigurationRepository.LOG_LEVEL, "");
+			defaultLogLevel = org.apache.log4j.Logger.getRootLogger().getLevel();
+			if (StringUtils.isNotBlank(cfgLevel)) {
+				org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(cfgLevel));
+			}
+			log.info(String.format("LogonBox VPN Client, version %s",
+					HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS)));
+			log.info(String.format("OS: %s", System.getProperty("os.name") + " / " + System.getProperty("os.arch")
+					+ " (" + System.getProperty("os.version") + ")"));
+
+			if (!startServices()) {
 				System.exit(3);
 			}
 
-			if (!startServices()) {
+			if (!configureDBus()) {
 				System.exit(3);
 			}
 
@@ -197,6 +244,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	}
 
 	public void shutdown() {
+		queue.shutdown();
 		shutdownEmbeddeDaemon();
 		System.exit(0);
 	}
@@ -217,8 +265,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			VPNFrontEnd fe = frontEnds.remove(source);
 			if (fe == null) {
 				throw new IllegalArgumentException(String.format("Front end '%s' not registered.", source));
-			}
-			else
+			} else
 				log.info(String.format("De-registered front-end %s.", source));
 		}
 	}
@@ -250,6 +297,159 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			} finally {
 				daemon = null;
 			}
+		}
+	}
+
+	private boolean connect() throws DBusException, IOException {
+		if (connTask != null) {
+			connTask.cancel(false);
+			connTask = null;
+		}
+
+		String newAddress = address;
+		if (SystemUtils.IS_OS_LINUX && !embeddedBus) {
+			if (newAddress != null) {
+				log.info(String.format("Connectin to DBus @%s", newAddress));
+				conn = DBusConnection.getConnection(newAddress, true, true);
+				log.info(String.format("Ready on DBus @%s", newAddress));
+			} else if (OS.isAdministrator()) {
+				if (sessionBus) {
+					log.info("Per configuration, connecting to Session DBus");
+					conn = DBusConnection.getConnection(DBusBusType.SESSION);
+					log.info("Ready on Session DBus");
+					newAddress = conn.getAddress().getRawAddress();
+				} else {
+					log.info("Connecting to System DBus");
+					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
+					log.info("Ready on System DBus");
+					newAddress = conn.getAddress().getRawAddress();
+				}
+			} else {
+				log.info("Not administrator, connecting to Session DBus");
+				conn = DBusConnection.getConnection(DBusBusType.SESSION);
+				log.info("Ready on Session DBus");
+				newAddress = conn.getAddress().getRawAddress();
+			}
+		} else {
+			if (newAddress == null) {
+				/*
+				 * If no user supplied bus address, create one for an embedded daemon. All
+				 * supported OS use domain sockets where possible except Windows
+				 *
+				 * TODO: switch to domain sockets all around with dbus-java 4.0.0+ :)
+				 */
+
+				if (SystemUtils.IS_OS_UNIX && !tcpBus) {
+					log.info("Using UNIX domain socket bus");
+					newAddress = DirectConnection.createDynamicSession();
+				} else {
+					log.info("Using TCP bus");
+					newAddress = DirectConnection.createDynamicTCPSession();
+				}
+			}
+
+			BusAddress busAddress = new BusAddress(newAddress);
+			if (!busAddress.hasGuid()) {
+				/* Add a GUID if user supplied bus address without one */
+				newAddress += ",guid=" + TransportFactory.genGUID();
+				busAddress = new BusAddress(newAddress);
+			}
+
+			if (busAddress.isListeningSocket()) {
+				/* Strip listen=true to get the address to uses as a client */
+				newAddress = newAddress.replace(",listen=true", "");
+				busAddress = new BusAddress(newAddress);
+			}
+
+			boolean startedBus = false;
+			if (daemon == null) {
+				BusAddress listenBusAddress = new BusAddress(newAddress);
+				String listenAddress = newAddress;
+				if (!listenBusAddress.isListeningSocket()) {
+					listenAddress = newAddress + ",listen=true";
+					listenBusAddress = new BusAddress(listenAddress);
+				}
+
+				log.info(String.format("Starting embedded bus on address %s (auth types: %s)",
+						listenBusAddress.getRawAddress(), toAuthTypesString(authTypes)));
+				daemon = new EmbeddedDBusDaemon();
+				daemon.setAuthTypes(authTypes);
+				daemon.setAddress(listenBusAddress);
+				daemon.startInBackground();
+				
+				log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
+				for (int i = 0; i < 6; i++) {
+					try {
+						conn = DBusConnection.getConnection(busAddress.getRawAddress());
+						log.info(String.format("Connected to embedded DBus %s", busAddress.getRawAddress()));
+						break;
+					} catch (DBusException dbe) {
+						if (i > 4)
+							throw dbe;
+						try {
+							Thread.sleep(500);
+						} catch (InterruptedException e) {
+						}
+					}
+				}
+
+				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
+				startedBus = true;
+			}
+
+			/*
+			 * Not ideal but we need read / write access to the domain socket from non-root
+			 * users.
+			 * 
+			 * TODO secure this a bit. at least use a group permission
+			 */
+			if (startedBus) {
+				if ((Platform.isLinux() || Util.isMacOs()) && busAddress.getBusType().equals(AddressBusTypes.UNIX)) {
+					if (StringUtils.isNotBlank(busAddress.getPath())) {
+						Path path = Paths.get(busAddress.getPath());
+						Files.setPosixFilePermissions(path,
+								new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
+					}
+				}
+			}
+		}
+		log.info(String.format("Requesting name from Bus %s", newAddress));
+
+		Properties properties = new Properties();
+		properties.put("address", newAddress);
+		File dbusPropertiesFile = getDBusPropertiesFile();
+		try (FileOutputStream out = new FileOutputStream(dbusPropertiesFile)) {
+			properties.store(out, "LogonBox VPN Client Service");
+		}
+
+		conn.addSigHandler(org.freedesktop.dbus.interfaces.Local.Disconnected.class,
+				new DBusSigHandler<org.freedesktop.dbus.interfaces.Local.Disconnected>() {
+
+					@Override
+					public void handle(org.freedesktop.dbus.interfaces.Local.Disconnected sig) {
+						try {
+							conn.removeSigHandler(org.freedesktop.dbus.interfaces.Local.Disconnected.class, this);
+						} catch (DBusException e1) {
+						}
+						log.info("Disconnected from Bus, retrying");
+						conn = null;
+						connTask = queue.schedule(() -> {
+							try {
+								connect();
+								publishDefaultServices();
+							} catch (DBusException | IOException e) {
+							}
+						}, 10, TimeUnit.SECONDS);
+
+					}
+				});
+
+		try {
+			conn.requestBusName("com.logonbox.vpn");
+			return true;
+		} catch (Exception e) {
+			log.error("Failed to connect to DBus. No remote state monitoring or management.", e);
+			return false;
 		}
 	}
 
@@ -285,86 +485,34 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			}
 		}
 
-		File dbusPropertiesFile = getDBusPropertiesFile();
+		return connect();
+	}
 
-		if (SystemUtils.IS_OS_LINUX && !embeddedBus) {
-			if (address != null) {
-				log.info(String.format("Connected to DBus @%s", address));
-				conn = DBusConnection.getConnection(address, true, true);
-				log.info(String.format("Ready to DBus @%s", address));
-			} else if (OS.isAdministrator()) {
-				if(sessionBus) {
-					log.info("Per configuration, connecting to Session DBus");
-					conn = DBusConnection.getConnection(DBusBusType.SESSION);
-					log.info("Ready to Session DBus");
-					address = conn.getAddress().getRawAddress();
-				}
-				else {
-					log.info("Connected to System DBus");
-					conn = DBusConnection.getConnection(DBusBusType.SYSTEM);
-					log.info("Ready to System DBus");
-					address = conn.getAddress().getRawAddress();
-				}
-			} else {
-				log.info("Not administrator, connecting to Session DBus");
-				conn = DBusConnection.getConnection(DBusBusType.SESSION);
-				log.info("Ready to Session DBus");
-				address = conn.getAddress().getRawAddress();
-			}
-		} else {
-			if (address == null) {
-				if (SystemUtils.IS_OS_UNIX && !tcpBus) {
-					address = DirectConnection.createDynamicSession();
-				} else {
-					address = DirectConnection.createDynamicTCPSession();
-				}
-			}
-
-			BusAddress busAddress = new BusAddress(address);
-			if (!busAddress.hasGuid()) {
-				address += ",guid=" + TransportFactory.genGUID();
-				busAddress = new BusAddress(address);
-			}
-
-			log.info(String.format("Starting embedded bus on address %s", busAddress.getRawAddress()));
-			daemon = new EmbeddedDBusDaemon();
-			daemon.setAddress(busAddress);
-			daemon.startInBackground();
-			log.info(String.format("Started embedded bus on address %s", busAddress.getRawAddress()));
-
-			log.info("Connecting to embedded DBus");
-			for (int i = 0; i < 6; i++) {
-				try {
-					conn = DBusConnection.getConnection(busAddress.getRawAddress());
-					log.info("Connected to embedded DBus");
-					break;
-				} catch (DBusException dbe) {
-					if (i > 4)
-						throw dbe;
-					Thread.sleep(500);
-				}
-			}
+	private String toAuthTypesString(int authTypes) {
+		List<String> l = new ArrayList<>();
+		if ((authTypes & SASL.AUTH_ANON) > 0) {
+			l.add("ANON");
 		}
-		log.info(String.format("Requesting name from Bus %s", address));
-
-		Properties properties = new Properties();
-		properties.put("address", address);
-		try (FileOutputStream out = new FileOutputStream(dbusPropertiesFile)) {
-			properties.store(out, "LogonBox VPN Client Service");
+		if ((authTypes & SASL.AUTH_EXTERNAL) > 0) {
+			l.add("EXTERNAL");
 		}
-
-		try {
-			conn.requestBusName("com.logonbox.vpn");
-		} catch (Exception e) {
-			log.error("Failed to connect to DBus. No remote state monitoring or management.", e);
-			return false;
+		if ((authTypes & SASL.AUTH_SHA) > 0) {
+			l.add("SHA");
 		}
-		return true;
+		if ((authTypes & SASL.AUTH_NONE) > 0) {
+			l.add("NONE");
+		}
+		return String.join(",", l);
 	}
 
 	private boolean startServices() {
+		if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
+			installAllTrustingCertificateVerifier();
+		}
+
 		try {
 			clientService.start();
+			Runtime.getRuntime().addShutdownHook(new Thread(() -> clientService.stopService()));
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to start client configuration service.", e);
 		}
@@ -374,26 +522,10 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 	private boolean buildServices() throws Exception {
 
-		if (log.isInfoEnabled()) {
-			log.info("Creating Connection Repository");
-		}
-
 		ConnectionRepository connectionRepository = new ConnectionRepositoryImpl();
 
-		if (log.isInfoEnabled()) {
-			log.info("Creating Configuration Repository");
-		}
-
-		ConfigurationRepository configurationRepository = new ConfigurationRepositoryImpl(this);
-
-		if (log.isInfoEnabled()) {
-			log.info("Creating Client Service");
-		}
+		configurationRepository = new ConfigurationRepositoryImpl(this);
 		clientService = new ClientServiceImpl(this, connectionRepository, configurationRepository);
-
-		if (!"true".equals(System.getProperty("logonbox.vpn.strictSSL", "true"))) {
-			installAllTrustingCertificateVerifier();
-		}
 
 		return true;
 
@@ -413,8 +545,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		if (path != null) {
 			file = new File(path);
 		} else if (Boolean.getBoolean("hypersocket.development")) {
-			file = new File(System.getProperty("user.home") + File.separator + ".logonbox-vpn-client" + File.separator
-					+ "conf" + File.separator + type + ".properties");
+			file = new File(ClientService.CLIENT_CONFIG_HOME, type + ".properties");
 		} else {
 			file = new File("conf" + File.separator + type + ".properties");
 		}
@@ -461,7 +592,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	public Collection<VPNFrontEnd> getFrontEnds() {
 		return frontEnds.values();
 	}
-	
+
 	@Override
 	public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
 		throw new UnsupportedOperationException();
@@ -472,7 +603,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		List<String> chainSubjectDN = new ArrayList<>();
 		for (X509Certificate c : chain) {
 			try {
-				if(log.isDebugEnabled())
+				if (log.isDebugEnabled())
 					log.debug(String.format("Validating: %s", c));
 				chainSubjectDN.add(c.getSubjectDN().toString());
 				c.checkValidity();
@@ -490,8 +621,9 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	}
 
 	protected void installAllTrustingCertificateVerifier() {
-		
-		log.warn("NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
+
+		log.warn(
+				"NOT FOR PRODUCTION USE. All SSL certificates will be trusted regardless of status. This should only be used for testing.");
 
 		Security.insertProviderAt(new ServiceTrustProvider(), 1);
 		Security.setProperty("ssl.TrustManagerFactory.algorithm", ServiceTrustProvider.TRUST_PROVIDER_ALG);

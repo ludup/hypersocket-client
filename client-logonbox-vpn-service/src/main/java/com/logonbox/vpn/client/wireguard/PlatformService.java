@@ -7,9 +7,10 @@ import java.util.List;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.logonbox.vpn.common.client.StatusDetail;
 
-public interface PlatformService<I extends VirtualInetAddress> {
+public interface PlatformService<I extends VirtualInetAddress<?>> {
 
 	/**
 	 * Get a list of the common names of any 3rd party or distribution packages that
@@ -49,8 +50,7 @@ public interface PlatformService<I extends VirtualInetAddress> {
 	 * Get an interface that is using this public key, or <code>null</code> if no
 	 * interface is using this public key at the moment.
 	 * 
-	 * @param publicKey public key 
-	 * @return interface
+	 * @param public key return interface
 	 */
 	I getByPublicKey(String publicKey);
 
@@ -89,5 +89,21 @@ public interface PlatformService<I extends VirtualInetAddress> {
 	 * @throws IOException on error
 	 */
 	StatusDetail status(String interfaceName) throws IOException;
+
+	/**
+	 * Run a hook script appropriate for the platform. Ideally, this should
+	 * be run as a script fragment.
+	 *  
+	 * @param session session
+	 * @param hookScript
+	 */
+	void runHook(VPNSession session, String hookScript) throws IOException;
+	
+	/**
+	 * Get the default DNS integration method. Will NOT return {@link DNSIntegrationMethod#AUTO}.
+	 * 
+	 * @return method
+	 */
+	DNSIntegrationMethod dnsMethod();
 
 }

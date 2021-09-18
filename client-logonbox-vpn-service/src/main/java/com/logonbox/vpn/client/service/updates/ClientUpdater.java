@@ -11,10 +11,12 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang3.StringUtils;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hypersocket.Version;
 import com.hypersocket.extensions.AbstractExtensionUpdater;
 import com.hypersocket.extensions.ExtensionHelper;
 import com.hypersocket.extensions.ExtensionPlace;
@@ -86,10 +88,19 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	protected void onUpdateFailure(Throwable e) {
 		try {
-			StringWriter msg = new StringWriter();
+			StringWriter trace = new StringWriter();
 			if (e != null)
-				e.printStackTrace(new PrintWriter(msg));
-			cctx.sendMessage(new VPN.UpdateFailure("/com/logonbox/vpn", extensionPlace.getApp(), msg.toString()));
+				e.printStackTrace(new PrintWriter(trace));
+			if(e instanceof InterruptedException) {
+				e = new IOException("Cancelled by user.", e);
+			}
+			String message = e.getMessage();
+			if(StringUtils.isBlank(message) && e.getCause() != null)
+				message = e.getCause().getMessage();
+			if(StringUtils.isBlank(message))
+				message = "No message supplied.";
+			
+			cctx.sendMessage(new VPN.UpdateFailure("/com/logonbox/vpn", extensionPlace.getApp(), message, trace.toString()));
 		} catch (DBusException ex) {
 			throw new IllegalStateException("Failed to send event.", ex);
 		}
@@ -127,12 +138,20 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 				 * if there are any updates for this version
 				 */
 				JsonExtensionUpdate v = cctx.getClientService().getUpdates();
-				return ExtensionHelper.resolveExtensions(true,
-						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
-								+ "api/store/repos2",
-						new String[] { "logonbox-vpn-client" }, v.getResource().getCurrentVersion(),
-						HypersocketVersion.getSerial(), "LogonBox VPN Client", v.getResource().getCustomer(),
-						extensionPlace, true, null, getUpdateTargets());
+				Version remoteVersion = new Version(v.getResource().getCurrentVersion());
+				Version localVersion = new Version(getVersion());
+				if(remoteVersion.compareTo(localVersion) < 1) {
+					log.info(String.format("We are already on a version (%s) later or the same as the one available (%s).", localVersion, remoteVersion));
+					return Collections.emptyMap();
+				}
+				else {
+					return ExtensionHelper.resolveExtensions(true,
+							FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
+									+ "api/store/repos2",
+							new String[] { "logonbox-vpn-client" }, v.getResource().getCurrentVersion(),
+							HypersocketVersion.getSerial(), "LogonBox VPN Client", v.getResource().getCustomer(),
+							extensionPlace, true, null, getUpdateTargets());
+				}
 			}
 		} else {
 			JsonExtensionPhaseList v = cctx.getClientService().getPhases();
@@ -173,7 +192,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	protected void onUpdateComplete(long totalBytesTransfered, int totalUpdates) {
 		try {
-			cctx.sendMessage(new VPN.UpdateComplete("/com/logonbox/vpn", ExtensionPlace.getDefault().getApp(),
+			cctx.sendMessage(new VPN.UpdateComplete("/com/logonbox/vpn", extensionPlace.getApp(),
 					totalBytesTransfered));
 		} catch (DBusException e) {
 			throw new IllegalStateException("Failed to send event.", e);
