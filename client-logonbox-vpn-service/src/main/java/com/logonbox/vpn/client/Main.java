@@ -85,8 +85,6 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 	final static int DEFAULT_TIMEOUT = 10000;
 
-	private static final long MAX_WAIT = TimeUnit.SECONDS.toMillis(10);
-
 	static Logger log = LoggerFactory.getLogger(Main.class);
 
 	public static void main(String[] args) throws Exception {

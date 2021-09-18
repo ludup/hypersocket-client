@@ -566,7 +566,7 @@ public class Client extends Application {
 
 	protected void exitApp() {
 		opQueue.shutdown();
-		System.exit(0);
+		Platform.exit();
 	}
 
 	protected Color getBase() {
