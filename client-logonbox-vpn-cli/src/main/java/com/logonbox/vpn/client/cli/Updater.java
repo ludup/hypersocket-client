@@ -10,6 +10,7 @@ public class Updater {
 
 	private boolean cancelled;
 	private ProgressBar progressBar;
+	private boolean quiet;
 
 	public Updater(CLI cli) {
 		progressBar = new ProgressBar(cli);

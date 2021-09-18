@@ -143,8 +143,9 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 						createUpdater();
 						if (isUpdateCancelled()) {
 							getVPN().cancelUpdate();
-						} else
+						} else {
 							updater.start(sig.getApp(), sig.getTotalBytesExpected());
+						}
 					}
 				});
 
@@ -306,31 +307,8 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 	@Override
 	public void run() {
 		try {
-			PrintWriter err = console.err();
 			about();
-			do {
-				try {
-					String cmd = console.readLine("LogonBox VPN> ");
-					if (cmd == null) {
-						exitWhenDone = true;
-					} else if (StringUtils.isNotBlank(cmd)) {
-						List<String> newargs = Util.parseQuotedString(cmd);
-						newargs.removeIf(item -> item == null || "".equals(item));
-						String[] args = newargs.toArray(new String[0]);
-						if (args.length > 0) {
-							CommandLine cl = new CommandLine(new InteractiveConsole());
-							cl.setTrimQuotes(true);
-							cl.setUnmatchedArgumentsAllowed(true);
-							cl.setUnmatchedOptionsAllowedAsOptionParameters(true);
-							cl.setUnmatchedOptionsArePositionalParams(true);
-							cl.execute(args);
-						}
-					}
-
-				} catch (Exception e) {
-					err.println(String.format("%s", e.getMessage()));
-				}
-			} while (!exitWhenDone);
+			runPrompt();
 			console.out().println();
 			console.flush();
 		} catch (Exception e1) {
@@ -339,6 +317,34 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 			exitCLI();
 		}
 	}
+
+	private void runPrompt() throws IOException {
+		PrintWriter err = console.err();
+		do {
+			try {
+				String cmd = console.readLine("LogonBox VPN> ");
+				if (cmd == null) {
+					exitWhenDone = true;
+				} else if (StringUtils.isNotBlank(cmd)) {
+					List<String> newargs = Util.parseQuotedString(cmd);
+					newargs.removeIf(item -> item == null || "".equals(item));
+					String[] args = newargs.toArray(new String[0]);
+					if (args.length > 0) {
+						CommandLine cl = new CommandLine(new InteractiveConsole());
+						cl.setTrimQuotes(true);
+						cl.setUnmatchedArgumentsAllowed(true);
+						cl.setUnmatchedOptionsAllowedAsOptionParameters(true);
+						cl.setUnmatchedOptionsArePositionalParams(true);
+						cl.execute(args);
+					}
+				}
+
+			} catch (Exception e) {
+				err.println(String.format("%s", e.getMessage()));
+			}
+		} while (!exitWhenDone);
+	}
+	
 
 	protected void createUpdater() {
 		if (updater == null) {

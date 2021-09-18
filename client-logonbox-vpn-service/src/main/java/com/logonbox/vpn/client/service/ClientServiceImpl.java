@@ -786,29 +786,23 @@ public class ClientServiceImpl implements ClientService {
 					}
 				}
 			}
-//				else if (updating) {
-//					/*
-//					 * If we register while an update is taking place, try to make the client catch
-//					 * up and show the update progress window
-//					 */
-//					try {
-//						context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate));
-//
-//						context.sendMessage(new VPN.UpdateStart("/com/logonbox/vpn",
-//								ExtensionPlace.getDefault().getApp(), serviceUpdateJob.getTotalSize()));
-//
-//						context.sendMessage(
-//								new VPN.UpdateProgress("/com/logonbox/vpn", ExtensionPlace.getDefault().getApp(), 0,
-//										serviceUpdateJob.getTransfered(), serviceUpdateJob.getTotalSize()));
-//
-//						if (serviceUpdateJob.getTransfered() >= serviceUpdateJob.getTotalSize()) {
-//							context.sendMessage(new VPN.UpdateComplete("/com/logonbox/vpn",
-//									ExtensionPlace.getDefault().getApp(), serviceUpdateJob.getTransfered()));
-//						}
-//					} catch (DBusException e) {
-//						throw new IllegalStateException("Failed to send event.", e);
-//					}
-//				}
+			else if (updating) {
+				/*
+				 * If we register while an update is taking place, try to make the client catch
+				 * up and show the update progress window
+				 */
+				try {
+					context.sendMessage(new VPN.UpdateInit("/com/logonbox/vpn", appsToUpdate.size()));
+				} catch (DBusException e) {
+					throw new IllegalStateException("Failed to send event.", e);
+				}
+			}
+			else if(isAutomaticUpdates() && getAttempts() == 0) {
+				/* Otherwise if  automatic updates are enabled, start one
+				 * now
+				 */
+				update(false);
+			}
 		}
 	}
 
@@ -906,8 +900,6 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	public void start() throws Exception {
-		boolean automaticUpdates = Boolean
-				.valueOf(configurationRepository.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, String.valueOf(ConfigurationRepository.AUTOMATIC_UPDATES_DEFAULT)));
 
 		/*
 		 * Regardless of any other configuration or state, always check for updates
@@ -915,7 +907,9 @@ public class ClientServiceImpl implements ClientService {
 		 * of the client
 		 */
 		timer.scheduleAtFixedRate(() -> {
-			update(true);
+			checkForUpdate();
+			if(isAutomaticUpdates() && needsUpdate)
+				update();
 		}, UPDATE_SERVER_POLL_INTERVAL, UPDATE_SERVER_POLL_INTERVAL, TimeUnit.MILLISECONDS);
 
 		Collection<VPNSession> toStart = getContext().getPlatformService().start(getContext());
@@ -927,29 +921,49 @@ public class ClientServiceImpl implements ClientService {
 		}
 
 		if ((!isTrackServerVersion() || connectionRepository.getConnections(null).size() > 0)) {
+			if(getAttempts() > 1) {
+				/* Don't do update check, we are likely restarting as the result
+				 * of an upgrade. The 
+				 */
+				log.info("Skipping checking updates for now, we have just restarted probably as result of an upate, lets not slow the client start up down.");
+				return;
+			}
+			
 			/*
-			 * Do updates if we are not tracking the server version or if there are some
-			 * connections we can get LogonBox VPN server version from
+			 * Only check for updates for now, waiting for the first auto
+			 * update check, or the first GUI to connect at which point we 
+			 * might auto update
 			 */
 			try {
-				if (automaticUpdates)
-					update(false);
-				else {
-					update(true);
-					if (needsUpdate) {
-						/*
-						 * If updates are manual, don't try to connect until the GUI connects and does
-						 * it's update
-						 */
-						log.info("Needs update, awaiting GUI to connect.");
-						return;
-					}
+				checkForUpdate();
+				if (needsUpdate) {
+					/*
+					 * If updates are manual, don't try to connect until the GUI connects and does
+					 * it's update
+					 */
+					log.info("Needs update, awaiting GUI to connect.");
 				}
 			} catch (Exception e) {
 				log.info(String.format("Extension versions not checked."), e);
 			}
 		}
 
+	}
+
+	private int getAttempts() {
+		try {
+			return Integer.parseInt(System.getProperty("forker.info.attempts"));
+		}
+		catch(Exception e) {
+			// First start, ignore
+			return 0;
+		}
+	}
+
+	private boolean isAutomaticUpdates() {
+		boolean automaticUpdates = Boolean
+				.valueOf(configurationRepository.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, String.valueOf(ConfigurationRepository.AUTOMATIC_UPDATES_DEFAULT)));
+		return automaticUpdates;
 	}
 
 	public boolean startSavedConnections() {
@@ -1027,10 +1041,11 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	public void update(boolean checkOnly) {
-		if (updating)
-			throw new IllegalStateException("Already updating.");
 
 		synchronized (updateLock) {
+			if (updating)
+				throw new IllegalStateException("Already updating.");
+			
 			updateThread = Thread.currentThread();
 			appsToUpdate.clear();
 			needsUpdate = false;

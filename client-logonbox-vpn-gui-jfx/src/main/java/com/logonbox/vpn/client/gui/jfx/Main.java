@@ -9,6 +9,7 @@ import java.util.prefs.Preferences;
 import javax.swing.UIManager;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
@@ -95,8 +96,12 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 		if(Taskbar.isTaskbarSupported()) {
 	        try {
 	    		final Taskbar taskbar = Taskbar.getTaskbar();
-	            taskbar.setIconImage(java.awt.Toolkit.getDefaultToolkit()
-						.getImage(Main.class.getResource("logonbox-icon128x128.png")));
+	    		if(SystemUtils.IS_OS_MAC_OSX)
+		            taskbar.setIconImage(java.awt.Toolkit.getDefaultToolkit()
+							.getImage(Main.class.getResource("mac-logo128px.png")));
+	    		else
+		            taskbar.setIconImage(java.awt.Toolkit.getDefaultToolkit()
+							.getImage(Main.class.getResource("logonbox-icon128x128.png")));
 	        } catch (final UnsupportedOperationException e) {
 	        } catch (final SecurityException e) {
 	        }

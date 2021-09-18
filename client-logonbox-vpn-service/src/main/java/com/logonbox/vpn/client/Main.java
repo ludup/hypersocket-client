@@ -42,6 +42,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.PropertyConfigurator;
 import org.freedesktop.dbus.bin.EmbeddedDBusDaemon;
 import org.freedesktop.dbus.connections.BusAddress;
+import org.freedesktop.dbus.connections.BusAddress.AddressBusTypes;
 import org.freedesktop.dbus.connections.SASL;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
@@ -403,7 +404,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			 * TODO secure this a bit. at least use a group permission
 			 */
 			if (startedBus) {
-				if ((Platform.isLinux() || Util.isMacOs()) && busAddress.getBusType().equals("unix")) {
+				if ((Platform.isLinux() || Util.isMacOs()) && busAddress.getBusType().equals(AddressBusTypes.UNIX)) {
 					if (StringUtils.isNotBlank(busAddress.getPath())) {
 						Path path = Paths.get(busAddress.getPath());
 						Files.setPosixFilePermissions(path,
