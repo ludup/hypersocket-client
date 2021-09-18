@@ -42,10 +42,10 @@ import org.apache.log4j.Level;
 import org.apache.log4j.PropertyConfigurator;
 import org.freedesktop.dbus.bin.EmbeddedDBusDaemon;
 import org.freedesktop.dbus.connections.BusAddress;
+import org.freedesktop.dbus.connections.SASL;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
-import org.freedesktop.dbus.connections.transports.TransportBuilder;
-import org.freedesktop.dbus.connections.transports.TransportBuilder.SaslAuthMode;
+import org.freedesktop.dbus.connections.transports.TransportFactory;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.freedesktop.dbus.messages.Message;
@@ -133,7 +133,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	private boolean tcpBus;
 
 	@Option(names = { "-u", "--auth" }, description = "Mask of SASL authentication method to use.")
-	private SaslAuthMode authMode = SaslAuthMode.AUTH_ANONYMOUS;
+	private int authTypes = SASL.AUTH_ANON;
 
 	private ConfigurationRepositoryImpl configurationRepository;
 
@@ -336,19 +336,20 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				 *
 				 * TODO: switch to domain sockets all around with dbus-java 4.0.0+ :)
 				 */
+
 				if (SystemUtils.IS_OS_UNIX && !tcpBus) {
 					log.info("Using UNIX domain socket bus");
-					newAddress = TransportBuilder.createDynamicSession("unix", true);
+					newAddress = DirectConnection.createDynamicSession();
 				} else {
 					log.info("Using TCP bus");
-					newAddress = TransportBuilder.createDynamicSession("tcp", true);
+					newAddress = DirectConnection.createDynamicTCPSession();
 				}
 			}
 
 			BusAddress busAddress = new BusAddress(newAddress);
 			if (!busAddress.hasGuid()) {
 				/* Add a GUID if user supplied bus address without one */
-				newAddress += ",guid=" + Util.genGUID();
+				newAddress += ",guid=" + TransportFactory.genGUID();
 				busAddress = new BusAddress(newAddress);
 			}
 
@@ -368,34 +369,31 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				}
 
 				log.info(String.format("Starting embedded bus on address %s (auth types: %s)",
-						listenBusAddress.getRawAddress(), authMode));
-				daemon = new EmbeddedDBusDaemon(listenBusAddress);
-				daemon.setSaslAuthMode(authMode);
+						listenBusAddress.getRawAddress(), toAuthTypesString(authTypes)));
+				daemon = new EmbeddedDBusDaemon();
+				daemon.setAuthTypes(authTypes);
+				daemon.setAddress(listenBusAddress);
 				daemon.startInBackground();
-				long sleepMs = 200;
-				long waited = 0;
-
-				while (!daemon.isRunning()) {
-					if (waited >= MAX_WAIT) {
-						throw new RuntimeException(
-								"EmbeddedDbusDaemon not started in the specified time of " + MAX_WAIT + " ms");
-					}
-
+				
+				log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
+				for (int i = 0; i < 6; i++) {
 					try {
-						Thread.sleep(sleepMs);
-					} catch (InterruptedException _ex) {
+						conn = DBusConnection.getConnection(busAddress.getRawAddress());
+						log.info(String.format("Connected to embedded DBus %s", busAddress.getRawAddress()));
 						break;
+					} catch (DBusException dbe) {
+						if (i > 4)
+							throw dbe;
+						try {
+							Thread.sleep(500);
+						} catch (InterruptedException e) {
+						}
 					}
-
-					waited += sleepMs;
 				}
 
 				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
 				startedBus = true;
 			}
-
-			log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
-			conn = DBusConnection.getConnection(busAddress.getRawAddress());
 
 			/*
 			 * Not ideal but we need read / write access to the domain socket from non-root
@@ -404,11 +402,10 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			 * TODO secure this a bit. at least use a group permission
 			 */
 			if (startedBus) {
-				if ((Platform.isLinux() || Util.isMacOs()) && busAddress.getBusType().equals("UNIX")) {
+				if ((Platform.isLinux() || Util.isMacOs()) && busAddress.getBusType().equals("unix")) {
 					if (StringUtils.isNotBlank(busAddress.getPath())) {
 						Path path = Paths.get(busAddress.getPath());
-						log.info(String.format("Setting DBus permissions on %s to %s", path, Arrays.asList(PosixFilePermission.values())));
-						Files.setPosixFilePermissions(path, 
+						Files.setPosixFilePermissions(path,
 								new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
 					}
 				}
@@ -487,6 +484,23 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		}
 
 		return connect();
+	}
+
+	private String toAuthTypesString(int authTypes) {
+		List<String> l = new ArrayList<>();
+		if ((authTypes & SASL.AUTH_ANON) > 0) {
+			l.add("ANON");
+		}
+		if ((authTypes & SASL.AUTH_EXTERNAL) > 0) {
+			l.add("EXTERNAL");
+		}
+		if ((authTypes & SASL.AUTH_SHA) > 0) {
+			l.add("SHA");
+		}
+		if ((authTypes & SASL.AUTH_NONE) > 0) {
+			l.add("NONE");
+		}
+		return String.join(",", l);
 	}
 
 	private boolean startServices() {
