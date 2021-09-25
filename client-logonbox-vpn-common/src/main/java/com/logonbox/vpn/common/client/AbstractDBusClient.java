@@ -141,10 +141,6 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 	
 	public PromptingCertManager getCertManager() {
-		if(certManager == null) {
-			certManager = createCertManager();
-			certManager.installCertificateVerifier();
-		}
 		return certManager;
 	}
 
@@ -166,6 +162,9 @@ public abstract class AbstractDBusClient implements DBusClient {
 			getLog().debug("Call to init when already have bus.");
 			return;
 		}
+		
+		certManager = createCertManager();
+		certManager.installCertificateVerifier();
 
 		if(conn == null || !conn.isConnected()) {
 			String busAddress = this.busAddress;
@@ -206,6 +205,9 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 		for (BusLifecycleListener i : busLifecycleListeners)
 			i.busInitializer(conn);
+		
+		/* Create cert manager */
+		getLog().info("Cert manager: %s", getCertManager());
 	}
 
 	protected abstract boolean isInteractive();

@@ -94,11 +94,6 @@
 			<version>5.0.4</version>
 		</dependency>
 		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-log4j12</artifactId>
-			<version>1.7.30</version>
-		</dependency>
-		<dependency>
 			<groupId>com.sshtools</groupId>
 			<artifactId>two-slices</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
@@ -111,7 +106,7 @@
 		<dependency>
 			<groupId>com.github.hypfvieh</groupId>
 			<artifactId>dbus-java</artifactId>
-			<version>3.3.1-LB-SNAPSHOT</version>
+			<version>4.0.0-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.kordamp.bootstrapfx</groupId>

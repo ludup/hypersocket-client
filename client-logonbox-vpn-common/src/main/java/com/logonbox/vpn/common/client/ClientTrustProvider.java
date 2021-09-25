@@ -4,6 +4,7 @@ import java.security.AccessController;
 import java.security.KeyStore;
 import java.security.PrivilegedAction;
 import java.security.Provider;
+import java.security.Security;
 
 import javax.net.ssl.ManagerFactoryParameters;
 import javax.net.ssl.TrustManager;
@@ -17,7 +18,9 @@ public final class ClientTrustProvider extends Provider {
 
 	public ClientTrustProvider(TrustManager trustManager) {
 		super(TRUST_PROVIDER_ID, "0.1", "Delegates to UI.");
+		Security.setProperty("ssl.TrustManagerFactory.algorithm", ClientTrustProvider.TRUST_PROVIDER_ALG);
 		AccessController.doPrivileged(new PrivilegedAction<Void>() {
+			@Override
 			public Void run() {
 				put("TrustManagerFactory." + ClientTrustManagerFactory.getAlgorithm(),
 						ClientTrustManagerFactory.class.getName());
@@ -31,12 +34,15 @@ public final class ClientTrustProvider extends Provider {
 		public ClientTrustManagerFactory() {
 		}
 
+		@Override
 		protected void engineInit(ManagerFactoryParameters mgrparams) {
 		}
 
+		@Override
 		protected void engineInit(KeyStore keystore) {
 		}
 
+		@Override
 		protected TrustManager[] engineGetTrustManagers() {
 			return new TrustManager[] { trustManager };
 		}
