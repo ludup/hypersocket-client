@@ -336,7 +336,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				 *
 				 * TODO: switch to domain sockets all around with dbus-java 4.0.0+ :)
 				 */
-				if (SystemUtils.IS_OS_UNIX && !tcpBus) {
+				if (/* SystemUtils.IS_OS_UNIX && */ !tcpBus) {
 					log.info("Using UNIX domain socket bus");
 					newAddress = TransportBuilder.createDynamicSession("unix", true);
 				} else {

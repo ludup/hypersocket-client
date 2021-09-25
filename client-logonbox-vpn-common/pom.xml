@@ -61,15 +61,6 @@
 	</dependencies>
 	<repositories>
 		<repository>
-			<id>jdaptive-ext-snapshots</id>
-			<name>artifactory.javassh.com-snapshots</name>
-			<url>https://artifactory.jadaptive.com/ext-snapshots-local</url>
-			<snapshots/>
-            <releases>
-                <enabled>false</enabled>
-            </releases>
-		</repository>
-		<repository>
 			<id>ext-snapshots-local</id>
 			<name>ext-snapshots-local</name>
 			<url>https://artifactory.jadaptive.com/ext-snapshots-local</url>
