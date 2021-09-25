@@ -89,7 +89,7 @@ public class ServiceClient {
 		try {
 			if (response.getStatusLine().getStatusCode() != 200) {
 				throw new ClientProtocolException(
-						"Expected status code 200 for doGet [" + response.getStatusLine().getStatusCode() + "]");
+						"Expected status code 200 for doGet [" + url + ", " + response.getStatusLine().getStatusCode() + "]");
 			}
 
 			return IOUtils.toString(response.getEntity().getContent(), "UTF-8");
@@ -188,8 +188,17 @@ public class ServiceClient {
 	protected JsonSession auth(VPNConnection connection)
 			throws ClientProtocolException, IOException, URISyntaxException {
 
-		String i18njson = doGet(connection, "/api/i18n/group/_default_i18n_group");
-		JsonNode i18n = mapper.readTree(i18njson);
+		JsonNode i18n;
+		try {
+			/* 2.4 server */
+			String i18njson = doGet(connection, "/api/i18n/group/_default_i18n_group");
+			i18n = mapper.readTree(i18njson);
+		}
+		catch(ClientProtocolException cpe) {
+			/* 2.3 server */
+			String i18njson = doGet(connection, "/api/i18n");
+			i18n = mapper.readTree(i18njson);
+		}
 
 		// main.getServer().
 		String json = doGet(connection, "/api/logon");
