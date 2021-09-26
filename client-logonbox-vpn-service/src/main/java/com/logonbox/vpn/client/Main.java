@@ -412,30 +412,26 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			 */
 			if (startedBus) {
 				if (busAddress.getBusType().equals("UNIX")) {
-
 					Path path = Paths.get(busAddress.getPath());
 					if(Platform.isLinux() || Util.isMacOs()) {					
-						if (StringUtils.isNotBlank(busAddress.getPath())) {
-							log.info(String.format("Setting DBus permissions on %s to %s", path, Arrays.asList(PosixFilePermission.values())));
-							Files.setPosixFilePermissions(path, 
-									new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
-						}
+						log.info(String.format("Setting DBus permissions on %s to %s", path, Arrays.asList(PosixFilePermission.values())));
+						Files.setPosixFilePermissions(path, 
+								new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
 					}
 					else if(Platform.isWindows()) {
 					    AclFileAttributeView aclAttr = Files.getFileAttributeView(path, AclFileAttributeView.class);
 					    UserPrincipalLookupService upls = path.getFileSystem().getUserPrincipalLookupService();
-					    UserPrincipal user = upls.lookupPrincipalByName(System.getProperty("user.name"));
+					    UserPrincipal user = upls.lookupPrincipalByName("Everyone") /* TODO Tighten this */;
 					    AclEntry.Builder builder = AclEntry.newBuilder();       
-					    builder.setPermissions( EnumSet.of(AclEntryPermission.READ_DATA, AclEntryPermission.EXECUTE, 
-					            AclEntryPermission.READ_ACL, AclEntryPermission.READ_ATTRIBUTES, AclEntryPermission.READ_NAMED_ATTRS,
-					            AclEntryPermission.WRITE_ACL, AclEntryPermission.DELETE
-					    ));
+					    builder.setPermissions( EnumSet.of(AclEntryPermission.READ_DATA, AclEntryPermission.WRITE_DATA));
 					    builder.setPrincipal(user);
 					    builder.setType(AclEntryType.ALLOW);
 					    List<AclEntry> acl = Collections.singletonList(builder.build());
+						log.info(String.format("Setting DBus permissions on %s as %s to %s", path, user, acl));
 						aclAttr.setAcl(acl);
-						log.info(String.format("Setting DBus permissions on %s to %s", path, acl));
 					}
+					else 
+						log.warn("Cannot open socket permissions on this platform, clients may not be able to connect.");
 				}
 			}
 		}
