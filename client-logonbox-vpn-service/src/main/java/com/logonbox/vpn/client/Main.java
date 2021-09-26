@@ -8,7 +8,13 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.UserPrincipal;
+import java.nio.file.attribute.UserPrincipalLookupService;
 import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.security.cert.CertificateException;
@@ -17,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -404,12 +411,30 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			 * TODO secure this a bit. at least use a group permission
 			 */
 			if (startedBus) {
-				if ((Platform.isLinux() || Util.isMacOs()) && busAddress.getBusType().equals("UNIX")) {
-					if (StringUtils.isNotBlank(busAddress.getPath())) {
-						Path path = Paths.get(busAddress.getPath());
-						log.info(String.format("Setting DBus permissions on %s to %s", path, Arrays.asList(PosixFilePermission.values())));
-						Files.setPosixFilePermissions(path, 
-								new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
+				if (busAddress.getBusType().equals("UNIX")) {
+
+					Path path = Paths.get(busAddress.getPath());
+					if(Platform.isLinux() || Util.isMacOs()) {					
+						if (StringUtils.isNotBlank(busAddress.getPath())) {
+							log.info(String.format("Setting DBus permissions on %s to %s", path, Arrays.asList(PosixFilePermission.values())));
+							Files.setPosixFilePermissions(path, 
+									new LinkedHashSet<>(Arrays.asList(PosixFilePermission.values())));
+						}
+					}
+					else if(Platform.isWindows()) {
+					    AclFileAttributeView aclAttr = Files.getFileAttributeView(path, AclFileAttributeView.class);
+					    UserPrincipalLookupService upls = path.getFileSystem().getUserPrincipalLookupService();
+					    UserPrincipal user = upls.lookupPrincipalByName(System.getProperty("user.name"));
+					    AclEntry.Builder builder = AclEntry.newBuilder();       
+					    builder.setPermissions( EnumSet.of(AclEntryPermission.READ_DATA, AclEntryPermission.EXECUTE, 
+					            AclEntryPermission.READ_ACL, AclEntryPermission.READ_ATTRIBUTES, AclEntryPermission.READ_NAMED_ATTRS,
+					            AclEntryPermission.WRITE_ACL, AclEntryPermission.DELETE
+					    ));
+					    builder.setPrincipal(user);
+					    builder.setType(AclEntryType.ALLOW);
+					    List<AclEntry> acl = Collections.singletonList(builder.build());
+						aclAttr.setAcl(acl);
+						log.info(String.format("Setting DBus permissions on %s to %s", path, acl));
 					}
 				}
 			}
