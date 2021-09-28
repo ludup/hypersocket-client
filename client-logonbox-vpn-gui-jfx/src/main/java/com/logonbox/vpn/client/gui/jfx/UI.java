@@ -1019,7 +1019,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	protected void configureWebEngine() {
 		WebEngine engine = webView.getEngine();
 		webView.setContextMenuEnabled(false);
-
 		engine.setUserAgent(
 				"LogonBox VPN Client " + HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-gui-jfx"));
 		engine.setOnAlert((e) -> {

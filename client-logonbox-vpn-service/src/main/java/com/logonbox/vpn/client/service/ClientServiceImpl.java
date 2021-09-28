@@ -974,8 +974,8 @@ public class ClientServiceImpl implements ClientService {
 		updateCheckTask = timer.scheduleAtFixedRate(() -> {
 			/* Force phases to reload */
 			this.phaseList = null;
-			checkForUpdate();
-			if(isAutomaticUpdates() && needsUpdate)
+			update(true);
+			if(deferUpdatesUntil == 0 && isAutomaticUpdates() && needsUpdate)
 				update();
 		}, initialInterval, UPDATE_SERVER_POLL_INTERVAL, TimeUnit.MILLISECONDS);		
 	}
@@ -1008,7 +1008,7 @@ public class ClientServiceImpl implements ClientService {
 			 * might auto update
 			 */
 			try {
-				checkForUpdate();
+				update(true);
 				if (needsUpdate) {
 					/*
 					 * If updates are manual, don't try to connect until the GUI connects and does
