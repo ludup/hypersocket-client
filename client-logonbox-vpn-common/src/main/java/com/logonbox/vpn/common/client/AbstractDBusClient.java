@@ -75,6 +75,8 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 	protected AbstractDBusClient(ExtensionTarget target) {
 		this.target = target;
+		certManager = createCertManager();
+		certManager.installCertificateVerifier();
 		scheduler = Executors.newScheduledThreadPool(1);
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
@@ -162,9 +164,6 @@ public abstract class AbstractDBusClient implements DBusClient {
 			getLog().debug("Call to init when already have bus.");
 			return;
 		}
-		
-		certManager = createCertManager();
-		certManager.installCertificateVerifier();
 
 		if(conn == null || !conn.isConnected()) {
 			String busAddress = this.busAddress;
