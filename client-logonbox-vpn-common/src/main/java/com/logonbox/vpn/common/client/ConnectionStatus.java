@@ -16,4 +16,6 @@ public interface ConnectionStatus {
 	Connection getConnection();
 	
 	Type getStatus();
+	
+	String getAuthorizeUri();
 }

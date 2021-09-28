@@ -138,13 +138,29 @@ public class DOMProcessor {
 			Node attr = attrs.item(i);
 			String val = attr.getNodeValue();
 			if (attr.getNodeName().equals("data-conditional")) {
+				boolean not = false;
+				if(val != null && val.startsWith("!")) {
+					not = true;
+					val = val.substring(1);
+				}
 				String valVal = replacements.get(val);
-				if(valVal != null && valVal.length() > 0 && !valVal.equals("false") && !valVal.equals("0")) {
-					// Include
+				if(not) {
+					if(valVal == null || valVal.length() == 0 || valVal.equals("false") || valVal.equals("0")) {
+						// Leave
+					}
+					else {
+						node.getParentNode().removeChild(node);
+						return;		
+					}
 				}
 				else {
-					node.getParentNode().removeChild(node);
-					return;
+					if(valVal != null && valVal.length() > 0 && !valVal.equals("false") && !valVal.equals("0")) {
+						// Leave
+					}
+					else {
+						node.getParentNode().removeChild(node);
+						return;
+					}
 				}
 			}
 			else if (attr.getNodeName().startsWith("data-attr-i18n-")) {

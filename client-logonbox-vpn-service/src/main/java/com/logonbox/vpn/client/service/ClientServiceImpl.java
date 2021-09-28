@@ -10,13 +10,16 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -65,16 +68,24 @@ import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 
 public class ClientServiceImpl implements ClientService {
 
+	private static final String AUTHORIZE_URI = "/logonBoxVPNClient/";
+	
+	/**
+	 * NOTE: Currently these must be changed in preparation for every major branch
+	 */
+	private static final List<String> VALID_PHASES = Arrays.asList("vpn_client_stable_2_4x", "vpn_client_ea_2_4x", "nightly2_4x");
+
 	static Logger log = LoggerFactory.getLogger(ClientServiceImpl.class);
 
 	static final int POLL_RATE = 30;
 
 	private static final int AUTHORIZE_TIMEOUT = Integer
-			.parseInt(System.getProperty("logonbox.vpn.authorizeTimeout", "180"));
+			.parseInt(System.getProperty("logonbox.vpn.authorizeTimeout", "300"));
 	private static final int PHASES_TIMEOUT = 3600 * 24;
 	private static final long PING_TIMEOUT = TimeUnit.SECONDS.toMillis(30);
 	private static final long UPDATE_SERVER_POLL_INTERVAL = TimeUnit.MINUTES.toMillis(10);
 	private static final long VERSION_CHECK_TIMEOUT = TimeUnit.MINUTES.toMillis(10);
+
 
 	protected Map<Connection, VPNSession> activeSessions = new HashMap<>();
 	protected Map<Connection, ScheduledFuture<?>> authorizingClients = new HashMap<>();
@@ -104,6 +115,8 @@ public class ClientServiceImpl implements ClientService {
 	private boolean allowUpdateCancel = true;
 
 	private boolean updateCancelled;
+
+	private ScheduledFuture<?> updateCheckTask;
 
 	public ClientServiceImpl(LocalContext context, ConnectionRepository connectionRepository,
 			ConfigurationRepository configurationRepository) {
@@ -158,6 +171,9 @@ public class ClientServiceImpl implements ClientService {
 				log.info("Scheduling connect for connection id " + c.getId() + "/" + c.getHostname());
 			}
 
+			c.setError(null);
+			save(c);
+			
 			VPNSession task = createJob(c);
 			temporarilyOffline.remove(c);
 			task.setTask(timer.schedule(() -> doConnect(task), 1, TimeUnit.MILLISECONDS));
@@ -256,6 +272,8 @@ public class ClientServiceImpl implements ClientService {
 		boolean disconnect = false;
 		VPNSession wireguardSession = null;
 		synchronized (activeSessions) {
+			c.setError(StringUtils.isBlank(reason) ? null : reason);
+			save(c);
 			temporarilyOffline.remove(c);
 			if (!disconnectingClients.contains(c)) {
 				if (authorizingClients.containsKey(c)) {
@@ -345,6 +363,8 @@ public class ClientServiceImpl implements ClientService {
 			ScheduledFuture<?> f = authorizingClients.remove(connection);
 			if (f != null)
 				f.cancel(false);
+			connection.setError(jpe.getMessage());
+			save(connection);
 			connectingSessions.remove(connection);
 		}
 	}
@@ -427,7 +447,7 @@ public class ClientServiceImpl implements ClientService {
 				String extensionStoreRoot = AbstractExtensionUpdater.getExtensionStoreRoot();
 				phasesLastRetrieved = System.currentTimeMillis();
 				try {
-					URL url = new URL(extensionStoreRoot + "/api/store/phases");
+					URL url = new URL(extensionStoreRoot + "api/store/phases");
 					URLConnection urlConnection = url.openConnection();
 					this.phaseList = l;
 					try (InputStream in = urlConnection.getInputStream()) {
@@ -437,6 +457,20 @@ public class ClientServiceImpl implements ClientService {
 					this.phaseList = l;
 					throw new IllegalStateException(
 							String.format("Failed to get extension phases from %s.", extensionStoreRoot), ioe);
+				}
+				
+				/* Now filter out the phases we actually want */
+				
+				if(!isUseAllCloudPhases()) {
+					List<JsonExtensionPhase> pl = new ArrayList<>(Arrays.asList(this.phaseList.getResources()));
+					for(Iterator<JsonExtensionPhase>  jit = pl.iterator();  jit.hasNext(); ) {
+						JsonExtensionPhase p = jit.next();
+						if(!VALID_PHASES.contains(p.getName())) {
+							log.info(String.format("%s is not a valid phase for this product.", p.getName()));
+							jit.remove();
+						}
+					}
+					this.phaseList.setResources(pl.toArray(new JsonExtensionPhase[0]));
 				}
 			}
 			return this.phaseList;
@@ -623,6 +657,7 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	protected String doGetAvailableVersion() {
+		Version localVersion = new Version(HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS));
 		if (isTrackServerVersion()) {
 			if (getStatus(null).isEmpty()) {
 				/*
@@ -637,7 +672,6 @@ public class ClientServiceImpl implements ClientService {
 				try {
 					JsonExtensionUpdate v = getUpdates();
 					Version remoteVersion = new Version(v.getResource().getCurrentVersion());
-					Version localVersion = new Version(HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS));
 					if (remoteVersion.compareTo(localVersion) < 1)
 						return "";
 					else
@@ -659,13 +693,20 @@ public class ClientServiceImpl implements ClientService {
 			if (phase == null) {
 				return "";
 			}
-			return phase.getVersion();
+
+			Version remoteVersion = new Version(phase.getVersion());
+			if (remoteVersion.compareTo(localVersion) < 1) {
+				System.out.println(phase.getVersion() + " is less than " + localVersion);
+				return "";
+			}
+			else
+				return phase.getVersion();
 		}
 	}
 
 	@Override
 	public boolean isTrackServerVersion() {
-		return "true".equalsIgnoreCase(System.getProperty("logonbox.vpn.updates.trackServerVersion", "true"));
+		return "true".equalsIgnoreCase(System.getProperty("logonbox.vpn.updates.trackServerVersion", "false"));
 	}
 
 	@Override
@@ -709,36 +750,40 @@ public class ClientServiceImpl implements ClientService {
 			log.info(String.format("    Has extension: %s (%s)", en.getKey(), en.getValue()));
 		}
 
-		/*
-		 * If this front end supports authorization, send it the signal to start
-		 * authorizing
-		 */
-		if (frontEnd.isSupportsAuthorization()) {
-			getTimer().schedule(() -> {
-				try {
-					for (ConnectionStatus conx : getStatus(frontEnd.getUsername())) {
-						if (conx.getStatus() == Type.AUTHORIZING) {
-
-							context.sendMessage(new VPNConnection.Authorize(
-									String.format("/com/logonbox/vpn/%d", conx.getConnection().getId()),
-									"/logonBoxVPNClient/", conx.getConnection().getMode().name()));
-
-							/* Done */
-							return;
-						}
-					}
-				} catch (Exception e) {
-					throw new IllegalStateException("Failed to get connections.", e);
-				}
-			}, 6, TimeUnit.SECONDS);
-
-		}
+//		/*
+//		 * If this front end supports authorization, send it the signal to start
+//		 * authorizing
+//		 */
+//		if (frontEnd.isSupportsAuthorization()) {
+//			getTimer().schedule(() -> {
+//				try {
+//					for (ConnectionStatus conx : getStatus(frontEnd.getUsername())) {
+//						if (conx.getStatus() == Type.AUTHORIZING) {
+//
+//							context.sendMessage(new VPNConnection.Authorize(
+//									String.format("/com/logonbox/vpn/%d", conx.getConnection().getId()),
+//									AUTHORIZE_URI, conx.getConnection().getMode().name()));
+//
+//							/* Done */
+//							return;
+//						}
+//					}
+//				} catch (Exception e) {
+//					throw new IllegalStateException("Failed to get connections.", e);
+//				}
+//			}, 6, TimeUnit.SECONDS);
+//
+//		}
 
 		try {
 			updateFrontEnd(frontEnd);
 		} finally {
 			startupLock.release();
 		}
+	}
+
+	protected boolean isUseAllCloudPhases() {
+		return "true".equalsIgnoreCase(System.getProperty("logonbox.vpn.updates.useAllCloudPhases", "false"));
 	}
 
 	protected void updateFrontEnd(VPNFrontEnd frontEnd) {
@@ -835,7 +880,7 @@ public class ClientServiceImpl implements ClientService {
 			try {
 				log.info(String.format("Asking client to authorize %s", connection.getDisplayName()));
 				context.sendMessage(new VPNConnection.Authorize(
-						String.format("/com/logonbox/vpn/%d", connection.getId()), "/logonBoxVPNClient/", connection.getMode().name()));
+						String.format("/com/logonbox/vpn/%d", connection.getId()), AUTHORIZE_URI, connection.getMode().name()));
 			} catch (DBusException e) {
 				throw new IllegalStateException("Failed to send message.", e);
 			}
@@ -890,27 +935,55 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public void setValue(String key, String value) {
-		configurationRepository.setValue(key, value);
-		if (key.equals(ConfigurationRepository.LOG_LEVEL)) {
-			if (StringUtils.isBlank(value))
-				org.apache.log4j.Logger.getRootLogger().setLevel(getContext().getDefaultLogLevel());
-			else
-				org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(value));
+		String was = configurationRepository.getValue(key, null);
+		if(!Objects.equals(was, value)) {
+			configurationRepository.setValue(key, value);
+			
+			/* TODO bit of a crap way to do this. have some generic change event? */
+			
+			if(key.equals(ConfigurationRepository.PHASE)) {
+				resetUpdateState();
+				getAvailableVersion();
+				rescheduleBackgroundUpdateCheck(UPDATE_SERVER_POLL_INTERVAL);
+			}
+			
+			if (key.equals(ConfigurationRepository.LOG_LEVEL)) {
+				if (StringUtils.isBlank(value))
+					org.apache.log4j.Logger.getRootLogger().setLevel(getContext().getDefaultLogLevel());
+				else
+					org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(value));
+			}
 		}
+	}
+
+	protected void resetUpdateState() {
+		lastAvailableVersion = null;
+		setValue(ConfigurationRepository.DEFER_UPDATES_UNTIL, "0");
+		setDeferUpdatesUntil(0);
+		clearUpdateState();
+	}
+	
+	protected void rescheduleBackgroundUpdateCheck(long initialInterval) {
+		/*
+		 * Regardless of any other configuration or state, always check for updates
+		 * periodically so the update server gets pinged and we can track basic usages
+		 * of the client
+		 */
+		if(updateCheckTask != null)
+			updateCheckTask.cancel(false);
+		updateCheckTask = timer.scheduleAtFixedRate(() -> {
+			/* Force phases to reload */
+			this.phaseList = null;
+			checkForUpdate();
+			if(isAutomaticUpdates() && needsUpdate)
+				update();
+		}, initialInterval, UPDATE_SERVER_POLL_INTERVAL, TimeUnit.MILLISECONDS);		
 	}
 
 	public void start() throws Exception {
 
-		/*
-		 * Regardless of any other configuration or state, always check for updates
-		 * every 24 hours so the update server gets pinged and we can track basic usages
-		 * of the client
-		 */
-		timer.scheduleAtFixedRate(() -> {
-			checkForUpdate();
-			if(isAutomaticUpdates() && needsUpdate)
-				update();
-		}, UPDATE_SERVER_POLL_INTERVAL, UPDATE_SERVER_POLL_INTERVAL, TimeUnit.MILLISECONDS);
+		deferUpdatesUntil = Long.parseLong(getValue(ConfigurationRepository.DEFER_UPDATES_UNTIL, "0"));
+		rescheduleBackgroundUpdateCheck(UPDATE_SERVER_POLL_INTERVAL);
 
 		Collection<VPNSession> toStart = getContext().getPlatformService().start(getContext());
 		if (!toStart.isEmpty()) {
@@ -1011,18 +1084,33 @@ public class ClientServiceImpl implements ClientService {
 			throw new IllegalStateException("An update is not required.");
 		}
 		update(false);
+		synchronized(updateLock) {
+			rescheduleBackgroundUpdateCheck(UPDATE_SERVER_POLL_INTERVAL);
+		}
 	}
 
 	@Override
 	public void checkForUpdate() {
-		deferUpdatesUntil = 0;
+		setDeferUpdatesUntil(0);
 		update(true);
+		synchronized(updateLock) {
+			rescheduleBackgroundUpdateCheck(UPDATE_SERVER_POLL_INTERVAL);
+		}
+	}
+
+	protected void setDeferUpdatesUntil(long d) {
+		deferUpdatesUntil = d;
+		setValue(ConfigurationRepository.DEFER_UPDATES_UNTIL, String.valueOf(d));
 	}
 
 	@Override
 	public void deferUpdate() {
 		long dayMs = TimeUnit.DAYS.toMillis(1);
-		deferUpdatesUntil = ((System.currentTimeMillis() / dayMs) * dayMs) + dayMs;
+		setDeferUpdatesUntil(((System.currentTimeMillis() / dayMs) * dayMs) + dayMs);
+		setValue(ConfigurationRepository.DEFER_UPDATES_UNTIL, String.valueOf(deferUpdatesUntil));
+		synchronized(updateLock) {
+			rescheduleBackgroundUpdateCheck(UPDATE_SERVER_POLL_INTERVAL);
+		}
 		update(true);
 	}
 
@@ -1037,6 +1125,7 @@ public class ClientServiceImpl implements ClientService {
 				log.warn("Update already cancelled, trying to interrupt again.");
 			updateCancelled = true;
 			updateThread.interrupt();
+			rescheduleBackgroundUpdateCheck(UPDATE_SERVER_POLL_INTERVAL);
 		}
 	}
 
@@ -1047,11 +1136,8 @@ public class ClientServiceImpl implements ClientService {
 				throw new IllegalStateException("Already updating.");
 			
 			updateThread = Thread.currentThread();
-			appsToUpdate.clear();
-			needsUpdate = false;
+			clearUpdateState();
 			updating = true;
-			allowUpdateCancel = true;
-			updateCancelled = false;
 		}
 		int updates = 0;
 
@@ -1061,7 +1147,7 @@ public class ClientServiceImpl implements ClientService {
 				guiNeedsSeparateUpdate = false;
 			} else {
 				if (deferUpdatesUntil == 0 || System.currentTimeMillis() >= deferUpdatesUntil) {
-					deferUpdatesUntil = 0;
+					setDeferUpdatesUntil(0);
 					Collection<VPNFrontEnd> frontEnds = context.getFrontEnds();
 					if (!isUpdatesEnabled()) {
 						log.info("Only update checks enabled.");
@@ -1119,6 +1205,12 @@ public class ClientServiceImpl implements ClientService {
 								log.info(String.format("    %s (%s) - no updates", update.getExtensionPlace().getApp(),
 										update.getExtensionPlace().getDir()));
 						}
+						
+						if(updates > 0) {
+							/* Make sure available version is updated and ready for the events */
+							lastAvailableVersion = null;
+							getAvailableVersion();
+						}
 
 						if (!checkOnly) {
 							if (updates > 0) {
@@ -1173,6 +1265,11 @@ public class ClientServiceImpl implements ClientService {
 										new VPN.UpdateDone("/com/logonbox/vpn", false, "Nothing to update."));
 							}
 						}
+						else {
+							if(updates > 0) {
+								context.sendMessage(new VPN.UpdateAvailable("/com/logonbox/vpn"));
+							}
+						}
 
 					} catch (IOException | DBusException e) {
 						if (log.isDebugEnabled()) {
@@ -1203,6 +1300,15 @@ public class ClientServiceImpl implements ClientService {
 		}
 
 		needsUpdate = updates > 0;
+	}
+
+	protected void clearUpdateState() {
+		log.info("Clearing update state.");
+		appsToUpdate.clear();
+		needsUpdate = false;
+		updating = false;
+		allowUpdateCancel = true;
+		updateCancelled = false;
 	}
 
 	protected void doRestart() {
@@ -1255,7 +1361,7 @@ public class ClientServiceImpl implements ClientService {
 								e);
 					}
 				}
-				ret.add(new ConnectionStatusImpl(c, status, getStatusType(c)));
+				ret.add(new ConnectionStatusImpl(c, status, getStatusType(c), AUTHORIZE_URI));
 				added.add(c);
 			}
 		}

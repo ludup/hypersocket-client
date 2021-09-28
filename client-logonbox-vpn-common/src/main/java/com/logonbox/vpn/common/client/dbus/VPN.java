@@ -247,6 +247,12 @@ public interface VPN extends DBusInterface {
 
 	}
 
+	public static  class UpdateAvailable extends DBusSignal {
+		public UpdateAvailable(String path) throws DBusException {
+			super(path);
+		}
+	}
+
 	public static  class UpdateStart extends DBusSignal {
 
 		private final String app;

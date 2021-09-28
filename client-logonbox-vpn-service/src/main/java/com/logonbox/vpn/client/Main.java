@@ -290,7 +290,8 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 	@Override
 	public void sendMessage(Message message) {
-		conn.sendMessage(message);
+		if(conn != null)
+			conn.sendMessage(message);
 	}
 
 	private void shutdownEmbeddeDaemon() {

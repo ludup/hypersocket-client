@@ -14,11 +14,24 @@
 	<script src="web.js"></script>
 	<div>
 		<div id="connections" class="container-fluid">
-			<div id="connectionTemplate" class="row connection pt-3 pb-3">
+			<div id="connectionTemplate" class="row connection pt-3 pb-3"
+				data-bs-toggle="dropdown">
+                <div class="dropdown">
+                    <a class="btn btn-secondary dropdown-toggle visually-hidden" href="#" role="button"
+                        id="dropdownMenuLink" data-bs-toggle="dropdown"
+                        aria-expanded="false"> Dropdown link </a>
+                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                        <li><a class="dropdown-item" href="#">Delete</a></li>
+                        <li><a class="dropdown-item" href="#">Edit</a></li>
+                        <li><a class="dropdown-item" href="#">Make Favourite</a></li>
+                    </ul>
+                </div>
 				<div class="status-icon col-2"></div>
 				<div class="col-8">
-					<strong><small class="connection-name">Connection
-							Name</small></strong><br /> <small class="status"></small>
+					<strong> <small class="connection-name">Connection
+							Name</small>
+					</strong><br /> <small class="status"></small><br /> <small
+						class="subText"></small>
 				</div>
 				<div class="col-2">
 					<div class="form-check form-switch">
@@ -32,8 +45,8 @@
 		<div class="container">
 			<div class="row">
 				<div class="col-6 pt-2">
-					<a href="options.html"><i
-						class="fa fa-cogs"></i><span data-i18n="options">Options</span></a>
+					<a href="options.html"><i class="fa fa-cogs"></i><span
+						data-i18n="options">Options</span></a>
 				</div>
 				<div class="col-6 text-end">
 					<a href="addLogonBoxVPN.html" class="align-middle"><i
@@ -68,11 +81,13 @@
 					var iconName = 'fa-exclamation-triangle text-error';
 					var statusName = connection.getStatus();
 					var textStyle = '';
+					var subText = '';
 					if (statusName === 'DISCONNECTING') {
 						iconName = 'fa-spinner fa-spin';
 					} else if (statusName === 'DISCONNECTED') {
 						iconName = 'fa-exclamation-triangle';
 						textStyle = 'text-danger';
+						subText = connection.getLastError();
 					} else if (statusName === 'TEMPORARILY_OFFLINE') {
 						iconName = 'fa-exclamation-triangle';
 						connected = true;
@@ -99,8 +114,10 @@
 					cbEl.change(function() {
 						if (this.checked) {
 							bridge.connectTo(connection);
+							rebuildConnections();
 						} else {
 							bridge.disconnectFrom(connection);
+							rebuildConnections();
 						}
 					});
 
@@ -108,6 +125,35 @@
 					var statusEl = $(connectionEl.find('.status')[0]);
 					statusEl.addClass(textStyle);
 					statusEl.html(pageBundle.getString('status.' + connection.getStatus()));
+
+					/* Sub text */
+					var subTextEl = $(connectionEl.find('.subText')[0]);
+					if (subText.length > 0) {
+						subTextEl.addClass(textStyle);
+						subTextEl.html(subText);
+					}
+
+					/* Right Click Actions */
+					
+                    var dropDownEl = $(connectionEl.find('.dropdown-toggle')[0]);
+					var dropDownId = dropDownEl.attr('id') + i;
+					dropDownEl.attr('id', dropDownId);
+                    var dropDownMenuEl = $(connectionEl.find('.dropdown-meun')[0]);
+                    dropDownMenuEl.attr('aria-labelledby', dropDownId);
+					connectionEl.on('mousedown', function(evt) {
+						try {
+							if (evt.which === 3) {
+						       /*  var posX = $(this).offset().left,
+						        var posY = $(this).offset().top; */
+								var bs = new bootstrap.Dropdown(dropDownEl, {
+									offset: [0,0]
+								});
+								bs.show();
+							}
+						} catch (e) {
+							alert(e);
+						}
+					});
 
 					//
 					connectionEl.appendTo(connectionsEl);
@@ -122,8 +168,9 @@
 			$('.row').on('mouseleave', function() {
 				$(this).removeClass('active');
 			});
-			$('.row').off('click').on('click', function() {
+			$('.row').off('dblclick').on('dblclick', function(evt) {
 				bridge.details(parseInt($(this).attr('data-connection')));
+				evt.preventDefault();
 			});
 		}
 

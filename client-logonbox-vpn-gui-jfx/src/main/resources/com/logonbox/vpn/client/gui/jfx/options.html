@@ -35,8 +35,7 @@
 						</p>
 					</div>
 
-					<div class="form-group" data-conditional="!tracksServerVersion"
-						style="display: none;">
+					<div class="form-group" data-conditional="!tracksServerVersion">
 						<label for="phase" data-i18n="phase">Update Channel</label> <select
 							class="form-control" id="phase">
 						</select> <small id="phaseHelp" data-i18n="phaseHelp"
@@ -103,6 +102,13 @@
 	</div>
 	<script type="text/javascript">
 		function uiReady() {
+
+            if ($('#phase').length) {
+                for (var i = 0; i < phases.length; i++) {
+                    $('#phase').append('<option ' + (phases[i] == phase ? 'selected=""' : '') + '>' + phases[i] + '</option>');
+                }
+            }
+            
 			if ($('#trayMode').length) {
 				for (var i = 0; i < trayModes.length; i++) {
 					$('#trayMode').append('<option ' + (trayModes[i] == trayMode ? 'selected="selected"' : '') + ' value="' + trayModes[i] + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
@@ -121,12 +127,6 @@
 
 			for (var i = 0; i < dnsIntegrationMethods.length; i++) {
 				$('#dnsIntegrationMethod').append('<option ' + (dnsIntegrationMethods[i] == dnsIntegrationMethod ? 'selected="selected"' : '') + ' value="' + dnsIntegrationMethods[i] + '">' + pageBundle.getString('dnsIntegrationMethod.' + dnsIntegrationMethods[i]) + '</option>');
-			}
-
-			if ($('#phase').length) {
-				for (var i = 0; i < phases.length; i++) {
-					$('#phase').append('<option ' + (phases[i].getName() == phase ? 'selected=""' : '') + '>' + phases[i].getName() + '</option>');
-				}
 			}
 
 			if ($('#automaticUpdates').length) {

@@ -105,6 +105,9 @@ public class ConnectionImpl implements Connection, Serializable {
     @Column(columnDefinition="varchar(10240)")
 	private String postDown;
 
+    @Column(columnDefinition="varchar(10240)", nullable = true)
+	private String error;
+
 	@Override
 	public boolean isRouteAll() {
 		return routeAll;
@@ -449,6 +452,17 @@ public class ConnectionImpl implements Connection, Serializable {
 		dns = null;
 		peristentKeepalive = 0;
 		allowedIps = null;
+		error = null;
+	}
+
+	@Override
+	public void setError(String error) {
+		this.error = error;		
+	}
+
+	@Override
+	public String getError() {
+		return error;
 	}
 
 }

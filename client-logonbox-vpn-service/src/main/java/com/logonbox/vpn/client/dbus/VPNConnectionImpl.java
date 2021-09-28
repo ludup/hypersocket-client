@@ -13,6 +13,7 @@ import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.Keys;
+import com.logonbox.vpn.common.client.StatusDetail;
 import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
@@ -483,6 +484,23 @@ public class VPNConnectionImpl extends AbstractVPNComponent implements VPNConnec
 	@Override
 	public boolean isTemporarilyOffline() {
 		return ctx.getClientService().getStatus(connection.getId()).getStatus() == ConnectionStatus.Type.TEMPORARILY_OFFLINE;
+	}
+
+	@Override
+	public String getLastError() {
+		assertRegistered();
+		ConnectionStatus status = ctx.getClientService().getStatus(connection.getId());
+		StatusDetail detail = status.getDetail();
+		if(detail != null && StringUtils.isNotBlank(detail.getError()))
+			return detail.getError();
+		else
+			return StringUtils.defaultString(status.getConnection().getError(), "");
+	}
+
+	@Override
+	public String getAuthorizeUri() {
+		assertRegistered();
+		return getUri(false) + ctx.getClientService().getStatus(connection.getId()).getAuthorizeUri();
 	}
 
 }

@@ -24,6 +24,11 @@ public interface StatusDetail {
 			return "";
 		}
 
+		@Override
+		public String getError() {
+			return "";
+		}
+
 	};
 
 	long getTx();
@@ -33,4 +38,6 @@ public interface StatusDetail {
 	long getLastHandshake();
 
 	String getInterfaceName();
+
+	String getError();
 }

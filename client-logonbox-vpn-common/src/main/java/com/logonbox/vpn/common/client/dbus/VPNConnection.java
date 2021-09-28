@@ -145,6 +145,10 @@ public interface VPNConnection extends DBusInterface {
 	String getPath();
 
 	String parse(String configIniFile);
+	
+	String getLastError();
+	
+	String getAuthorizeUri();
 
 	public static class Connected extends DBusSignal {
 		public Connected(String path) throws DBusException {
@@ -273,6 +277,7 @@ public interface VPNConnection extends DBusInterface {
 			return Long.parseLong(getPath().substring(getPath().lastIndexOf('/') + 1));
 		}
 	}
+
 
 
 }

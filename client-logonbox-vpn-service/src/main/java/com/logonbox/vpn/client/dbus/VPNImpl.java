@@ -274,7 +274,8 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 		JsonExtensionPhaseList phaseList = ctx.getClientService().getPhases();
 		if (phaseList.getResult() != null) {
 			for (JsonExtensionPhase phase : phaseList.getResult()) {
-				phases.put(phase.getName(), phase.getVersion());
+				if(phase.isPublicPhase() && (!isNightly(phase) || (Boolean.getBoolean("logonbox.vpn.updates.nightly") || Boolean.getBoolean("hypersocket.development"))))
+					phases.put(phase.getName(), phase.getVersion());
 			}
 		}
 		return phases;
@@ -314,5 +315,9 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public long getFreeMemory() {
 		return Runtime.getRuntime().freeMemory();
+	}
+
+	private boolean isNightly(JsonExtensionPhase phase) {
+		return phase.getName().startsWith("nightly");
 	}
 }

@@ -141,4 +141,9 @@ public class WireguardPipe implements StatusDetail {
 	public String getInterfaceName() {
 		return name;
 	}
+
+	@Override
+	public String getError() {
+		return errno == 0 ? "" : String.format("Error " + errno);
+	}
 }

@@ -207,7 +207,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 			i.busInitializer(conn);
 		
 		/* Create cert manager */
-		getLog().info("Cert manager: %s", getCertManager());
+		getLog().info(String.format("Cert manager: %s", getCertManager()));
 	}
 
 	protected abstract boolean isInteractive();

@@ -157,5 +157,8 @@ public interface Connection {
 
 	void setPostDown(String postDown);
 
+	void setError(String error);
+	
+	String getError();
 
 }

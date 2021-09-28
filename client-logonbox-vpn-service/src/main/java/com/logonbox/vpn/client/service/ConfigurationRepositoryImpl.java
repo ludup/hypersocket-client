@@ -51,10 +51,12 @@ public class ConfigurationRepositoryImpl implements ConfigurationRepository {
 				NODE.put(key, value);
 			}
 			
-			try {
-				context.sendMessage(new VPN.GlobalConfigChange("/com/logonbox/vpn", key, value));
-			} catch (DBusException e) {
-				throw new IllegalStateException("Failed to send event.", e);
+			if(context.getConnection() != null) {
+				try {
+					context.sendMessage(new VPN.GlobalConfigChange("/com/logonbox/vpn", key, value));
+				} catch (DBusException e) {
+					throw new IllegalStateException("Failed to send event.", e);
+				}
 			}
 		}
 

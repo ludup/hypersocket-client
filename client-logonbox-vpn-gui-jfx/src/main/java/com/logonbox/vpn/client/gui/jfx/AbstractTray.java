@@ -122,7 +122,7 @@ public abstract class AbstractTray implements AutoCloseable, Tray, BusLifecycleL
 	}
 
 	protected boolean isDark() {
-		return context.isDark();
+		return context.isDarkMode();
 	}
 
 	protected Image overlay(URL resource, int sz, List<VPNConnection> devs) {

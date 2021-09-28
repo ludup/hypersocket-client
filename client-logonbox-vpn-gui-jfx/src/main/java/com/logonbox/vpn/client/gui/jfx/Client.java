@@ -530,6 +530,8 @@ public class Client extends Application {
 					Integer.parseInt(sizeParts[0]), Integer.parseInt(sizeParts[1]));
 			if (!Main.getInstance().isNoMove())
 				primaryScene.setMoveControl(node);
+			
+			primaryScene.setDoubleClickMaximizeEnabled(false);
 			primaryScene.setSnapEnabled(false);
 			primaryScene.removeDefaultCSS();
 			primaryScene.setResizable(!Main.getInstance().isNoMove());
@@ -570,7 +572,7 @@ public class Client extends Application {
 	}
 
 	protected Color getBase() {
-		if (isDark()) {
+		if (isDarkMode()) {
 			if (SystemUtils.IS_OS_LINUX)
 				return Color.valueOf("#1c1f22");
 			else if (SystemUtils.IS_OS_MAC_OSX)
@@ -582,7 +584,7 @@ public class Client extends Application {
 	}
 
 	protected Color getBaseInverse() {
-		if (isDark())
+		if (isDarkMode())
 			return Color.WHITE;
 		else
 			return Color.BLACK;
@@ -715,17 +717,6 @@ public class Client extends Application {
 		return tmpFile;
 	}
 
-	boolean isDark() {
-		switch (Configuration.getDefault().darkModeProperty().get()) {
-		case Configuration.DARK_MODE_AUTO:
-			return detector.isDark();
-		case Configuration.DARK_MODE_ALWAYS:
-			return true;
-		default:
-			return false;
-		}
-	}
-
 	void reapplyColors() {
 		applyColors(branding, null);
 	}
@@ -745,6 +736,16 @@ public class Client extends Application {
 		} catch (IOException e) {
 			throw new RuntimeException("Could not create custom CSS resource.");
 		}
+	}
+
+	boolean isDarkMode() {
+		String mode = Configuration.getDefault().darkModeProperty().get();
+		if(mode.equals(Configuration.DARK_MODE_AUTO)) 
+			return detector.isDark();
+		else if(mode.equals(Configuration.DARK_MODE_ALWAYS))
+			return true;
+		else
+			return false;
 	}
 
 	void writeLocalWebCSS(Branding branding) {

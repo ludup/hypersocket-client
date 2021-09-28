@@ -130,7 +130,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			this.context = context;
 			this.authorizedLock = authorizedLock;
 		}
-		
+
 		public void cancel() {
 			log.info("Cancelling authorization.");
 			error = true;
@@ -162,8 +162,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					engine.executeScript("authorizationError('"
 							+ StringEscapeUtils.escapeEcmaScript(i18n.get(logonResult.getErrorMsg()).asText()) + "');");
 				else
-					engine.executeScript(
-							"authorizationError('" + StringEscapeUtils.escapeEcmaScript(logonResult.getErrorMsg()) + "');");
+					engine.executeScript("authorizationError('"
+							+ StringEscapeUtils.escapeEcmaScript(logonResult.getErrorMsg()) + "');");
 
 			});
 		}
@@ -189,7 +189,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			}
 
 			log.info("Left authorization.");
-			if(error)
+			if (error)
 				throw new AuthenticationCancelledException();
 		}
 
@@ -219,9 +219,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				public void run() {
 					try {
 						serviceClient.register(selectedConnection);
-					} catch(AuthenticationCancelledException ae) {
+					} catch (AuthenticationCancelledException ae) {
 						// Ignore, handled elsewhere
-					}catch (IOException | URISyntaxException e) {
+					} catch (IOException | URISyntaxException e) {
 						maybeRunLater(() -> ui.showError("Failed to register.", e));
 					}
 				}
@@ -244,13 +244,13 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 
 		public void authenticate() {
-			UI.this.authorize(UI.this.connections.getSelectionModel().getSelectedItem());
+			UI.this.authorize(UI.this.getSelectedConnection());
 		}
 
 		public void configure(String usernameHint, String configIniFile) {
 			if (LOG.isDebugEnabled())
 				LOG.debug(String.format("Connect user: %s, Config: %s", usernameHint, configIniFile));
-			UI.this.configure(usernameHint, configIniFile, UI.this.connections.getSelectionModel().getSelectedItem());
+			UI.this.configure(usernameHint, configIniFile, UI.this.getSelectedConnection());
 		}
 
 		public void reset() {
@@ -264,7 +264,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 
 		public void connect() {
-			VPNConnection selectedItem = UI.this.connections.getSelectionModel().getSelectedItem();
+			VPNConnection selectedItem = UI.this.getSelectedConnection();
 			UI.this.connect(selectedItem == null ? UI.this.connections.getItems().get(0) : selectedItem);
 		}
 
@@ -302,7 +302,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 
 		public void join() {
-			UI.this.joinNetwork(UI.this.connections.getSelectionModel().getSelectedItem());
+			UI.this.joinNetwork(UI.this.getSelectedConnection());
 		}
 
 		public void log(String message) {
@@ -449,10 +449,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private ResourceBundle pageBundle;
 	private File logoFile;
 	private boolean adjustingSelection;
-	private String disconnectionReason;
 	private Runnable runOnNextLoad;
 	private ServerBridge bridge;
-	private String authorizeUri;
+	private String disconnectionReason;
 
 	@FXML
 	protected ListView<VPNConnection> connections;
@@ -488,6 +487,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	public void disconnect(VPNConnection sel, String reason) {
+		if (sel == null)
+			throw new IllegalArgumentException("No connection given.");
 		if (reason == null)
 			LOG.info("Requesting disconnect, no reason given");
 		else
@@ -674,6 +675,16 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				}
 			});
 
+			/* On update available */
+			connection.addSigHandler(VPN.UpdateAvailable.class, new DBusSigHandler<VPN.UpdateAvailable>() {
+				@Override
+				public void handle(VPN.UpdateAvailable sig) {
+					maybeRunLater(() -> {
+						selectPageForState(false, false);
+					});
+				}
+			});
+
 			/* On update init */
 			connection.addSigHandler(VPN.UpdateInit.class, new DBusSigHandler<VPN.UpdateInit>() {
 				@Override
@@ -832,7 +843,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			@Override
 			public void handle(VPNConnection.Authorize sig) {
 				disconnectionReason = null;
-				authorizeUri = sig.getUri();
 				Mode authMode = Connection.Mode.valueOf(sig.getMode());
 				if (authMode.equals(Connection.Mode.CLIENT) || authMode.equals(Connection.Mode.SERVICE)) {
 					maybeRunLater(() -> {
@@ -905,20 +915,20 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				new DBusSigHandler<VPNConnection.Disconnected>() {
 					@Override
 					public void handle(VPNConnection.Disconnected sig) {
-						disconnectionReason = sig.getReason();
+						String thisDisconnectionReason = sig.getReason();
 						maybeRunLater(() -> {
 							log.info("Disconnected " + sig.getId() + " (delete " + deleteOnDisconnect + ")");
 							VPNConnection connection = null;
 							try {
 								connection = context.getDBus().getVPNConnection(sig.getId());
-								if (StringUtils.isBlank(disconnectionReason))
+								if (StringUtils.isBlank(thisDisconnectionReason))
 									UI.this.notify(
 											MessageFormat.format(bundle.getString("disconnectedNoReason"),
 													connection.getDisplayName(), connection.getHostname()),
 											ToastType.INFO);
 								else
 									UI.this.notify(MessageFormat.format(bundle.getString("disconnected"),
-											connection.getDisplayName(), connection.getHostname(), disconnectionReason),
+											connection.getDisplayName(), connection.getHostname(), thisDisconnectionReason),
 											ToastType.INFO);
 							} catch (Exception e) {
 								log.error("Failed to get connection, delete not possible.");
@@ -949,7 +959,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				new DBusSigHandler<VPNConnection.Disconnecting>() {
 					@Override
 					public void handle(VPNConnection.Disconnecting sig) {
-						disconnectionReason = sig.getReason();
 						maybeRunLater(() -> {
 							log.info("Disconnecting " + bus + " (delete " + deleteOnDisconnect + ")");
 							selectPageForState(false, false);
@@ -1009,6 +1018,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	protected void configureWebEngine() {
 		WebEngine engine = webView.getEngine();
+		webView.setContextMenuEnabled(false);
+
 		engine.setUserAgent(
 				"LogonBox VPN Client " + HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-gui-jfx"));
 		engine.setOnAlert((e) -> {
@@ -1149,10 +1160,39 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	protected VPNConnection getSelectedConnection() {
-		VPNConnection selectedItem = connections.getSelectionModel().getSelectedItem();
-		if (selectedItem == null && connections.getItems().size() > 0)
-			selectedItem = connections.getItems().get(0);
-		return selectedItem;
+		if (isNewUI()) {
+			/*
+			 * New UI, we use the connection that needs the most attention. If / when it
+			 * becomes the default, then this will not be necessary.
+			 */
+			for (VPNConnection connection : connections.getItems()) {
+				ConnectionStatus.Type type = Type.valueOf(connection.getStatus());
+				if (type == Type.AUTHORIZING) {
+					return connection;
+				}
+			}
+
+			for (VPNConnection connection : connections.getItems()) {
+				ConnectionStatus.Type type = Type.valueOf(connection.getStatus());
+				if (type == Type.CONNECTING || type == Type.DISCONNECTING) {
+					return connection;
+				}
+			}
+
+			for (VPNConnection connection : connections.getItems()) {
+				ConnectionStatus.Type type = Type.valueOf(connection.getStatus());
+				if (type == Type.CONNECTED) {
+					return connection;
+				}
+			}
+
+			return connections.getItems().isEmpty() ? null : connections.getItems().get(0);
+		} else {
+			VPNConnection selectedItem = connections.getSelectionModel().getSelectedItem();
+			if (selectedItem == null && connections.getItems().size() > 0)
+				selectedItem = connections.getItems().get(0);
+			return selectedItem;
+		}
 	}
 
 	@Override
@@ -1268,12 +1308,13 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	}
 
 	public void setAvailable() {
+
 		minimize.setVisible(!Main.getInstance().isNoMinimize() && Client.get().isMinimizeAllowed()
 				&& Client.get().isUndecoratedWindow());
 		minimize.setManaged(minimize.isVisible());
 		close.setVisible(!Main.getInstance().isNoClose() && Client.get().isUndecoratedWindow());
 		close.setManaged(close.isVisible());
-		toggleSidebar.setVisible(!Main.getInstance().isNoSidebar());
+		toggleSidebar.setVisible(!Main.getInstance().isNoSidebar() && !isNewUI());
 		toggleSidebar.setManaged(toggleSidebar.isVisible());
 	}
 
@@ -1308,12 +1349,24 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 			/* Update configuration stored globally in service */
 			VPN vpn = context.getDBus().getVPN();
+			boolean checkUpdates = false;
 			if (phase != null) {
-				if (!vpn.isTrackServerVersion())
-					vpn.setValue(ConfigurationRepository.PHASE, phase);
+				if (!vpn.isTrackServerVersion()) {
+					String was = vpn.getValue(ConfigurationRepository.PHASE, "");
+					if(!Objects.equals(was, phase)) {
+						vpn.setValue(ConfigurationRepository.PHASE, phase);
+						checkUpdates = true;
+					}
+				}
 			}
-			if (automaticUpdates != null)
-				vpn.setValue(ConfigurationRepository.AUTOMATIC_UPDATES, String.valueOf(automaticUpdates));
+			if (automaticUpdates != null) {
+				String was = vpn.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "");
+				String now = String.valueOf(automaticUpdates);
+				if(!Objects.equals(was, now)) {
+					vpn.setValue(ConfigurationRepository.AUTOMATIC_UPDATES, now);
+					checkUpdates = true;
+				}
+			}
 			if (ignoreLocalRoutes != null)
 				vpn.setValue(ConfigurationRepository.IGNORE_LOCAL_ROUTES, String.valueOf(ignoreLocalRoutes));
 			if (logLevel != null) {
@@ -1333,7 +1386,18 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				}
 			}
 
-			selectPageForState(false, false);
+			if(checkUpdates) {
+				new Thread() {
+					public void run() {
+						// TODO put this back, just for testing update available notification
+//						context.getDBus().getVPN().checkForUpdate();
+						maybeRunLater(() ->
+						selectPageForState(false, true));
+					}
+				}.start();
+			}
+			else
+				selectPageForState(false, false);
 
 			LOG.info("Saved options");
 		} catch (Exception e) {
@@ -1349,7 +1413,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		if (!Objects.equals(htmlPage, this.htmlPage) || force) {
 			this.htmlPage = htmlPage;
 			LOG.info(String.format("Loading page %s", htmlPage));
-			
+
 			pageBundle = null;
 			try {
 
@@ -1496,7 +1560,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	private String getBaseHtml() {
 		String htmlPage = this.htmlPage;
-		if(htmlPage == null)
+		if (htmlPage == null)
 			return htmlPage;
 		int idx = htmlPage.indexOf('?');
 		if (idx != -1) {
@@ -1511,10 +1575,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 	private void processDOM() {
 		boolean busAvailable = context.getDBus().isBusAvailable();
+		VPNConnection connection = busAvailable ? getSelectedConnection() : null;
 		DOMProcessor processor = new DOMProcessor(busAvailable ? context.getDBus().getVPN() : null,
-				busAvailable ? getSelectedConnection() : null, collections, lastErrorMessage, lastErrorCause,
+				connection, collections, lastErrorMessage, lastErrorCause,
 				lastException, branding, pageBundle, resources, webView.getEngine().getDocument().getDocumentElement(),
-				disconnectionReason);
+				connection == null ? disconnectionReason : connection.getLastError());
 		processor.process();
 		collections.clear();
 		lastException = null;
@@ -1880,58 +1945,87 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					collections.put("packages", Arrays.asList(bridge.getVPN().getMissingPackages()));
 					setHtmlPage("missingSoftware.html");
 				} else {
-					VPNConnection sel = getSelectedConnection();
-					if (sel == null || !busAvailable) {
-						/* There are no connections at all */
-						if (busAvailable) {
-							/* The bridge is connected */
-							if (Main.getInstance().isNoAddWhenNoConnections()) {
-								if (Main.getInstance().isConnect()
-										|| StringUtils.isNotBlank(Main.getInstance().getUri()))
-									setHtmlPage("busy.html");
-								else
-									setHtmlPage("connected.html");
-							} else
-								setHtmlPage("addLogonBoxVPN.html");
-						} else
-							/* The bridge is not (yet?) connected */
-							setHtmlPage("index.html");
+					if (!busAvailable) {
+						/* The bridge is not (yet?) connected */
+						setHtmlPage("index.html");
 					} else {
-						Type status = Type.valueOf(sel.getStatus());
 
-						if (connectIfDisconnected && status != Type.DISCONNECTED && status != Type.TEMPORARILY_OFFLINE
-								&& !sel.isAuthorized()) {
-							log.info(String.format("Not authorized, requesting authorize"));
-							authorize(sel);
-						} else if (isNewUI()) {
+						if (isNewUI()) {
+							/* Are ANY connections authorizing? */
+							for (VPNConnection connection : context.getDBus().getVPNConnections()
+									.toArray(new VPNConnection[0])) {
+								Type status = Type.valueOf(connection.getStatus());
+								if (status == Type.AUTHORIZING) {
+
+									Mode mode = Mode.valueOf(connection.getMode());
+									if (mode == Mode.SERVICE) {
+										log.info("Authorizing service");
+										setHtmlPage("authorize.html");
+									} else {
+										String authUrl = connection.getAuthorizeUri();
+										log.info(String.format("Authorizing to %s", authUrl));
+										setHtmlPage(authUrl);
+									}
+
+									/* Done */
+									return;
+								}
+							}
+
+							/* Otherwise connections page */
 							setHtmlPage("connections.html", true);
 						} else {
-							if (status == Type.AUTHORIZING) {
-								Mode mode = Mode.valueOf(sel.getMode());
-								if (mode == Mode.SERVICE) {
-									setHtmlPage("authorize.html");
-								} else {
-									setHtmlPage(sel.getUri(false) + authorizeUri);
-								}
-							} else if (status == Type.CONNECTING || status == Type.AUTHORIZING) {
-								/* We have a connection, a peer configuration and are connected! */
-								log.info(String.format("Joining"));
-								setHtmlPage("joining.html", force);
-							} else if (status == Type.TEMPORARILY_OFFLINE) {
-								/* We are connected, but the server (peer) appears offline */
-								log.info(String.format("Temporarily Offline"));
-								setHtmlPage("temporarilyOffline.html", force);
-							} else if (status == Type.CONNECTED) {
-								/* We have a connection, a peer configuration and are connected! */
-								log.info(String.format("Ready, so showing join UI"));
-								setHtmlPage("joined.html", force);
-							} else if (status == Type.DISCONNECTING) {
-								log.info(String.format("Disconnecting, so showing leaving UI"));
-								setHtmlPage("leaving.html", force);
+
+							VPNConnection sel = getSelectedConnection();
+
+							/* The bridge is connected */
+							if (sel == null) {
+								if (Main.getInstance().isNoAddWhenNoConnections()) {
+									if (Main.getInstance().isConnect()
+											|| StringUtils.isNotBlank(Main.getInstance().getUri()))
+										setHtmlPage("busy.html");
+									else
+										setHtmlPage("connected.html");
+								} else
+									setHtmlPage("addLogonBoxVPN.html");
 							} else {
 
-								log.info("Disconnected, so showing join UI");
-								setHtmlPage("join.html", force);
+								Type status = Type.valueOf(sel.getStatus());
+								if (connectIfDisconnected && status != Type.DISCONNECTED
+										&& status != Type.TEMPORARILY_OFFLINE && !sel.isAuthorized()) {
+									log.info(String.format("Not authorized, requesting authorize"));
+									authorize(sel);
+								} else if (status == Type.AUTHORIZING) {
+									Mode mode = Mode.valueOf(sel.getMode());
+									if (mode == Mode.SERVICE) {
+										log.info("Authorizing service");
+										setHtmlPage("authorize.html");
+									} else {
+										String authUrl = sel.getAuthorizeUri();
+										log.info(String.format("Authorizing to %s", authUrl));
+										setHtmlPage(authUrl);
+									}
+								} else {
+									if (status == Type.CONNECTING || status == Type.AUTHORIZING) {
+										/* We have a connection, a peer configuration and are connected! */
+										log.info(String.format("Joining"));
+										setHtmlPage("joining.html", force);
+									} else if (status == Type.TEMPORARILY_OFFLINE) {
+										/* We are connected, but the server (peer) appears offline */
+										log.info(String.format("Temporarily Offline"));
+										setHtmlPage("temporarilyOffline.html", force);
+									} else if (status == Type.CONNECTED) {
+										/* We have a connection, a peer configuration and are connected! */
+										log.info(String.format("Ready, so showing join UI"));
+										setHtmlPage("joined.html", force);
+									} else if (status == Type.DISCONNECTING) {
+										log.info(String.format("Disconnecting, so showing leaving UI"));
+										setHtmlPage("leaving.html", force);
+									} else {
+										log.info("Disconnected, so showing join UI");
+										setHtmlPage("join.html", force);
+									}
+								}
 							}
 						}
 					}

@@ -221,6 +221,7 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 
 	@Override
 	public StatusDetail status(String iface) throws IOException {
+		/* TODO replace this with WireguardPipe and use a domain socket (JDK 16) */
 		Collection<String> hs = OSCommand.adminCommandAndCaptureOutput(getWGCommand(), "show", iface,
 				"latest-handshakes");
 		long lastHandshake = hs.isEmpty() ? 0 : Long.parseLong(hs.iterator().next().split("\\s+")[1]) * 1000;
@@ -247,6 +248,11 @@ public class BrewOSXPlatformServiceImpl extends AbstractPlatformServiceImpl<Brew
 			@Override
 			public String getInterfaceName() {
 				return iface;
+			}
+
+			@Override
+			public String getError() {
+				return "";
 			}
 		};
 	}

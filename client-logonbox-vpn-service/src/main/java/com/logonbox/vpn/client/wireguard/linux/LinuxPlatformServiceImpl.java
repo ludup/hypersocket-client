@@ -210,6 +210,11 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 			public String getInterfaceName() {
 				return iface;
 			}
+
+			@Override
+			public String getError() {
+				return "";
+			}
 		};
 	}
 
