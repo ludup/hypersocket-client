@@ -312,12 +312,11 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 		try {
 			dns(configuration, ip);
 		} catch (IOException | RuntimeException ioe) {
-//			try {
-//				doDisconnect(ip, session);
-//			} catch (Exception e) {
-//			}
-//			throw ioe;
-			log.error("TODO TEMPORARY FALL THROUGH:", ioe);
+			try {
+				doDisconnect(ip, session);
+			} catch (Exception e) {
+			}
+			throw ioe;
 		}
 
 		/* Set the routes */
@@ -325,12 +324,11 @@ public class LinuxPlatformServiceImpl extends AbstractPlatformServiceImpl<LinuxI
 			log.info(String.format("Setting routes for %s", ip.getName()));
 			setRoutes(session, ip);
 		} catch (IOException | RuntimeException ioe) {
-//			try {
-//				doDisconnect(ip, session);
-//			} catch (Exception e) {
-//			}
-//			throw ioe;
-			log.error("TODO TEMPORARY FALL THROUGH:", ioe);
+			try {
+				doDisconnect(ip, session);
+			} catch (Exception e) {
+			}
+			throw ioe;
 		}
 
 		return ok;
