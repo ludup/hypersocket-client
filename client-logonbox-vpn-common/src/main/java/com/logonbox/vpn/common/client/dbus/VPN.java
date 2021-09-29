@@ -46,6 +46,8 @@ public interface VPN extends DBusInterface {
 
 	void update();
 
+	void shutdown(boolean restart);
+
 	void checkForUpdate();
 
 	void cancelUpdate();

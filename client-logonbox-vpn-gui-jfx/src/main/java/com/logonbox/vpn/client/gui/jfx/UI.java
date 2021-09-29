@@ -242,6 +242,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				throw new IllegalArgumentException(bundle.getString("error.invalidUri"));
 			UI.this.addConnection(stayConnected, connectAtStartup, server);
 		}
+		
+		public void confirmDelete(long id) {
+			VPNConnection connection = context.getDBus().getVPNConnection(id);
+			UI.this.confirmDelete(connection);	
+		}
 
 		public void authenticate() {
 			UI.this.authorize(UI.this.getSelectedConnection());
@@ -263,17 +268,26 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			setHtmlPage("details.html");
 		}
 
+		public void edit(long id) {
+			UI.this.editConnection(context.getDBus().getVPNConnection(id));
+		}
+
 		public void connect() {
 			VPNConnection selectedItem = UI.this.getSelectedConnection();
 			UI.this.connect(selectedItem == null ? UI.this.connections.getItems().get(0) : selectedItem);
 		}
 
-		public void connectTo(VPNConnection connection) {
-			UI.this.connect(connection);
+		public void connectTo(long id) {
+			UI.this.connect(context.getDBus().getVPNConnection(id));
+		}
+		
+		public void disconnect() {
+			VPNConnection selectedItem = UI.this.getSelectedConnection();
+			UI.this.disconnect(selectedItem == null ? UI.this.connections.getItems().get(0) : selectedItem);			
 		}
 
-		public void disconnectFrom(VPNConnection connection) {
-			UI.this.disconnect(connection);
+		public void disconnectFrom(long id) {
+			UI.this.disconnect(context.getDBus().getVPNConnection(id));
 		}
 
 		public void editConnection(JSObject o) {

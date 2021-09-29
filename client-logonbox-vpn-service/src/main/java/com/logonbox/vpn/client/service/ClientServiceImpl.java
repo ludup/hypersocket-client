@@ -466,7 +466,7 @@ public class ClientServiceImpl implements ClientService {
 					for(Iterator<JsonExtensionPhase>  jit = pl.iterator();  jit.hasNext(); ) {
 						JsonExtensionPhase p = jit.next();
 						if(!VALID_PHASES.contains(p.getName())) {
-							log.info(String.format("%s is not a valid phase for this product.", p.getName()));
+							log.debug(String.format("%s is not a valid phase for this product.", p.getName()));
 							jit.remove();
 						}
 					}
@@ -1281,8 +1281,10 @@ public class ClientServiceImpl implements ClientService {
 					}
 
 				} else {
-					log.info(String.format("Updates deferred until %s",
-							DateFormat.getDateTimeInstance().format(new Date(deferUpdatesUntil))));
+					if(log.isDebugEnabled()) {
+						log.debug(String.format("Updates deferred until %s",
+								DateFormat.getDateTimeInstance().format(new Date(deferUpdatesUntil))));
+					}
 				}
 			}
 		} catch (Exception re) {
@@ -1303,7 +1305,7 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	protected void clearUpdateState() {
-		log.info("Clearing update state.");
+		log.debug("Clearing update state.");
 		appsToUpdate.clear();
 		needsUpdate = false;
 		updating = false;

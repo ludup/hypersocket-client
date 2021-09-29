@@ -19,6 +19,8 @@ import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -231,6 +233,12 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			if (!publishDefaultServices()) {
 				System.exit(1);
 			}
+			
+			Runtime.getRuntime().addShutdownHook(new Thread() {
+				public void run() {
+					cleanUp();
+				}
+			});
 
 			if (!clientService.startSavedConnections()) {
 				log.warn("Not all connections started.");
@@ -248,10 +256,9 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		return 0;
 	}
 
-	public void shutdown() {
-		queue.shutdown();
-		shutdownEmbeddeDaemon();
-		System.exit(0);
+	@Override
+	public void shutdown(boolean restart) {
+		System.exit(restart ? 99 : 0);
 	}
 
 	@Override
@@ -624,6 +631,26 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	public X509Certificate[] getAcceptedIssuers() {
 		X509Certificate[] NO_CERTS = new X509Certificate[0];
 		return NO_CERTS;
+	}
+	
+	protected void cleanUp() {
+		log.info("Shutdown clean up.");
+		try {
+			queue.shutdown();
+		}
+		finally {
+			try {
+				shutdownEmbeddeDaemon();
+			}
+			finally {
+				log.info("Shutting down database.");
+				try(java.sql.Connection c = DriverManager.getConnection("jdbc:derby:data;shutdown=true")) {
+					
+				} catch (SQLException e) {
+					log.warn("Failed to close database.");
+				}	
+			}
+		}
 	}
 
 	protected void installAllTrustingCertificateVerifier() {

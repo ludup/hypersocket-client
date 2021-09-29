@@ -21,9 +21,9 @@
                         id="dropdownMenuLink" data-bs-toggle="dropdown"
                         aria-expanded="false"> Dropdown link </a>
                     <ul class="dropdown-menu" aria-labelledby="dropdownMenuLink">
-                        <li><a class="dropdown-item" href="#">Delete</a></li>
-                        <li><a class="dropdown-item" href="#">Edit</a></li>
-                        <li><a class="dropdown-item" href="#">Make Favourite</a></li>
+                        <li><a class="dropdown-item delete-connection" href="#">Delete</a></li>
+                        <li><a class="dropdown-item edit-connection" href="#">Edit</a></li>
+                        <li><a class="dropdown-item favourite-connection" href="#">Make Favourite</a></li>
                     </ul>
                 </div>
 				<div class="status-icon col-2"></div>
@@ -35,7 +35,7 @@
 				</div>
 				<div class="col-2">
 					<div class="form-check form-switch">
-						<input class="connected form-check-input" type="checkbox" />
+						<input class="toggle-connection form-check-input" type="checkbox" />
 					</div>
 				</div>
 			</div>
@@ -110,16 +110,8 @@
 
 					/* Connected switch */
 					var cbEl = $(connectionEl.find('.connected')[0]);
-					cbEl.prop('checked', connected);
-					cbEl.change(function() {
-						if (this.checked) {
-							bridge.connectTo(connection);
-							rebuildConnections();
-						} else {
-							bridge.disconnectFrom(connection);
-							rebuildConnections();
-						}
-					});
+		            var status = connection.getStatus();
+					cbEl.prop('checked', status === 'CONNECTED' || status === 'CONNECTING');
 
 					/* Status text */
 					var statusEl = $(connectionEl.find('.status')[0]);
@@ -162,21 +154,38 @@
 				alert(e);
 			}
 			template.hide();
-			$('.row').on('mouseenter', function() {
+            $('.toggle-connection').off('change').on('change', function(e) {
+                alert('c ' + this.checked);
+                if (this.checked) {
+                    bridge.connectTo(parseInt($($(this).parents('.connection')).attr('data-connection')));
+                    rebuildConnections();
+                } else {
+                    bridge.disconnectFrom(parseInt($($(this).parents('.connection')).attr('data-connection')));
+                    rebuildConnections();
+                }
+                e.preventDefault();
+            });
+			$('.row').off('mouseenter').on('mouseenter', function() {
 				$(this).addClass('active');
 			});
-			$('.row').on('mouseleave', function() {
+			$('.row').off('mouseleave').on('mouseleave', function() {
 				$(this).removeClass('active');
 			});
 			$('.row').off('dblclick').on('dblclick', function(evt) {
 				bridge.details(parseInt($(this).attr('data-connection')));
 				evt.preventDefault();
 			});
-		}
+			$('.delete-connection').off('click').on('click', function(evt) {
+				bridge.confirmDelete(parseInt($($(this).parents('.connection')).attr('data-connection')));
+			});
+            $('.edit-connection').off('click').on('click', function(evt) {
+                bridge.edit(parseInt($($(this).parents('.connection')).attr('data-connection')));
+            });
+        }
 
-		function uiReady() {
-			rebuildConnections();
-		};
+        function uiReady() {
+            rebuildConnections();
+        };
 	</script>
 </body>
 </html>

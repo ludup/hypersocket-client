@@ -33,4 +33,6 @@ public interface LocalContext {
 	Collection<VPNFrontEnd> getFrontEnds();
 
 	Level getDefaultLogLevel();
+
+	void shutdown(boolean restart);
 }

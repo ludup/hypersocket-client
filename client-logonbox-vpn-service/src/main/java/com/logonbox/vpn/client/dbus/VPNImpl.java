@@ -320,4 +320,10 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	private boolean isNightly(JsonExtensionPhase phase) {
 		return phase.getName().startsWith("nightly");
 	}
+
+	@Override
+	public void shutdown(boolean restart) {
+		ctx.shutdown(restart);
+		
+	}
 }

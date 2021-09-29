@@ -4,30 +4,49 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<link href="bootstrap-5.0.2-dist/css/bootstrap.min.css"
-	rel="stylesheet">
+<link href="bootstrap-5.0.2-dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="web.css" rel="stylesheet">
 <link href="fontawesome/css/font-awesome.min.css" rel="stylesheet">
 </head>
 <body>
 	<script src="jquery-3.5.1.min.js"></script>
 	<script src="bootstrap-5.0.2-dist/js/bootstrap.bundle.min.js"></script>
-	<div  class="m-3">
+	<div class="m-3">
 		<div id="main" class="clear-top container-fluid">
+
+			<div class="tools mt-1" style="position: absolute; right: 1em;">
+				<div class="row">
+					<div class="col">
+						<a id="edit" href="#" class="mr-3"><i class="fa fa-cog fa-2x"></i></a>
+					</div>
+					<div class="col">
+						<a id="delete" href="#" class="mr-3"><i class="fa fa-trash fa-2x"></i></a>
+					</div>
+					<div class="col">
+						<div class="form-check form-switch mr-3">
+							<input class="connect form-check-input" type="checkbox" />
+						</div>
+					</div>
+				</div>
+			</div>
 
 			<nav>
 				<div class="nav nav-tabs mt-3" id="details-tab" role="tablist">
-				    <button class="nav-link active" id="nav-vpn-tab" data-bs-toggle="tab" 
-				    	data-bs-target="#nav-vpn" type="button" role="tab" aria-controls="nav-vpn" 
-				    	aria-selected="true" data-i18n="vpn">VPN</button>
-				    	
-				    <button  data-conditional="publicKey" class="nav-link" id="nav-vpn-advanced" data-bs-toggle="tab" 
-				    	data-bs-target="#nav-advanced" type="button" role="tab" aria-controls="nav-advanced" 
-				    	aria-selected="true" data-i18n="advanced">Advanced</button>
-				</ul>
+					<button class="nav-link active" id="nav-vpn-tab"
+						data-bs-toggle="tab" data-bs-target="#nav-vpn" type="button"
+						role="tab" aria-controls="nav-vpn" aria-selected="true"
+						data-i18n="vpn">VPN</button>
+
+					<button data-conditional="publicKey" class="nav-link"
+						id="nav-vpn-advanced" data-bs-toggle="tab"
+						data-bs-target="#nav-advanced" type="button" role="tab"
+						aria-controls="nav-advanced" aria-selected="true"
+						data-i18n="advanced">Advanced</button>
+					</ul>
 			</nav>
 			<div class="tab-content" id="details-tabContent">
-				<div id="nav-vpn" class="tab-pane fade show active" role="tabpanel" aria-labelledby="nav-vpn-tab">
+				<div id="nav-vpn" class="tab-pane fade show active" role="tabpanel"
+					aria-labelledby="nav-vpn-tab">
 					<div class="container-fluid">
 						<div class="row">
 							<div class="col-md-6 mt-3">
@@ -47,33 +66,38 @@
 								<strong><label data-i18n="address">Your IP
 										Address</label></strong>
 							</div>
-							<div class="col-md-6"  data-conditional="address">
+							<div class="col-md-6" data-conditional="address">
 								<span data-content="address">1.2.3.4</span>
 							</div>
 							<div class="col-md-6 mt-3" data-conditional="lastHandshake">
-								<strong><label data-i18n="lastHandshake">Last Handshake</label></strong>
+								<strong><label data-i18n="lastHandshake">Last
+										Handshake</label></strong>
 							</div>
-							<div class="col-md-6"  data-conditional="lastHandshake">
+							<div class="col-md-6" data-conditional="lastHandshake">
 								<span data-content="lastHandshake" id="lastHandshake">1m</span>
 							</div>
-							<div id="usageContainer" class="col-md-6 mt-3" data-conditional="usage">
+							<div id="usageContainer" class="col-md-6 mt-3"
+								data-conditional="usage">
 								<strong><label data-i18n="usage">Usage</label></strong>
 							</div>
-							<div class="col-md-6"  data-conditional="usage">
-								<span data-content="usage" id="usage">1mb downloaded, 2mb uploaded</span>
+							<div class="col-md-6" data-conditional="usage">
+								<span data-content="usage" id="usage">1mb downloaded, 2mb
+									uploaded</span>
 							</div>
 						</div>
 					</div>
 				</div>
-				<div id="nav-advanced" data-conditional="publicKey" class="tab-pane fade show" role="tabpanel" aria-labelledby="nav-advanced-tab">
+				<div id="nav-advanced" data-conditional="publicKey"
+					class="tab-pane fade show" role="tabpanel"
+					aria-labelledby="nav-advanced-tab">
 					<div class="container-fluid">
 						<div class="row">
-						    <div class="col-md-6 mt-3" data-conditional="interfaceName">
-                                <strong><label data-i18n="interfaceName">Interface</label></strong>
-                            </div>
-                            <div class="col-md-6" data-conditional="interfaceName">
-                                <span data-content="interfaceName"></span>
-                            </div>
+							<div class="col-md-6 mt-3" data-conditional="interfaceName">
+								<strong><label data-i18n="interfaceName">Interface</label></strong>
+							</div>
+							<div class="col-md-6" data-conditional="interfaceName">
+								<span data-content="interfaceName"></span>
+							</div>
 							<div class="col-md-6 mt-3">
 								<strong><label data-i18n="endpoint">Server
 										Address</label></strong>
@@ -95,7 +119,8 @@
 								<code data-content="userPublicKey"></code>
 							</div>
 							<div class="col-md-6 mt-3">
-								<strong><label data-i18n="allowedIps">Allowed Ips</label></strong>
+								<strong><label data-i18n="allowedIps">Allowed
+										Ips</label></strong>
 							</div>
 							<div class="col-md-6">
 								<span data-content="allowedIps"></span>
@@ -107,7 +132,8 @@
 								<span data-content="dns"></span>
 							</div>
 							<div class="col-md-6 mt-3">
-								<strong><label data-i18n="persistentKeepalive">Persistent Keepalive</label></strong>
+								<strong><label data-i18n="persistentKeepalive">Persistent
+										Keepalive</label></strong>
 							</div>
 							<div class="col-md-6">
 								<span data-content="persistentKeepalive"></span>
@@ -123,7 +149,7 @@
 		</div>
 	</div>
 	<script type="text/javascript">
-        function uiReady() {
+		function uiReady() {
 			$('#back').off('click').on('click', function(e) {
 				bridge.reset();
 				e.preventDefault();
@@ -132,12 +158,35 @@
 				bridge.openURL($(this).attr('href'));
 				e.preventDefault();
 			});
-			if($('#usageContainer').length) {
+			if ($('#usageContainer').length) {
 				window.setInterval(function() {
 					$('#usage').html(bridge.getUsage());
 					$('#lastHandshake').html(bridge.getLastHandshake());
 				}, 1000);
 			}
+
+			/* Connect switch */
+			var cbEl = $('.connect');
+			var status = bridge.getConnection().getStatus();
+			cbEl.attr('checked', status === 'CONNECTED' || status === 'CONNECTING');
+			cbEl.off('change').on('change', function(e) {
+				if (this.checked) {
+					bridge.connect();
+				} else {
+					bridge.disconnect();
+				}
+                e.preventDefault();
+			});
+			
+            $('#delete').off('click').on('click', function(e) {
+            	bridge.confirmDelete(bridge.getConnection().getId());
+                e.preventDefault();
+            });
+            
+            $('#edit').off('click').on('click', function(e) {
+                bridge.edit(bridge.getConnection().getId());
+                e.preventDefault();
+            });
 		};
 	</script>
 </body>

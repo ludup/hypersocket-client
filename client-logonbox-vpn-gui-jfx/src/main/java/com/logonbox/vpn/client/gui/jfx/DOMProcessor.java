@@ -105,6 +105,9 @@ public class DOMProcessor {
 		String statusType = connection == null ? "" : connection.getStatus();
 		replacements.put("status", statusType);
 		replacements.put("connected", String.valueOf(statusType.equals(ConnectionStatus.Type.CONNECTED.name())));
+		replacements.put("connecting", String.valueOf(statusType.equals(ConnectionStatus.Type.CONNECTING.name())));
+		replacements.put("disconnected", String.valueOf(statusType.equals(ConnectionStatus.Type.DISCONNECTED.name())));
+		replacements.put("disconnecting", String.valueOf(statusType.equals(ConnectionStatus.Type.DISCONNECTING.name())));
 		if(connection == null || !statusType.equals(ConnectionStatus.Type.CONNECTED.name())) {
 			replacements.put("lastHandshake",  "");			
 			replacements.put("usage",  "");
