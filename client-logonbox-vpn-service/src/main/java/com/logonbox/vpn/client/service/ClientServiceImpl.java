@@ -15,7 +15,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +70,11 @@ public class ClientServiceImpl implements ClientService {
 	private static final String AUTHORIZE_URI = "/logonBoxVPNClient/";
 	
 	/**
-	 * NOTE: Currently these must be changed in preparation for every major branch
+	 * NOTE: Currently these must be changed in preparation for every major branch. Order matters,
+	 * the first in this list is the one that will be chosen as the default if no others are set, or
+	 * if the set one doesn't exist.
+	 * 
+	 * DO NOT FORGET TO UPDATE options.properties if these are changed.
 	 */
 	private static final List<String> VALID_PHASES = Arrays.asList("vpn_client_stable_2_4x", "vpn_client_ea_2_4x", "nightly2_4x");
 
@@ -462,13 +465,9 @@ public class ClientServiceImpl implements ClientService {
 				/* Now filter out the phases we actually want */
 				
 				if(!isUseAllCloudPhases()) {
-					List<JsonExtensionPhase> pl = new ArrayList<>(Arrays.asList(this.phaseList.getResources()));
-					for(Iterator<JsonExtensionPhase>  jit = pl.iterator();  jit.hasNext(); ) {
-						JsonExtensionPhase p = jit.next();
-						if(!VALID_PHASES.contains(p.getName())) {
-							log.debug(String.format("%s is not a valid phase for this product.", p.getName()));
-							jit.remove();
-						}
+					List<JsonExtensionPhase> pl = new ArrayList<>();
+					for(String p : VALID_PHASES) {
+						pl.add(this.phaseList.getResultByName(p));
 					}
 					this.phaseList.setResources(pl.toArray(new JsonExtensionPhase[0]));
 				}

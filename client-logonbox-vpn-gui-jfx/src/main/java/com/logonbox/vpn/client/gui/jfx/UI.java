@@ -555,8 +555,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			beans.put("dnsIntegrationMethod", DNSIntegrationMethod.AUTO.name());
 		} else {
 			try {
-				Map<String, String> phases = vpn.getPhases();
-				beans.put("phases", phases.keySet().toArray(new String[0]));
+				beans.put("phases", vpn.getPhases());
 			} catch (Exception e) {
 				log.warn("Could not get phases.", e);
 			}

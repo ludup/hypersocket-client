@@ -105,7 +105,7 @@
 
             if ($('#phase').length) {
                 for (var i = 0; i < phases.length; i++) {
-                    $('#phase').append('<option ' + (phases[i] == phase ? 'selected=""' : '') + '>' + phases[i] + '</option>');
+                    $('#phase').append('<option ' + (phases[i] == phase ? 'selected=""' : '') + '>' + pageBundle.getString('phase.' + phases[i]) + '</option>');
                 }
             }
             

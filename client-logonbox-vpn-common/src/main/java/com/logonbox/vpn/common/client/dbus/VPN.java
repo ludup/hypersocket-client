@@ -38,7 +38,7 @@ public interface VPN extends DBusInterface {
 
 	void ping();
 
-	Map<String, String> getPhases();
+	String[] getPhases();
 
 	boolean isTrackServerVersion();
 

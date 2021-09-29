@@ -6,6 +6,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -22,9 +23,9 @@ import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.service.updates.ClientUpdater;
+import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionImpl;
 import com.logonbox.vpn.common.client.ConnectionStatus;
-import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
@@ -268,9 +269,9 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
-	public Map<String, String> getPhases() {
+	public String[] getPhases() {
 		assertRegistered();
-		Map<String, String> phases = new HashMap<>();
+		Map<String, String> phases = new LinkedHashMap<>();
 		JsonExtensionPhaseList phaseList = ctx.getClientService().getPhases();
 		if (phaseList.getResult() != null) {
 			for (JsonExtensionPhase phase : phaseList.getResult()) {
@@ -278,7 +279,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 					phases.put(phase.getName(), phase.getVersion());
 			}
 		}
-		return phases;
+		return phases.keySet().toArray(new String[0]);
 	}
 
 	@Override
