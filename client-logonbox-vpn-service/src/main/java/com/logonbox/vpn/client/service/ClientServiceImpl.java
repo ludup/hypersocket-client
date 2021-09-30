@@ -209,6 +209,7 @@ public class ClientServiceImpl implements ClientService {
 	@Override
 	public void deferUpdate() {
 		long dayMs = TimeUnit.DAYS.toMillis(1);
+		resetUpdateState();
 		setDeferUpdatesUntil(((System.currentTimeMillis() / dayMs) * dayMs) + dayMs);
 		setValue(ConfigurationRepository.DEFER_UPDATES_UNTIL, String.valueOf(deferUpdatesUntil));
 		rescheduleBackgroundUpdateCheck(UPDATE_SERVER_POLL_INTERVAL);
