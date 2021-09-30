@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.logonbox.vpn.common.client.ClientService;
+import com.logonbox.vpn.common.client.AbstractDBusClient;
 
 public class CustomCookieStore implements CookieStore {
 	static Logger log = LoggerFactory.getLogger(CustomCookieStore.class);
@@ -207,7 +207,7 @@ public class CustomCookieStore implements CookieStore {
 	}
 
 	public File getFile() {
-		return new File(ClientService.CLIENT_HOME, "web-cookies.dat");
+		return new File(AbstractDBusClient.CLIENT_HOME, "web-cookies.dat");
 	}
 
 	@Override

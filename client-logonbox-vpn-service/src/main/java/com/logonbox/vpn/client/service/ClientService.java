@@ -1,19 +1,15 @@
-package com.logonbox.vpn.common.client;
+package com.logonbox.vpn.client.service;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 
-import com.hypersocket.extensions.JsonExtensionPhaseList;
-import com.hypersocket.extensions.JsonExtensionUpdate;
+import com.logonbox.vpn.common.client.Connection;
+import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 
 public interface ClientService  {
-	
-	public final static File CLIENT_HOME = new File(System.getProperty("user.home") + File.separator + ".logonbox-vpn-client");	
-	public final static File CLIENT_CONFIG_HOME = new File(CLIENT_HOME, "conf");
 	
 	int CONNECT_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.connectTimeout", "12"));
 	int HANDSHAKE_TIMEOUT = Integer.parseInt(System.getProperty("logonbox.vpn.handshakeTimeout", "180"));
@@ -24,12 +20,6 @@ public interface ClientService  {
 	}
 	
 	String getDeviceName() ;
-	
-	boolean isNeedsUpdating() ;
-	
-	boolean isGUINeedsUpdating() ;
-	
-	boolean isUpdating() ;
 	
 	UUID getUUID(String owner) ;
 	
@@ -51,15 +41,9 @@ public interface ClientService  {
 
 	ConnectionStatus getStatus(long id) ;
 
-	JsonExtensionPhaseList getPhases() ;
-
 	void requestAuthorize(Connection connection) ;
 
 	void authorized(Connection connection) ;
-	
-	boolean isTrackServerVersion() ;
-
-	JsonExtensionUpdate getUpdates() ;
 
 	void update() ;
 
@@ -91,13 +75,15 @@ public interface ClientService  {
 
 	boolean isUpdateChecksEnabled();
 
-	String getAvailableVersion();
-
-	void deferUpdate();
-
-	void cancelUpdate();
-
 	void stopService();
 
 	String[] getKeys();
+
+	List<Connection> getConnections(String owner);
+
+	void deferUpdate();
+
+	void restart();
+
+	void cancelUpdate();
 }

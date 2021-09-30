@@ -22,7 +22,7 @@ import com.hypersocket.extensions.JsonExtensionPhase;
 import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.LocalContext;
-import com.logonbox.vpn.client.service.updates.ClientUpdater;
+import com.logonbox.vpn.client.Main;
 import com.logonbox.vpn.common.client.Connection.Mode;
 import com.logonbox.vpn.common.client.ConnectionImpl;
 import com.logonbox.vpn.common.client.ConnectionStatus;
@@ -59,7 +59,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public boolean isNeedsUpdating() {
 		assertRegistered();
-		return ctx.getClientService().isNeedsUpdating();
+		return ctx.getUpdateService().isNeedsUpdating();
 	}
 	
 	@Override
@@ -77,19 +77,13 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public String getAvailableVersion() {
 		assertRegistered();
-		return ctx.getClientService().getAvailableVersion();
-	}
-
-	@Override
-	public boolean isGUINeedsUpdating() {
-		assertRegistered();
-		return ctx.getClientService().isGUINeedsUpdating();
+		return ctx.getUpdateService().getAvailableVersion();
 	}
 
 	@Override
 	public boolean isUpdating() {
 		assertRegistered();
-		return ctx.getClientService().isUpdating();
+		return ctx.getUpdateService().isUpdating();
 	}
 
 	@Override
@@ -102,7 +96,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public String getVersion() {
 		assertRegistered();
-		return HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS);
+		return HypersocketVersion.getVersion(Main.ARTIFACT_COORDS);
 	}
 
 	@Override
@@ -115,7 +109,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public boolean isTrackServerVersion() {
 		assertRegistered();
-		return ctx.getClientService().isTrackServerVersion();
+		return ctx.getUpdateService().isTrackServerVersion();
 	}
 
 	@Override
@@ -272,7 +266,7 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	public String[] getPhases() {
 		assertRegistered();
 		Map<String, String> phases = new LinkedHashMap<>();
-		JsonExtensionPhaseList phaseList = ctx.getClientService().getPhases();
+		JsonExtensionPhaseList phaseList = ctx.getUpdateService().getPhases();
 		if (phaseList.getResult() != null) {
 			for (JsonExtensionPhase phase : phaseList.getResult()) {
 				if(phase.isPublicPhase() && (!isNightly(phase) || (Boolean.getBoolean("logonbox.vpn.updates.nightly") || Boolean.getBoolean("hypersocket.development"))))

@@ -34,6 +34,9 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 public abstract class AbstractDBusClient implements DBusClient {
+	
+	public final static File CLIENT_HOME = new File(System.getProperty("user.home") + File.separator + ".logonbox-vpn-client");	
+	public final static File CLIENT_CONFIG_HOME = new File(CLIENT_HOME, "conf");
 
 	public interface BusLifecycleListener {
 		void busInitializer(DBusConnection connection) throws DBusException;

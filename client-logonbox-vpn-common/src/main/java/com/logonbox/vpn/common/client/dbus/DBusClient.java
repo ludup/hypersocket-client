@@ -5,7 +5,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
 
-import com.logonbox.vpn.common.client.ClientService;
+import com.logonbox.vpn.common.client.AbstractDBusClient;
 
 public interface DBusClient {
 
@@ -15,7 +15,7 @@ public interface DBusClient {
 		if (System.getProperty("hypersocket.dbus") != null) {
 			path = System.getProperty("hypersocket.dbus");
 		} else if (Boolean.getBoolean("hypersocket.development")) {
-			path = new File(ClientService.CLIENT_CONFIG_HOME,  "dbus.properties").getAbsolutePath();
+			path = new File(AbstractDBusClient.CLIENT_CONFIG_HOME,  "dbus.properties").getAbsolutePath();
 		} else {
 			path = "conf" + File.separator + "dbus.properties";
 		}

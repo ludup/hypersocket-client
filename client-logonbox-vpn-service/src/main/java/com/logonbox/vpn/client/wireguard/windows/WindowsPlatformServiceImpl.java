@@ -30,11 +30,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.logonbox.vpn.client.LocalContext;
+import com.logonbox.vpn.client.service.ClientService;
 import com.logonbox.vpn.client.service.VPNSession;
 import com.logonbox.vpn.client.wireguard.AbstractPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.OsUtil;
 import com.logonbox.vpn.client.wireguard.windows.service.NetworkConfigurationService;
-import com.logonbox.vpn.common.client.ClientService;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.sshtools.forker.client.OSCommand;

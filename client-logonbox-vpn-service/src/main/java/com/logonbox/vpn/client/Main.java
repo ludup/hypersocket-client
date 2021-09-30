@@ -66,15 +66,18 @@ import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.dbus.VPNConnectionImpl;
 import com.logonbox.vpn.client.dbus.VPNImpl;
+import com.logonbox.vpn.client.service.ClientService;
 import com.logonbox.vpn.client.service.ClientServiceImpl;
 import com.logonbox.vpn.client.service.ConfigurationRepositoryImpl;
-import com.logonbox.vpn.client.service.updates.ClientUpdater;
+import com.logonbox.vpn.client.service.updates.HypersocketUpdateServiceImpl;
+import com.logonbox.vpn.client.service.updates.Install4JUpdateServiceImpl;
+import com.logonbox.vpn.client.service.updates.UpdateService;
 import com.logonbox.vpn.client.service.vpn.ConnectionRepositoryImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.client.wireguard.linux.LinuxPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.osx.BrewOSXPlatformServiceImpl;
 import com.logonbox.vpn.client.wireguard.windows.WindowsPlatformServiceImpl;
-import com.logonbox.vpn.common.client.ClientService;
+import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionRepository;
@@ -114,6 +117,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	}
 
 	private ClientServiceImpl clientService;
+	private UpdateService updateService;
 	private PlatformService<?> platform;
 	private DBusConnection conn;
 	private Map<String, VPNFrontEnd> frontEnds = Collections.synchronizedMap(new HashMap<>());
@@ -141,10 +145,16 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			"--tcp-bus" }, description = "Force use of TCP DBus service. Usually it is enabled by default for Windows only.")
 	private boolean tcpBus;
 
+	@Option(names = { "-ud",
+			"--unix-domain-socket-bus" }, description = "Force use of UNIX DBus service. Usually it is enabled by default for operating systems other than Windows.")
+	private boolean unixBus;
+
 	@Option(names = { "-u", "--auth" }, description = "Mask of SASL authentication method to use.")
 	private SaslAuthMode authMode = SaslAuthMode.AUTH_ANONYMOUS;
 
 	private ConfigurationRepositoryImpl configurationRepository;
+
+	public static final String ARTIFACT_COORDS = "com.hypersocket/client-logonbox-vpn-service";
 
 	public Main() throws Exception {
 		instance = this;
@@ -185,6 +195,11 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	}
 
 	@Override
+	public UpdateService getUpdateService() {
+		return updateService;
+	}
+
+	@Override
 	public Integer call() throws Exception {
 
 		File logs = new File("logs");
@@ -218,7 +233,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				org.apache.log4j.Logger.getRootLogger().setLevel(org.apache.log4j.Level.toLevel(cfgLevel));
 			}
 			log.info(String.format("LogonBox VPN Client, version %s",
-					HypersocketVersion.getVersion(ClientUpdater.ARTIFACT_COORDS)));
+					HypersocketVersion.getVersion(Main.ARTIFACT_COORDS)));
 			log.info(String.format("OS: %s", System.getProperty("os.name") + " / " + System.getProperty("os.arch")
 					+ " (" + System.getProperty("os.version") + ")"));
 
@@ -351,7 +366,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				 *
 				 * TODO: switch to domain sockets all around with dbus-java 4.0.0+ :)
 				 */
-				if (/* SystemUtils.IS_OS_UNIX && */ !tcpBus) {
+				if ((SystemUtils.IS_OS_UNIX &&  !tcpBus) || unixBus) {
 					log.info("Using UNIX domain socket bus");
 					newAddress = TransportBuilder.createDynamicSession("unix", true);
 				} else {
@@ -539,6 +554,14 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 		configurationRepository = new ConfigurationRepositoryImpl(this);
 		clientService = new ClientServiceImpl(this, connectionRepository, configurationRepository);
+//		if(new File(".install4j").exists()) {
+//			log.info("Using Install4J update services.");
+//			updateService = new Install4JUpdateServiceImpl(this);
+//		}
+//		else {
+			log.info("Using Hypersocket update services.");
+			updateService = new HypersocketUpdateServiceImpl(this);
+//		}
 
 		return true;
 
@@ -558,7 +581,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		if (path != null) {
 			file = new File(path);
 		} else if (Boolean.getBoolean("hypersocket.development")) {
-			file = new File(ClientService.CLIENT_CONFIG_HOME, type + ".properties");
+			file = new File(AbstractDBusClient.CLIENT_CONFIG_HOME, type + ".properties");
 		} else {
 			file = new File("conf" + File.separator + type + ".properties");
 		}

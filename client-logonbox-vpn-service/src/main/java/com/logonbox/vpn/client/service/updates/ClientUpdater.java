@@ -25,22 +25,22 @@ import com.hypersocket.extensions.ExtensionVersion;
 import com.hypersocket.extensions.JsonExtensionPhase;
 import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.extensions.JsonExtensionUpdate;
-import com.hypersocket.json.utils.TrustModifier;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.hypersocket.utils.FileUtils;
 import com.logonbox.vpn.client.LocalContext;
+import com.logonbox.vpn.client.Main;
 import com.logonbox.vpn.common.client.dbus.VPN;
 
-public class ClientUpdater extends AbstractExtensionUpdater {
-	public static final String ARTIFACT_COORDS = "com.hypersocket/client-logonbox-vpn-service";
-
+class ClientUpdater extends AbstractExtensionUpdater {
 	static Logger log = LoggerFactory.getLogger(ClientUpdater.class);
+
+	private static final String[] REPOS = new String[] { "logonbox-vpn-client" };
 
 	private ExtensionTarget target;
 	private ExtensionPlace extensionPlace;
 	private LocalContext cctx;
 
-	public ClientUpdater(ExtensionPlace extensionPlace, ExtensionTarget target, LocalContext cctx) {
+	ClientUpdater(ExtensionPlace extensionPlace, ExtensionTarget target, LocalContext cctx) {
 		super();
 		this.cctx = cctx;
 		this.extensionPlace = extensionPlace;
@@ -50,9 +50,6 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	protected InputStream downloadFromUrl(URL url) throws IOException {
 		URLConnection con = url.openConnection();
-		// TODO make this configurable or have a way to prompt user to verify
-		// certificate
-		TrustModifier.relaxHostChecking(con);
 		return con.getInputStream();
 	}
 
@@ -91,16 +88,17 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 			StringWriter trace = new StringWriter();
 			if (e != null)
 				e.printStackTrace(new PrintWriter(trace));
-			if(e instanceof InterruptedException) {
+			if (e instanceof InterruptedException) {
 				e = new IOException("Cancelled by user.", e);
 			}
 			String message = e.getMessage();
-			if(StringUtils.isBlank(message) && e.getCause() != null)
+			if (StringUtils.isBlank(message) && e.getCause() != null)
 				message = e.getCause().getMessage();
-			if(StringUtils.isBlank(message))
+			if (StringUtils.isBlank(message))
 				message = "No message supplied.";
-			
-			cctx.sendMessage(new VPN.UpdateFailure("/com/logonbox/vpn", extensionPlace.getApp(), message, trace.toString()));
+
+			cctx.sendMessage(
+					new VPN.UpdateFailure("/com/logonbox/vpn", extensionPlace.getApp(), message, trace.toString()));
 		} catch (DBusException ex) {
 			throw new IllegalStateException("Failed to send event.", ex);
 		}
@@ -118,43 +116,46 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 	@Override
 	public String getVersion() {
-		return HypersocketVersion.getVersion(ARTIFACT_COORDS);
+		return HypersocketVersion.getVersion(Main.ARTIFACT_COORDS);
 	}
 
 	@Override
 	protected Map<String, ExtensionVersion> onResolveExtensions(String version) throws IOException {
-		if (cctx.getClientService().isTrackServerVersion()) {
+		if (cctx.getUpdateService().isTrackServerVersion()) {
 			if (cctx.getClientService().getStatus(null).isEmpty()) {
-				/* We don't have any servers configured, so just ping the 
-				 * update server with our current version
+				/*
+				 * We don't have any servers configured, so just ping the update server with our
+				 * current version
 				 */
 				return ExtensionHelper.resolveExtensions(true,
-						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
-						new String[] { "logonbox-vpn-client" }, getVersion(), HypersocketVersion.getSerial(),
+						FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
+								+ "api/store/repos2",
+						REPOS, getVersion(), HypersocketVersion.getSerial(),
 						"LogonBox VPN Client", "Public", extensionPlace, true, null, getUpdateTargets());
-			}
-			else {
-				/* We have the version of the server we are connecting to, check
-				 * if there are any updates for this version
+			} else {
+				/*
+				 * We have the version of the server we are connecting to, check if there are
+				 * any updates for this version
 				 */
-				JsonExtensionUpdate v = cctx.getClientService().getUpdates();
+				JsonExtensionUpdate v = ((HypersocketUpdateServiceImpl) cctx.getUpdateService()).getUpdates();
 				Version remoteVersion = new Version(v.getResource().getCurrentVersion());
 				Version localVersion = new Version(getVersion());
-				if(remoteVersion.compareTo(localVersion) < 1) {
-					log.info(String.format("We are already on a version (%s) later or the same as the one available (%s).", localVersion, remoteVersion));
+				if (remoteVersion.compareTo(localVersion) < 1) {
+					log.info(String.format(
+							"We are already on a version (%s) later or the same as the one available (%s).",
+							localVersion, remoteVersion));
 					return Collections.emptyMap();
-				}
-				else {
+				} else {
 					return ExtensionHelper.resolveExtensions(true,
 							FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
 									+ "api/store/repos2",
-							new String[] { "logonbox-vpn-client" }, v.getResource().getCurrentVersion(),
+							REPOS, v.getResource().getCurrentVersion(),
 							HypersocketVersion.getSerial(), "LogonBox VPN Client", v.getResource().getCustomer(),
 							extensionPlace, true, null, getUpdateTargets());
 				}
 			}
 		} else {
-			JsonExtensionPhaseList v = cctx.getClientService().getPhases();
+			JsonExtensionPhaseList v = cctx.getUpdateService().getPhases();
 			String configuredPhase = cctx.getClientService().getValue("phase", "");
 			JsonExtensionPhase phase = null;
 			if (!configuredPhase.equals("")) {
@@ -169,7 +170,7 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 
 			return ExtensionHelper.resolveExtensions(true,
 					FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot()) + "api/store/repos2",
-					new String[] { "logonbox-vpn-client" }, phase.getVersion(), HypersocketVersion.getSerial(),
+					REPOS, phase.getVersion(), HypersocketVersion.getSerial(),
 					"LogonBox VPN Client", "Public", extensionPlace, true, null, getUpdateTargets());
 		}
 	}
@@ -192,8 +193,8 @@ public class ClientUpdater extends AbstractExtensionUpdater {
 	@Override
 	protected void onUpdateComplete(long totalBytesTransfered, int totalUpdates) {
 		try {
-			cctx.sendMessage(new VPN.UpdateComplete("/com/logonbox/vpn", extensionPlace.getApp(),
-					totalBytesTransfered));
+			cctx.sendMessage(
+					new VPN.UpdateComplete("/com/logonbox/vpn", extensionPlace.getApp(), totalBytesTransfered));
 		} catch (DBusException e) {
 			throw new IllegalStateException("Failed to send event.", e);
 		}
