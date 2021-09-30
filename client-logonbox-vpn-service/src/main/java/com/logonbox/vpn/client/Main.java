@@ -676,7 +676,29 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	
 	protected void cleanUp() {
 		log.info("Shutdown clean up.");
-		if(new File("uninstalling.txt").exists()) {
+		checkForUninstalling();
+		clientService.stopService();
+		try {
+			queue.shutdown();
+		}
+		finally {
+			try {
+				shutdownEmbeddeDaemon();
+			}
+			finally {
+				log.info("Shutting down database.");
+				try(java.sql.Connection c = DriverManager.getConnection("jdbc:derby:data;shutdown=true")) {
+					
+				} catch (SQLException e) {
+					log.warn("Failed to close database.");
+				}	
+			}
+		}
+	}
+
+	protected void checkForUninstalling() {
+		File flagFile = new File("uninstalling.txt");
+		if(flagFile.exists()) {
 			/* If uninstalling, stop all networks and tell all clients to exit
 			 */
 			try {
@@ -695,23 +717,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 			catch(Exception e) {
 			}
 		}
-		clientService.stopService();
-		try {
-			queue.shutdown();
-		}
-		finally {
-			try {
-				shutdownEmbeddeDaemon();
-			}
-			finally {
-				log.info("Shutting down database.");
-				try(java.sql.Connection c = DriverManager.getConnection("jdbc:derby:data;shutdown=true")) {
-					
-				} catch (SQLException e) {
-					log.warn("Failed to close database.");
-				}	
-			}
-		}
+		flagFile.delete();
 	}
 
 	protected void installAllTrustingCertificateVerifier() {
