@@ -678,6 +678,12 @@ public class UI extends AbstractController implements BusLifecycleListener {
 					});
 				}
 			});
+			connection.addSigHandler(VPN.Exit.class, new DBusSigHandler<VPN.Exit>() {
+				@Override
+				public void handle(VPN.Exit sig) {
+					context.exitApp();
+				}
+			});
 			connection.addSigHandler(VPN.ConnectionUpdated.class, new DBusSigHandler<VPN.ConnectionUpdated>() {
 				@Override
 				public void handle(VPN.ConnectionUpdated sig) {
@@ -1305,6 +1311,14 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 		/* Configure engine */
 		configureWebEngine();
+		
+		// TEMP
+//		webView.visibleProperty().set(false);
+//		webView.managedProperty().set(false);
+//		titleBarImageView.visibleProperty().set(false);
+//		titleBarImageView.managedProperty().set(false);
+//		sidebar.visibleProperty().set(false);
+//		sidebar.managedProperty().set(false);
 
 		/* Make various components completely hide from layout when made invisible */
 		sidebar.managedProperty().bind(sidebar.visibleProperty());

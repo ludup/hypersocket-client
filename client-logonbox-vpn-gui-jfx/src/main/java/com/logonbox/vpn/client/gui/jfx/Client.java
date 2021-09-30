@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.freedesktop.dbus.utils.Util;
@@ -416,26 +417,38 @@ public class Client extends Application {
 
 		// Finalise and show
 		Configuration cfg = Configuration.getDefault();
+		Main main = Main.getInstance();
+
 		int x = cfg.xProperty().get();
 		int y = cfg.yProperty().get();
 		int h = cfg.hProperty().get();
 		int w = cfg.wProperty().get();
 		if (h == 0 && w == 0) {
-			primaryStage.setWidth(450);
-			primaryStage.setHeight(768);
-		} else {
-			primaryStage.setX(x);
-			primaryStage.setY(y);
-			primaryStage.setWidth(w);
-			primaryStage.setHeight(h);
+			w = 457;
+			h = 768;
 		}
+		if(StringUtils.isNotBlank(main.getSize())) {
+			String[] sizeParts = main.getSize().toLowerCase().split("x");
+			w = Integer.parseInt(sizeParts[0]);
+			h = Integer.parseInt(sizeParts[1]);
+		}
+		if(main.isNoMove()) {
+			Rectangle2D screenBounds = Screen.getPrimary().getBounds();
+			x = (int)(screenBounds.getMinX() + ( ( screenBounds.getWidth() - w ) / 2));
+			y = (int)(screenBounds.getMinY() + ( ( screenBounds.getHeight() - h ) / 2));
+		}
+		primaryStage.setX(x);
+		primaryStage.setY(y);
+		primaryStage.setWidth(w);
+		primaryStage.setHeight(h);
 		primaryStage.setScene(primaryScene);
 		primaryStage.show();
 		primaryStage.xProperty().addListener((c, o, n) -> cfg.xProperty().set(n.intValue()));
 		primaryStage.yProperty().addListener((c, o, n) -> cfg.yProperty().set(n.intValue()));
 		primaryStage.widthProperty().addListener((c, o, n) -> cfg.wProperty().set(n.intValue()));
 		primaryStage.heightProperty().addListener((c, o, n) -> cfg.hProperty().set(n.intValue()));
-		primaryStage.setAlwaysOnTop(Main.getInstance().isAlwaysOnTop());
+		primaryStage.setAlwaysOnTop(main.isAlwaysOnTop());
+		primaryStage.setResizable(!main.isNoMove() && !main.isNoResize());
 
 		/* Dark mode handling */
 		cfg.darkModeProperty().addListener((c, o, n) -> {
@@ -450,16 +463,16 @@ public class Client extends Application {
 		});
 
 		primaryStage.onCloseRequestProperty().set(we -> {
-			if (!Main.getInstance().isNoClose())
+			if (!main.isNoClose())
 				confirmExit();
 			we.consume();
 		});
 
-		if (!Main.getInstance().isNoSystemTray()) {
+		if (!main.isNoSystemTray()) {
 			if (Taskbar.isTaskbarSupported() && SystemUtils.IS_OS_MAC_OSX) {
 				tray = new AWTTaskbarTray(this);
 			} else if (System.getProperty("logonbox.vpn.useAWTTray", "false").equals("true")
-					|| (Util.isMacOs() && isHidpi()))
+					|| (Util.isMacOs() && isHidpi()) || Util.isWindows())
 				tray = new AWTTray(this);
 			else
 				tray = new DorkBoxTray(this);
@@ -525,16 +538,15 @@ public class Client extends Application {
 			AnchorPane.setTopAnchor(node, 0d);
 			AnchorPane.setRightAnchor(node, 0d);
 			
-			String[] sizeParts = Main.getInstance().getSize().toLowerCase().split("x");
-			BorderlessScene primaryScene = new BorderlessScene(primaryStage, StageStyle.TRANSPARENT, anchor,
-					Integer.parseInt(sizeParts[0]), Integer.parseInt(sizeParts[1]));
+			BorderlessScene primaryScene = new BorderlessScene(primaryStage, StageStyle.TRANSPARENT, anchor, 1, 1);
+			
 			if (!Main.getInstance().isNoMove())
 				primaryScene.setMoveControl(node);
 			
 			primaryScene.setDoubleClickMaximizeEnabled(false);
 			primaryScene.setSnapEnabled(false);
 			primaryScene.removeDefaultCSS();
-			primaryScene.setResizable(!Main.getInstance().isNoMove());
+			primaryScene.setResizable(!Main.getInstance().isNoMove() && !Main.getInstance().isNoResize());
 
 			primaryScene.getRoot().setEffect(new DropShadow());
 			((Region) primaryScene.getRoot()).setPadding(new Insets(10, 10, 10, 10));

@@ -135,6 +135,12 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 								}
 							});
 				}
+				bus.addSigHandler(VPN.Exit.class, new DBusSigHandler<VPN.Exit>() {
+					@Override
+					public void handle(VPN.Exit sig) {
+						exitCLI();
+					}
+				});
 
 				bus.addSigHandler(VPN.UpdateStart.class, new DBusSigHandler<VPN.UpdateStart>() {
 					@Override

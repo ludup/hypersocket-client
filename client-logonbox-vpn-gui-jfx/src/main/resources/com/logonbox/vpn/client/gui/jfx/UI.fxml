@@ -11,13 +11,13 @@
 <?import javafx.scene.web.WebView?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
-<StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.logonbox.vpn.client.gui.jfx.UI">
+<StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="1.0" minWidth="1.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.logonbox.vpn.client.gui.jfx.UI">
 	<children>
-		<BorderPane>
+		<BorderPane minHeight="1.0" minWidth="1.0">
 			<top>
-				<BorderPane fx:id="header" BorderPane.alignment="CENTER">
+				<BorderPane fx:id="header" minHeight="1.0" minWidth="1.0" BorderPane.alignment="CENTER">
 					<right>
-						<HBox BorderPane.alignment="CENTER">
+						<HBox minHeight="1.0" minWidth="1.0" BorderPane.alignment="CENTER">
 							<children>
 								<Hyperlink fx:id="minimize" onAction="#evtMinimize" styleClass="icon">
                            <graphic>
@@ -31,7 +31,7 @@
 						</HBox>
 					</right>
 					<left>
-						<HBox BorderPane.alignment="CENTER">
+						<HBox minHeight="1.0" minWidth="1.0" BorderPane.alignment="CENTER">
 							<children>
 								<Hyperlink fx:id="toggleSidebar" onAction="#evtToggleSidebar" styleClass="icon">
                            <graphic>
@@ -54,15 +54,15 @@
 				</BorderPane> 
 			</top>
          <center>
-            <StackPane BorderPane.alignment="CENTER">
+            <StackPane minHeight="1.0" minWidth="1.0" BorderPane.alignment="CENTER">
                <children>
-      				<WebView fx:id="webView" minWidth="1" minHeight="1" prefHeight="100.0" prefWidth="100.0" />
-      				<BorderPane fx:id="sidebar" maxWidth="-Infinity" minWidth="200.0" visible="false" StackPane.alignment="CENTER_LEFT">
+      				<WebView fx:id="webView" minHeight="1" minWidth="1" prefHeight="100.0" prefWidth="100.0" />
+      				<BorderPane fx:id="sidebar" maxWidth="-Infinity" minHeight="1.0" minWidth="1.0" visible="false" StackPane.alignment="CENTER_LEFT">
                      <center>
 								<ListView fx:id="connections" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
                      </center>
                      <top>
-      						<BorderPane styleClass="inverse" BorderPane.alignment="CENTER">
+      						<BorderPane minHeight="1.0" minWidth="1.0" styleClass="inverse" BorderPane.alignment="CENTER">
       							<center>
       								<HBox>
       									<children>

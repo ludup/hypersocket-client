@@ -70,7 +70,6 @@ import com.logonbox.vpn.client.service.ClientService;
 import com.logonbox.vpn.client.service.ClientServiceImpl;
 import com.logonbox.vpn.client.service.ConfigurationRepositoryImpl;
 import com.logonbox.vpn.client.service.updates.HypersocketUpdateServiceImpl;
-import com.logonbox.vpn.client.service.updates.Install4JUpdateServiceImpl;
 import com.logonbox.vpn.client.service.updates.UpdateService;
 import com.logonbox.vpn.client.service.vpn.ConnectionRepositoryImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
@@ -366,7 +365,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				 *
 				 * TODO: switch to domain sockets all around with dbus-java 4.0.0+ :)
 				 */
-				if ((SystemUtils.IS_OS_UNIX &&  !tcpBus) || unixBus) {
+				if (!tcpBus || unixBus) {
 					log.info("Using UNIX domain socket bus");
 					newAddress = TransportBuilder.createDynamicSession("unix", true);
 				} else {
@@ -386,6 +385,25 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				/* Strip listen=true to get the address to uses as a client */
 				newAddress = newAddress.replace(",listen=true", "");
 				busAddress = new BusAddress(newAddress);
+			}
+			
+			/* Work around for Windows. We need the domain socket file to be created
+			 * somewhere that can be read by anyone. C:/Windows/TEMP cannot be 
+			 * read by a "Normal User" without elevating.
+			 */
+			if (SystemUtils.IS_OS_WINDOWS && busAddress.getBusType().equals("UNIX")) {
+				File publicDir = new File("C:\\Users\\Public");
+				if (publicDir.exists()) {
+					File vpnAppData = new File(publicDir, "AppData\\LogonBox\\VPN");
+
+					if (!vpnAppData.exists() && !vpnAppData.mkdirs())
+						throw new IOException("Failed to create public directory for domain socket file.");
+
+					newAddress = newAddress.replace("path=" + System.getProperty("java.io.tmpdir"),
+							"path=" + vpnAppData.getAbsolutePath().replace('/', '\\') + "\\");
+					log.info(String.format("Adjusting DBus path from %s to %s (%s)", busAddress, newAddress, System.getProperty("java.io.tmpdir")));
+					busAddress = new BusAddress(newAddress);
+				}
 			}
 
 			boolean startedBus = false;

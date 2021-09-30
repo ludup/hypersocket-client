@@ -66,7 +66,7 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	private boolean noMove;
 
 	@Option(names = { "-s", "--size" }, description = "Size of window, in the format <width>X<height>.")
-	private String size = "460x200";
+	private String size;
 
 	@Option(names = { "-T", "--always-on-top" }, description = "Keep the window on top of others.")
 	private boolean alwaysOnTop;

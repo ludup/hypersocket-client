@@ -253,6 +253,12 @@ public interface VPN extends DBusInterface {
 		}
 	}
 
+	public static  class Exit extends DBusSignal {
+		public Exit(String path) throws DBusException {
+			super(path);
+		}
+	}
+
 	public static  class UpdateStart extends DBusSignal {
 
 		private final String app;

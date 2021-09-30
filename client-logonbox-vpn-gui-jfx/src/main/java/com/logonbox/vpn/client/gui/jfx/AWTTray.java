@@ -138,9 +138,7 @@ public class AWTTray extends AbstractTray {
 	private void clearMenus() {
 		if (systemTray != null) {
 			var menu = trayIcon.getPopupMenu();
-			for (MenuItem dev : menuEntries) {
-				menu.remove(dev);
-			}
+			menu.removeAll();
 		}
 		menuEntries.clear();
 	}
