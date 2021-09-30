@@ -81,6 +81,7 @@ import com.logonbox.vpn.common.client.ConfigurationRepository;
 import com.logonbox.vpn.common.client.Connection;
 import com.logonbox.vpn.common.client.ConnectionRepository;
 import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 import com.sshtools.forker.common.OS;
 import com.sun.jna.Platform;
@@ -558,7 +559,6 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 		try {
 			clientService.start();
-			Runtime.getRuntime().addShutdownHook(new Thread(() -> clientService.stopService()));
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to start client configuration service.", e);
 		}
@@ -676,6 +676,26 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	
 	protected void cleanUp() {
 		log.info("Shutdown clean up.");
+		if(new File("uninstalling.txt").exists()) {
+			/* If uninstalling, stop all networks and tell all clients to exit
+			 */
+			try {
+				sendMessage(new VPN.Exit("/com/logonbox/vpn"));
+			} catch (DBusException e) {
+			}
+			try {
+				for(Connection c : new ArrayList<>(clientService.getConnections(null))) {
+					try {
+						clientService.disconnect(c, "Shutdown");
+					}
+					catch(Exception e) {
+					}
+				}
+			}
+			catch(Exception e) {
+			}
+		}
+		clientService.stopService();
 		try {
 			queue.shutdown();
 		}
