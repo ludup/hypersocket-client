@@ -1,4 +1,4 @@
-package com.logonbox.vpn.client.wireguard.windows;
+package com.logonbox.vpn.client.wireguard.windows.service;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -7,6 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Enumeration;
+
+import com.logonbox.vpn.client.wireguard.windows.WindowsIP;
+import com.logonbox.vpn.client.wireguard.windows.WindowsPlatformServiceImpl;
 
 public class ServiceTest {
 

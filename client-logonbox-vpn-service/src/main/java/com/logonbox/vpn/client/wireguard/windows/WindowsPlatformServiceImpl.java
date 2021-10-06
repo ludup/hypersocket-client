@@ -94,8 +94,6 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 
 	private File wgFile;
 
-	private File vpnwinsrvFile;
-
 	public WindowsPlatformServiceImpl() {
 		super(INTERFACE_PREFIX);
 	}
@@ -273,12 +271,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		boolean install = false;
 		if (!Services.get().hasService(TUNNEL_SERVICE_NAME_PREFIX + "$" + ip.getName())) {
 			install = true;
-			if("true".equals(System.getProperty("logonbox.vpn.useNativeService", "false"))) {
-				installNativeService(ip.getName(), cwd);	
-			}
-			else {
-				installService(ip.getName(), cwd);
-			}
+			installService(ip.getName(), cwd);
 		} else
 			LOG.info(String.format("Service for %s already exists.", ip.getName()));
 
@@ -469,34 +462,7 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 		}
 	}
 
-	void installNativeService(String name, Path cwd) throws IOException {
-		LOG.info(String.format("Installing native service for %s", name));
-		StringBuilder cmd = new StringBuilder();
-		cmd.append('"');
-		cmd.append(getVPNDeviceServiceCommand());
-		cmd.append('"');
-		cmd.append(' ');
-		cmd.append("/service");
-		cmd.append(' ');
-		cmd.append('"');
-		cmd.append(cwd);
-		cmd.append('"');
-		cmd.append(' ');
-		cmd.append('"');
-		cmd.append(name);
-		cmd.append('"');
-
-		LOG.info(String.format("Service will run %s", cmd));
-		
-		install(TUNNEL_SERVICE_NAME_PREFIX + "$" + name, "LogonBox VPN Tunnel for " + name,
-				"Manage a single tunnel LogonBox VPN (" + name + ")", new String[] { "Nsi", "TcpIp" }, "LocalSystem",
-				null, cmd.toString(), WinNT.SERVICE_DEMAND_START, false, null, false,
-				XWinsvc.SERVICE_SID_TYPE_UNRESTRICTED);
-
-		LOG.info(String.format("Installed service for %s", name));
-	}
-
-	void installService(String name, Path cwd) throws IOException {
+	public void installService(String name, Path cwd) throws IOException {
 		LOG.info(String.format("Installing service for %s", name));
 		StringBuilder cmd = new StringBuilder();
 		cmd.append('"');
@@ -559,37 +525,12 @@ public class WindowsPlatformServiceImpl extends AbstractPlatformServiceImpl<Wind
 			return wgFile.toString();
 		}
 	}
-	
-	protected String getVPNDeviceServiceCommand() {
-		synchronized (lock) {
-			if (vpnwinsrvFile == null) {
-				try {
-					vpnwinsrvFile = File.createTempFile("vpnwinsrv", ".exe");
-					try (InputStream in = WindowsPlatformServiceImpl.class.getResourceAsStream(getVPNWinsrvResource())) {
-						try (OutputStream out = new FileOutputStream(vpnwinsrvFile)) {
-							in.transferTo(out);
-						}
-					}
-				} catch (IOException ioe) {
-					throw new IllegalStateException("Failed to get wg.exe.", ioe);
-				}
-			}
-			return vpnwinsrvFile.toString();
-		}
-	}
 
 	private String getWGExeResource() {
 		if (System.getProperty("os.arch").indexOf("64") == -1)
 			return "/win32-x86/wg.exe";
 		else
 			return "/win32-x86-64/wg.exe";
-	}
-
-	private String getVPNWinsrvResource() {
-		if (System.getProperty("os.arch").indexOf("64") == -1)
-			return "/win32-x86/vpnwinsrv.exe";
-		else
-			return "/win32-x86-64/vpnwinsrv.exe";
 	}
 
 	private String reconstructClassPath() {
