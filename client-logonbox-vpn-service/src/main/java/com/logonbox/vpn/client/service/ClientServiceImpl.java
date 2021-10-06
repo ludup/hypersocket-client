@@ -61,7 +61,7 @@ public class ClientServiceImpl implements ClientService {
 
 	private static final String AUTHORIZE_URI = "/logonBoxVPNClient/";
 	private static final long PING_TIMEOUT = TimeUnit.SECONDS.toMillis(30);
-	private static final long UPDATE_SERVER_POLL_INTERVAL = TimeUnit.MINUTES.toMillis(10);
+	private static final long UPDATE_SERVER_POLL_INTERVAL = TimeUnit.DAYS.toMillis(1);
 
 	protected Map<Connection, VPNSession> activeSessions = new HashMap<>();
 	protected Map<Connection, ScheduledFuture<?>> authorizingClients = new HashMap<>();
