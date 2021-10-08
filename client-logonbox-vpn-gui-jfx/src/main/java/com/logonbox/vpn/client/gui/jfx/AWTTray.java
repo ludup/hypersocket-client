@@ -43,7 +43,10 @@ public class AWTTray extends AbstractTray {
 	@Override
 	public void onClose() throws Exception {
 		if(trayIcon != null) {
-			systemTray.remove(trayIcon);
+			SystemTray tr = systemTray;
+			SwingUtilities.invokeLater(() -> {
+				tr.remove(trayIcon);
+			});
 			trayIcon = null;
 		}
 		systemTray = null;
