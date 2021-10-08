@@ -50,7 +50,8 @@ public class DorkBoxTray extends AbstractTray implements AutoCloseable, Tray, Bu
 	@Override
 	public void onClose() throws Exception {
 		if (systemTray != null) {
-			systemTray.shutdown();
+			SystemTray tr = systemTray;
+			queueGuiOp(() -> tr.shutdown());
 			systemTray = null;
 		}
 	}

@@ -315,7 +315,7 @@ public class HypersocketUpdateServiceImpl extends AbstractHypersocketUpdateServi
 			}
 
 			Version remoteVersion = new Version(phase.getVersion());
-			if (remoteVersion.compareTo(localVersion) < 1) {
+			if (remoteVersion.compareTo(localVersion) < 0) {
 				System.out.println(phase.getVersion() + " is less than " + localVersion);
 				return "";
 			} else
