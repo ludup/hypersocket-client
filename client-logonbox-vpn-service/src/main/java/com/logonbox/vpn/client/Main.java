@@ -358,6 +358,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				log.info("Ready on Session DBus");
 				newAddress = conn.getAddress().getRawAddress();
 			}
+			
 		} else {
 			if (newAddress == null) {
 				/*
@@ -421,30 +422,61 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				daemon = new EmbeddedDBusDaemon(listenBusAddress);
 				daemon.setSaslAuthMode(authMode);
 				daemon.startInBackground();
-				long sleepMs = 200;
-				long waited = 0;
 
-				while (!daemon.isRunning()) {
-					if (waited >= MAX_WAIT) {
-						throw new RuntimeException(
-								"EmbeddedDbusDaemon not started in the specified time of " + MAX_WAIT + " ms");
-					}
-
+				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));				
+				
+				log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
+				for (int i = 0; i < 6; i++) {
 					try {
-						Thread.sleep(sleepMs);
-					} catch (InterruptedException _ex) {
+						conn = DBusConnection.getConnection(busAddress.getRawAddress());
+						log.info(String.format("Connected to embedded DBus %s", busAddress.getRawAddress()));
 						break;
+					} catch (DBusException dbe) {
+						if (i > 4)
+							throw dbe;
+						try {
+							Thread.sleep(500);
+						} catch (InterruptedException e) {
+						}
 					}
-
-					waited += sleepMs;
 				}
+				log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
 
-				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
+//				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
 				startedBus = true;
+				
+//				
+//				
+//				
+//				long sleepMs = 200;
+//				long waited = 0;
+//
+//				while (!daemon.isRunning()) {
+//					if (waited >= MAX_WAIT) {
+//						throw new RuntimeException(
+//								"EmbeddedDbusDaemon not started in the specified time of " + MAX_WAIT + " ms");
+//					}
+//
+//					try {
+//						Thread.sleep(sleepMs);
+//					} catch (InterruptedException _ex) {
+//						break;
+//					}
+//
+//					waited += sleepMs;
+//				}
+//
+//				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
+//				startedBus = true;
+			}
+			else {
+
+				log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
+				conn = DBusConnection.getConnection(busAddress.getRawAddress());
 			}
 
-			log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
-			conn = DBusConnection.getConnection(busAddress.getRawAddress());
+//			log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
+//			conn = DBusConnection.getConnection(busAddress.getRawAddress());
 
 			/*
 			 * Not ideal but we need read / write access to the domain socket from non-root
