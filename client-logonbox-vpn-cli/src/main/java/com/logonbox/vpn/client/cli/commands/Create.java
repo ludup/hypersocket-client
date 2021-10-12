@@ -63,7 +63,7 @@ public class Create extends AbstractConnectionCommand implements Callable<Intege
 			return 1;
 		}
 
-		connectionId = cli.getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup, background, mode.name());
+		connectionId = cli.getVPN().createConnection(uriObj.toASCIIString(), connectAtStartup, stayConnected, mode.name());
 		if (!dontConnectNow) {
 			VPNConnection connection = cli.getVPNConnection(connectionId);
 			if (background) {

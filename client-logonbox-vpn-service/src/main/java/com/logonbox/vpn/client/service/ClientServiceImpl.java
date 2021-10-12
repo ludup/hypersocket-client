@@ -145,7 +145,8 @@ public class ClientServiceImpl implements ClientService {
 			}
 
 			c.setError(null);
-			save(c);
+			if(!c.isTransient())
+				save(c);
 			
 			VPNSession task = createJob(c);
 			temporarilyOffline.remove(c);
@@ -167,6 +168,7 @@ public class ClientServiceImpl implements ClientService {
 			connection.setId(transientConnectionId.decrementAndGet());
 			connection.updateFromUri(uri);
 			connection.setConnectAtStartup(false);
+			connection.setStayConnected(true);
 			connect(connection);
 			return connection;
 		}
@@ -655,19 +657,17 @@ public class ClientServiceImpl implements ClientService {
 	
 	@Override
 	public Connection save(Connection c) {
-
 		try {
-			context.sendMessage(new VPN.ConnectionUpdated("/com/logonbox/vpn", c.getId()));
-		} catch (DBusException e) {
-			log.error("Failed to signal connection updated.", e);
-		}
-		Connection newConnection = doSave(c);
-		try {
-			context.sendMessage(new VPN.ConnectionUpdating("/com/logonbox/vpn", newConnection.getId()));
+			context.sendMessage(new VPN.ConnectionUpdating("/com/logonbox/vpn", c.getId()));
 		} catch (DBusException e) {
 			log.error("Failed to signal connection updating.", e);
 		}
-
+		Connection newConnection = doSave(c);
+		try {
+			context.sendMessage(new VPN.ConnectionUpdated("/com/logonbox/vpn", newConnection.getId()));
+		} catch (DBusException e) {
+			log.error("Failed to signal connection updated.", e);
+		}
 		return newConnection;
 
 	}
