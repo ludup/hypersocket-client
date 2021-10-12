@@ -19,6 +19,7 @@ import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.PromptingCertManager;
+import com.sshtools.forker.common.OS;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -228,7 +229,15 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	}
 
 	protected String getEffectiveUser() {
-		return StringUtils.isBlank(asUser) ? super.getEffectiveUser() : asUser;
+		if(StringUtils.isBlank(asUser)) {
+			return super.getEffectiveUser();
+		}
+		else {
+			if(OS.isAdministrator())
+				return asUser;
+			else
+				throw new IllegalStateException("Cannot impersonate a user if not an administrator.");
+		}
 	}
 
 	/**

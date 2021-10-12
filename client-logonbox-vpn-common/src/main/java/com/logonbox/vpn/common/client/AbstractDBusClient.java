@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.freedesktop.dbus.DBusMatchRule;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnection.DBusBusType;
@@ -265,7 +266,17 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	protected String getEffectiveUser() {
-		return System.getProperty("user.name");
+		String username = System.getProperty("user.name");
+		if(SystemUtils.IS_OS_WINDOWS) {
+			String domainOrComputer = System.getenv("USERDOMAIN");
+			if(StringUtils.isBlank(domainOrComputer))
+				return username;
+			else 
+				return domainOrComputer + "\\" + username; 
+		}
+		else {
+			return username;
+		}
 	}
 
 	private Map<String, String> toStringMap(Map<String, File> bootstrapArchives) {
