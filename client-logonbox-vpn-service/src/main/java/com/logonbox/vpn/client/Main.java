@@ -426,7 +426,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));				
 				
 				log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
-				for (int i = 0; i < 6; i++) {
+				for (int i = 0; i < 60; i++) {
 					try {
 						conn = DBusConnection.getConnection(busAddress.getRawAddress());
 						log.info(String.format("Connected to embedded DBus %s", busAddress.getRawAddress()));
@@ -442,41 +442,14 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 				}
 				log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
 
-//				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
 				startedBus = true;
 				
-//				
-//				
-//				
-//				long sleepMs = 200;
-//				long waited = 0;
-//
-//				while (!daemon.isRunning()) {
-//					if (waited >= MAX_WAIT) {
-//						throw new RuntimeException(
-//								"EmbeddedDbusDaemon not started in the specified time of " + MAX_WAIT + " ms");
-//					}
-//
-//					try {
-//						Thread.sleep(sleepMs);
-//					} catch (InterruptedException _ex) {
-//						break;
-//					}
-//
-//					waited += sleepMs;
-//				}
-//
-//				log.info(String.format("Started embedded bus on address %s", listenBusAddress.getRawAddress()));
-//				startedBus = true;
 			}
 			else {
 
 				log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
 				conn = DBusConnection.getConnection(busAddress.getRawAddress());
 			}
-
-//			log.info(String.format("Connecting to embedded DBus %s", busAddress.getRawAddress()));
-//			conn = DBusConnection.getConnection(busAddress.getRawAddress());
 
 			/*
 			 * Not ideal but we need read / write access to the domain socket from non-root

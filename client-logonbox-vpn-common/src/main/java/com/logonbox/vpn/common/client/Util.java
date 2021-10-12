@@ -3,6 +3,9 @@ package com.logonbox.vpn.common.client;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
@@ -18,6 +21,29 @@ public class Util {
 
 	private static final boolean IS_64BIT = is64bit0();
 
+
+	public static boolean isAdministrator() {
+		if (SystemUtils.IS_OS_WINDOWS) {
+			try {
+				String programFiles = System.getenv("ProgramFiles");
+				if (programFiles == null) {
+					programFiles = "C:\\Program Files";
+				}
+				Path temp = Files.createTempFile(Paths.get(programFiles), "foo", "txt");
+				temp.toFile().deleteOnExit();
+				Files.delete(temp);
+				return true;
+			} catch (Exception e) {
+				return false;
+			}
+		}
+		if (SystemUtils.IS_OS_UNIX) {
+			return System.getProperty("forker.administratorUsername", System.getProperty("vm.rootUser", "root"))
+					.equals(System.getProperty("user.name"));
+		}
+		return false;
+	}
+	
 	public static String titleUnderline(int len) {
 		return repeat(len, '=');
 	}

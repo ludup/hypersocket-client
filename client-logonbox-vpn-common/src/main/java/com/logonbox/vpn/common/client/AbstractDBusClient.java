@@ -35,8 +35,9 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 public abstract class AbstractDBusClient implements DBusClient {
-	
-	public final static File CLIENT_HOME = new File(System.getProperty("user.home") + File.separator + ".logonbox-vpn-client");	
+
+	public final static File CLIENT_HOME = new File(
+			System.getProperty("user.home") + File.separator + ".logonbox-vpn-client");
 	public final static File CLIENT_CONFIG_HOME = new File(CLIENT_HOME, "conf");
 
 	public interface BusLifecycleListener {
@@ -65,6 +66,9 @@ public abstract class AbstractDBusClient implements DBusClient {
 	private String busAddress;
 	@Option(names = { "-sb", "--session-bus" }, description = "Use session bus.")
 	private boolean sessionBus;
+	@Option(names = { "-u",
+			"--as-user" }, description = "Act on behalf of another user, only an adminstrator can do this.")
+	private String asUser;
 	@Spec
 	private CommandSpec spec;
 	private ScheduledFuture<?> pingTask;
@@ -124,7 +128,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 	public VPN getVPN() {
 		lazyInit();
-		if(vpn == null)
+		if (vpn == null)
 			throw new IllegalStateException("Bus not available.");
 		return vpn;
 	}
@@ -145,7 +149,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		}
 		return l;
 	}
-	
+
 	public PromptingCertManager getCertManager() {
 		return certManager;
 	}
@@ -157,19 +161,19 @@ public abstract class AbstractDBusClient implements DBusClient {
 	protected void exit() {
 		scheduler.shutdown();
 	}
-	
+
 	protected void disconnectFromBus() {
 		conn.disconnect();
 	}
 
 	protected final void init() throws Exception {
-		
+
 		if (vpn != null) {
 			getLog().debug("Call to init when already have bus.");
 			return;
 		}
 
-		if(conn == null || !conn.isConnected()) {
+		if (conn == null || !conn.isConnected()) {
 			String busAddress = this.busAddress;
 			if (StringUtils.isNotBlank(busAddress)) {
 				getLog().debug("Getting bus. " + this.busAddress);
@@ -190,8 +194,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 				}
 			}
 			getLog().info("Got bus connection.");
-		}
-		else {
+		} else {
 			getLog().info("Already have bus connection.");
 		}
 
@@ -208,15 +211,15 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 		for (BusLifecycleListener i : busLifecycleListeners)
 			i.busInitializer(conn);
-		
+
 		/* Create cert manager */
 		getLog().info(String.format("Cert manager: %s", getCertManager()));
 	}
 
 	protected abstract boolean isInteractive();
-	
+
 	protected Logger getLog() {
-		if(log == null) {
+		if (log == null) {
 			log = LoggerFactory.getLogger(AbstractDBusClient.class);
 		}
 		return log;
@@ -253,7 +256,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		busAvailable = true;
 		getLog().info("Registered with DBus.");
 		pingTask = scheduler.scheduleAtFixedRate(() -> {
-			synchronized(initLock) {
+			synchronized (initLock) {
 				if (vpn != null) {
 					try {
 						vpn.ping();
@@ -265,17 +268,23 @@ public abstract class AbstractDBusClient implements DBusClient {
 		}, 5, 5, TimeUnit.SECONDS);
 	}
 
-	protected String getEffectiveUser() {
-		String username = System.getProperty("user.name");
-		if(SystemUtils.IS_OS_WINDOWS) {
-			String domainOrComputer = System.getenv("USERDOMAIN");
-			if(StringUtils.isBlank(domainOrComputer))
+	protected final String getEffectiveUser() {
+		if (StringUtils.isBlank(asUser)) {
+			String username = System.getProperty("user.name");
+			if (SystemUtils.IS_OS_WINDOWS) {
+				String domainOrComputer = System.getenv("USERDOMAIN");
+				if (StringUtils.isBlank(domainOrComputer))
+					return username;
+				else
+					return domainOrComputer + "\\" + username;
+			} else {
 				return username;
-			else 
-				return domainOrComputer + "\\" + username; 
-		}
-		else {
-			return username;
+			}
+		} else {
+			if (Util.isAdministrator())
+				return asUser;
+			else
+				throw new IllegalStateException("Cannot impersonate a user if not an administrator.");
 		}
 	}
 
@@ -286,7 +295,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 		}
 		return map;
 	}
-	
+
 	private void cancelPingTask() {
 		if (pingTask != null) {
 			getLog().info("Stopping pinging.");
@@ -302,7 +311,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 			if (busAvailable) {
 				busAvailable = false;
 				vpn = null;
-				if(conn != null) {
+				if (conn != null) {
 					conn.disconnect();
 					conn = null;
 				}
@@ -320,7 +329,7 @@ public abstract class AbstractDBusClient implements DBusClient {
 					try {
 						init();
 					} catch (DBusException | ServiceUnknown dbe) {
-						if(getLog().isDebugEnabled())
+						if (getLog().isDebugEnabled())
 							getLog().debug("Init() failed, retrying");
 						busGone();
 					} catch (RuntimeException re) {

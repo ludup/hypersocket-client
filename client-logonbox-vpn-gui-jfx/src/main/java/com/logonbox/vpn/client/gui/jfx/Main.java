@@ -19,7 +19,6 @@ import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.PromptingCertManager;
-import com.sshtools.forker.common.OS;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -80,9 +79,6 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 
 	@Option(names = { "-n", "--create" }, description = "Create a new connection if one with the provided URI does not exist (requires URI parameter).")
 	private boolean createIfDoesntExist;
-
-	@Option(names = { "-u", "--as-user" }, description = "Act on behalf of another user, only an adminstrator can do this.")
-	private String asUser;
 
 	@Parameters(index = "0", arity = "0..1", description = "Connect to a particular server using a URI. Acceptable formats include <server[<port>]> or https://<server[<port>]>[/path]. If a pre-configured connection matching this URI already exists, it will be used.")
 	private String uri;
@@ -226,18 +222,6 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	@Override
 	protected boolean isInteractive() {
 		return true;
-	}
-
-	protected String getEffectiveUser() {
-		if(StringUtils.isBlank(asUser)) {
-			return super.getEffectiveUser();
-		}
-		else {
-			if(OS.isAdministrator())
-				return asUser;
-			else
-				throw new IllegalStateException("Cannot impersonate a user if not an administrator.");
-		}
 	}
 
 	/**
