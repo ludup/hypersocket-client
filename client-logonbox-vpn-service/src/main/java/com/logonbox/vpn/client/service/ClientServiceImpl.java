@@ -344,14 +344,21 @@ public class ClientServiceImpl implements ClientService {
 
 	public void failedToConnect(Connection connection, Throwable jpe) {
 		synchronized (activeSessions) {
-			log.info(String.format("Failed to connect %s, removing state.", connection.getDisplayName()));
+			log.info(String.format("Failed to connect %s.", connection.getDisplayName()));
+			removeState(connection);
+			connection.setError(jpe.getMessage());
+			save(connection);
+		}
+	}
+	
+	protected  void removeState(Connection connection) {
+		synchronized (activeSessions) {
+			log.info(String.format("Removing state.", connection.getDisplayName()));
 			ScheduledFuture<?> f = authorizingClients.remove(connection);
 			if (f != null)
 				f.cancel(false);
-			connection.setError(jpe.getMessage());
-			save(connection);
 			connectingSessions.remove(connection);
-		}
+		}	
 	}
 
 	@Override
@@ -432,6 +439,7 @@ public class ClientServiceImpl implements ClientService {
 		synchronized (activeSessions) {
 			List<ConnectionStatus> status = getStatus(null);
 			for (ConnectionStatus s : status) {
+				log.info(">>>>> " + s.getConnection().getId()  + ":" + s.getConnection().getDisplayName());
 				if (s.getConnection().getId() == id) {
 					return s;
 				}
@@ -1032,9 +1040,8 @@ public class ClientServiceImpl implements ClientService {
 				}
 
 			} catch (Exception e) {
-
-				failedToConnect(connection, e);
 				if (e instanceof ReauthorizeException) {
+					removeState(connection);
 					log.info(String.format("Requested  reauthorization for %s", connection.getUri(true)));
 					try {
 						/*
@@ -1051,6 +1058,7 @@ public class ClientServiceImpl implements ClientService {
 						}
 					}
 				} else {
+					failedToConnect(connection, e);
 					if (log.isErrorEnabled()) {
 						log.error("Failed to connect " + connection, e);
 					}

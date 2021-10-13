@@ -623,14 +623,15 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 		try {
 			/* DBus */
 			if (log.isInfoEnabled()) {
-				log.info(String.format("Exporting VPN service to DBus"));
+				log.info(String.format("Exporting VPN services to DBus"));
 			}
 			conn.exportObject("/com/logonbox/vpn", new VPNImpl(this));
 			if (log.isInfoEnabled()) {
-				log.info(String.format("Exported VPN service to DBus"));
+				log.info(String.format("    VPN"));
 			}
 			for (ConnectionStatus connectionStatus : clientService.getStatus(null)) {
 				Connection connection = connectionStatus.getConnection();
+				log.info(String.format("    Connection %d - %s", connection.getId(), connection.getDisplayName()));
 				conn.exportObject(String.format("/com/logonbox/vpn/%d", connection.getId()),
 						new VPNConnectionImpl(this, connection));
 			}

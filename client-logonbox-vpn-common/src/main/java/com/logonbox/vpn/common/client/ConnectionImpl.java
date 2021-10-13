@@ -7,6 +7,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -253,32 +254,9 @@ public class ConnectionImpl implements Connection, Serializable {
 		this.shared = publicToAll;
 	}
 
-	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-		in.defaultReadObject();
-	}
-
-	private void writeObject(ObjectOutputStream out) throws IOException {
-		out.defaultWriteObject();
-	}
-
 	@Override
 	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((hostname == null) ? 0 : hostname.hashCode());
-		result = prime * result + ((path == null) ? 0 : path.hashCode());
-		result = prime * result + ((port == null) ? 0 : port.hashCode());
-
-		/*
-		 * TODO other things prevent this from being useful. If this is renabled, make
-		 * sure that activeClients in ClientService updates properly (particularly when
-		 * saving a connection during logon - as the username will not be available in
-		 * the active map)
-		 */
-
-//		result = prime * result
-//				+ ((username == null) ? 0 : username.hashCode());
-		return result;
+		return Objects.hash(hostname, owner, path, port);
 	}
 
 	@Override
@@ -290,35 +268,16 @@ public class ConnectionImpl implements Connection, Serializable {
 		if (getClass() != obj.getClass())
 			return false;
 		ConnectionImpl other = (ConnectionImpl) obj;
-		if (hostname == null) {
-			if (other.hostname != null)
-				return false;
-		} else if (!hostname.equals(other.hostname))
-			return false;
-		if (path == null) {
-			if (other.path != null)
-				return false;
-		} else if (!path.equals(other.path))
-			return false;
-		if (port == null) {
-			if (other.port != null)
-				return false;
-		} else if (!port.equals(other.port))
-			return false;
+		return Objects.equals(hostname, other.hostname) && Objects.equals(owner, other.owner)
+				&& Objects.equals(path, other.path) && Objects.equals(port, other.port);
+	}
 
-		/*
-		 * TODO other things prevent this from being useful. If this is renabled, make
-		 * sure that activeClients in ClientService updates properly (particularly when
-		 * saving a connection during logon - as the username will not be available in
-		 * the active map)
-		 */
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		in.defaultReadObject();
+	}
 
-//		if (username == null) {
-//			if (other.username != null)
-//				return false;
-//		} else if (!username.equals(other.username))
-//			return false;
-		return true;
+	private void writeObject(ObjectOutputStream out) throws IOException {
+		out.defaultWriteObject();
 	}
 
 	@Override
