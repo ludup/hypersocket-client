@@ -439,7 +439,6 @@ public class ClientServiceImpl implements ClientService {
 		synchronized (activeSessions) {
 			List<ConnectionStatus> status = getStatus(null);
 			for (ConnectionStatus s : status) {
-				log.info(">>>>> " + s.getConnection().getId()  + ":" + s.getConnection().getDisplayName());
 				if (s.getConnection().getId() == id) {
 					return s;
 				}
