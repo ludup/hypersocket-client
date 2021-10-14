@@ -98,8 +98,7 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 	private Thread awaitingServiceStart;
 
 	public CLI() throws DBusException {
-		/* TODO: Note this is a temporary hack due to issues with update server */
-		super(ExtensionTarget.CLIENT_GUI);
+		super(ExtensionTarget.CLIENT_CLI);
 		setSupportsAuthorization(true);
 		try {
 			console = new NativeConsoleDevice();
