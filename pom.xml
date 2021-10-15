@@ -44,6 +44,8 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		
+		<!-- If this is changed, as change in x-client-logonbox-vpn-gui-jfx -->
 		<javafx.version>17</javafx.version>
 	</properties>
 
