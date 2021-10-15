@@ -1,17 +1,16 @@
 package com.logonbox.vpn.client.service.updates;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.extensions.AbstractExtensionUpdater;
-import com.hypersocket.extensions.ExtensionTarget;
-import com.hypersocket.json.version.HypersocketVersion;
+import com.hypersocket.extensions.JsonExtensionPhase;
+import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.json.version.Version;
-import com.hypersocket.utils.FileUtils;
-import com.hypersocket.utils.HypersocketUtils;
 import com.install4j.api.context.UserCanceledException;
 import com.install4j.api.update.ApplicationDisplayMode;
 import com.install4j.api.update.UpdateChecker;
@@ -40,11 +39,28 @@ public class Install4JUpdateServiceImpl extends AbstractHypersocketUpdateService
 
 	protected String buildUpdateUrl(Version version) {
 		String configuredPhase = context.getClientService().getValue("phase", "");
-		return FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
-				+ String.format("api/store/install4j/%s/%s/%s/%s", configuredPhase,
-						HypersocketUtils.csv(REPOS),
-						HypersocketVersion.getSerial(), HypersocketUtils.csv(
-								new ExtensionTarget[] { ExtensionTarget.CLIENT_SERVICE, ExtensionTarget.CLIENT_GUI }));
+//		return FileUtils.checkEndsWithSlash(AbstractExtensionUpdater.getExtensionStoreRoot())
+//				+ String.format("api/store/install4j/%s/%s/%s/%s", configuredPhase,
+//						HypersocketUtils.csv(REPOS),
+//						HypersocketVersion.getSerial(), HypersocketUtils.csv(
+//								new ExtensionTarget[] { ExtensionTarget.CLIENT_SERVICE, ExtensionTarget.CLIENT_GUI }));
+		
+		return "https://logonbox-packages.s3.eu-west-1.amazonaws.com/logonbox-vpn-client/" + configuredPhase + "/updates.xml";
+	}
+
+	@Override
+	public JsonExtensionPhaseList getPhases() {
+		JsonExtensionPhaseList pl = new JsonExtensionPhaseList();
+		List<JsonExtensionPhase> l = new ArrayList<>();
+		for(String p : new String[] { "nightly", "ea", "stable"} ) {
+			JsonExtensionPhase po = new JsonExtensionPhase();
+			po.setName(p);
+			po.setVersion(p);
+			po.setPublicPhase(true);
+			l.add(po);
+		}
+		pl.setResult(l.toArray(new JsonExtensionPhase[0]));
+		return pl;
 	}
 
 	@Override

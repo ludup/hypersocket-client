@@ -100,7 +100,7 @@ public abstract class AbstractHypersocketUpdateServiceImpl implements UpdateServ
 	}
 
 	@Override
-	public final JsonExtensionPhaseList getPhases() {
+	public JsonExtensionPhaseList getPhases() {
 		JsonExtensionPhaseList l = new JsonExtensionPhaseList();
 		if (isTrackServerVersion()) {
 			/*

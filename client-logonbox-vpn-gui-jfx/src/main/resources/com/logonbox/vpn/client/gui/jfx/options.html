@@ -102,66 +102,78 @@
 	</div>
 	<script type="text/javascript">
 		function uiReady() {
+            try {
 
-            if ($('#phase').length) {
-                for (var i = 0; i < phases.length; i++) {
-                    $('#phase').append('<option value="' + phases[i] + '" ' + (phases[i] == phase ? 'selected=""' : '') + '>' + pageBundle.getString('phase.' + phases[i]) + '</option>');
-                }
-            }
-            
-			if ($('#trayMode').length) {
-				for (var i = 0; i < trayModes.length; i++) {
-					$('#trayMode').append('<option ' + (trayModes[i] == trayMode ? 'selected="selected"' : '') + ' value="' + trayModes[i] + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
-				}
-			}
-            if ($('#darkMode').length) {
-                for (var i = 0; i < darkModes.length; i++) {
-                    $('#darkMode').append('<option ' + (darkModes[i] == darkMode ? 'selected="selected"' : '') + ' value="' + darkModes[i] + '">' + pageBundle.getString('darkMode.' + darkModes[i]) + '</option>');
-                }
-            }
-
-            /* $('#saveCookies').prop('checked', saveCookies); */
-			for (var i = 0; i < logLevels.length; i++) {
-				$('#logLevel').append('<option ' + (logLevels[i] == logLevel ? 'selected="selected"' : '') + ' value="' + logLevels[i] + '">' + pageBundle.getString('logLevel.' + logLevels[i]) + '</option>');
-			}
-
-			for (var i = 0; i < dnsIntegrationMethods.length; i++) {
-				$('#dnsIntegrationMethod').append('<option ' + (dnsIntegrationMethods[i] == dnsIntegrationMethod ? 'selected="selected"' : '') + ' value="' + dnsIntegrationMethods[i] + '">' + pageBundle.getString('dnsIntegrationMethod.' + dnsIntegrationMethods[i]) + '</option>');
-			}
-
-			if ($('#automaticUpdates').length) {
-				$('#automaticUpdates').prop('checked', automaticUpdates);
-			}
-
-			if ($('#ignoreLocalRoutes').length) {
-				$('#ignoreLocalRoutes').prop('checked', ignoreLocalRoutes);
-			}
-
-			$('#optionsForm').submit(function(event) {
-				$('#save').buttonLoader('start');
-				var ser = {
-					logLevel : $('#logLevel').val(),
-					dnsIntegrationMethod : $('#dnsIntegrationMethod').val()/* ,
-	                saveCookies: $('#saveCookies').is(':checked') */
-				};
+	            if ($('#phase').length) {
+	                for (var i = 0; i < phases.length; i++) {
+	                	var key = 'phase.' + phases[i];
+	                	var txt = 'i18n:' + key;
+	                	try {
+	                		txt  = pageBundle.getString(key);
+	                	}
+	                	catch(e) {}
+	               	    $('#phase').append('<option value="' + phases[i] + '" ' + (phases[i] == phase ? 'selected=""' : '') + '>' + txt + '</option>');
+	                }
+	            }
+	            
 				if ($('#trayMode').length) {
-					ser['trayMode'] = $('#trayMode').val();
+					for (var i = 0; i < trayModes.length; i++) {
+						$('#trayMode').append('<option ' + (trayModes[i] == trayMode ? 'selected="selected"' : '') + ' value="' + trayModes[i] + '">' + pageBundle.getString('trayMode.' + trayModes[i]) + '</option>');
+					}
 				}
-                if ($('#darkMode').length) {
-                    ser['darkMode'] = $('#darkMode').val();
-                }
-				if ($('#phase').length) {
-					ser['phase'] = $('#phase').val();
+	            if ($('#darkMode').length) {
+	                for (var i = 0; i < darkModes.length; i++) {
+	                    $('#darkMode').append('<option ' + (darkModes[i] == darkMode ? 'selected="selected"' : '') + ' value="' + darkModes[i] + '">' + pageBundle.getString('darkMode.' + darkModes[i]) + '</option>');
+	                }
+	            }
+	
+	            /* $('#saveCookies').prop('checked', saveCookies); */
+				for (var i = 0; i < logLevels.length; i++) {
+					$('#logLevel').append('<option ' + (logLevels[i] == logLevel ? 'selected="selected"' : '') + ' value="' + logLevels[i] + '">' + pageBundle.getString('logLevel.' + logLevels[i]) + '</option>');
 				}
+	
+				for (var i = 0; i < dnsIntegrationMethods.length; i++) {
+					$('#dnsIntegrationMethod').append('<option ' + (dnsIntegrationMethods[i] == dnsIntegrationMethod ? 'selected="selected"' : '') + ' value="' + dnsIntegrationMethods[i] + '">' + pageBundle.getString('dnsIntegrationMethod.' + dnsIntegrationMethods[i]) + '</option>');
+				}
+	
 				if ($('#automaticUpdates').length) {
-					ser['automaticUpdates'] = $('#automaticUpdates').is(':checked');
+					$('#automaticUpdates').prop('checked', automaticUpdates);
 				}
+	
 				if ($('#ignoreLocalRoutes').length) {
-					ser['ignoreLocalRoutes'] = $('#ignoreLocalRoutes').is(':checked');
+					$('#ignoreLocalRoutes').prop('checked', ignoreLocalRoutes);
 				}
-				bridge.saveOptions(ser);
-				event.preventDefault();
-			});
+	
+				$('#optionsForm').submit(function(event) {
+					$('#save').buttonLoader('start');
+					var ser = {
+						logLevel : $('#logLevel').val(),
+						dnsIntegrationMethod : $('#dnsIntegrationMethod').val()/* ,
+		                saveCookies: $('#saveCookies').is(':checked') */
+					};
+					if ($('#trayMode').length) {
+						ser['trayMode'] = $('#trayMode').val();
+					}
+	                if ($('#darkMode').length) {
+	                    ser['darkMode'] = $('#darkMode').val();
+	                }
+					if ($('#phase').length) {
+						ser['phase'] = $('#phase').val();
+					}
+					if ($('#automaticUpdates').length) {
+						ser['automaticUpdates'] = $('#automaticUpdates').is(':checked');
+					}
+					if ($('#ignoreLocalRoutes').length) {
+						ser['ignoreLocalRoutes'] = $('#ignoreLocalRoutes').is(':checked');
+					}
+					bridge.saveOptions(ser);
+					event.preventDefault();
+				});
+
+            }
+            catch(e) {
+                alert('Error: ' + e);
+            }
 		};
 	</script>
 </body>
