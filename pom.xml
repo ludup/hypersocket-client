@@ -50,6 +50,9 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<javafx.version>16</javafx.version>
+		
+		<!-- When you change this, remember to also change hypersocket-framework, hypersocket-enterprise, hypersocket-ui  -->
+		<hypersocket.languages>da,nl,fi,fr,de,it,no,pl,ru,sv,es,ja,he,pt</hypersocket.languages>
 	</properties>
 
 	<modules>
@@ -131,7 +134,8 @@
                         <manifestEntries>
                           <X-Extension-Version>${project.version}</X-Extension-Version>
                           <X-Extension-Priority>1</X-Extension-Priority>
-                        </manifestEntries>
+						  <X-Translations>${hypersocket.languages}</X-Translations>
+						</manifestEntries>
 					</archive>
 				</configuration>
 			</plugin>
@@ -197,7 +201,7 @@
 						<cacheTag>main</cacheTag>
 						<sourceDirectory>${basedir}/src/main/resources/i18n</sourceDirectory>
 						<targetDirectory>${basedir}/target/classes/i18n</targetDirectory>
-						<languages>da,nl,fi,fr,de,it,no,pl,ru,sv,es,ja,he,pt</languages>
+						<languages>${hypersocket.translations}</languages>
 						<failOnMissingSourceDir>false</failOnMissingSourceDir>
 						<noTranslatePattern>
 							<param><![CDATA[<a.*href.*>.*</a>]]></param>
