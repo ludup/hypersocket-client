@@ -70,6 +70,7 @@ import com.logonbox.vpn.client.service.ClientService;
 import com.logonbox.vpn.client.service.ClientServiceImpl;
 import com.logonbox.vpn.client.service.ConfigurationRepositoryImpl;
 import com.logonbox.vpn.client.service.updates.HypersocketUpdateServiceImpl;
+import com.logonbox.vpn.client.service.updates.Install4JUpdateServiceImpl;
 import com.logonbox.vpn.client.service.updates.UpdateService;
 import com.logonbox.vpn.client.service.vpn.ConnectionRepositoryImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
@@ -577,14 +578,14 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 		configurationRepository = new ConfigurationRepositoryImpl(this);
 		clientService = new ClientServiceImpl(this, connectionRepository, configurationRepository);
-//		if(new File(".install4j").exists()) {
-//			log.info("Using Install4J update services.");
-//			updateService = new Install4JUpdateServiceImpl(this);
-//		}
-//		else {
+		if(new File(".install4j").exists()) {
+			log.info("Using Install4J update services.");
+			updateService = new Install4JUpdateServiceImpl(this);
+		}
+		else {
 			log.info("Using Hypersocket update services.");
 			updateService = new HypersocketUpdateServiceImpl(this);
-//		}
+		}
 
 		return true;
 
