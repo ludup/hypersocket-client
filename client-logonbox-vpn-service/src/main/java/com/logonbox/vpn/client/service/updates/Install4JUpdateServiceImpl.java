@@ -2,6 +2,7 @@ package com.logonbox.vpn.client.service.updates;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.freedesktop.dbus.exceptions.DBusException;
@@ -79,11 +80,15 @@ public class Install4JUpdateServiceImpl extends AbstractHypersocketUpdateService
 
 	protected void doGetLatest(Version localVersion) throws UserCanceledException, IOException {
 		if (best == null) {
-			UpdateDescriptor update = UpdateChecker.getUpdateDescriptor(buildUpdateUrl(localVersion),
+			String uurl = buildUpdateUrl(localVersion);
+			log.info("Check for updates in " + localVersion + " from " + uurl);
+			UpdateDescriptor update = UpdateChecker.getUpdateDescriptor(uurl,
 					ApplicationDisplayMode.UNATTENDED);
 			best = update.getPossibleUpdateEntry();
-			if (best == null)
-				throw new IOException("No latest version available.");
+			if (best == null) {
+				best = update.getEntries()[0];
+//				throw new IOException("No latest version available.");
+			}
 		}
 	}
 
@@ -104,8 +109,12 @@ public class Install4JUpdateServiceImpl extends AbstractHypersocketUpdateService
 		if (update) {
 			if (checkOnly) {
 				context.sendMessage(new VPN.UpdateAvailable("/com/logonbox/vpn"));
-			} else
-				throw new UnsupportedOperationException("Updates not supported by service.");
+			} else {
+				UpdateChecker.executeScheduledUpdate(Collections.emptyList(), true, () -> {
+					
+				});
+//				throw new UnsupportedOperationException("Updates not supported by service.");
+			}
 		}
 		return update;
 
