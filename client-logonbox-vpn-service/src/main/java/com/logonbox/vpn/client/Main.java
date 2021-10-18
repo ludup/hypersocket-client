@@ -150,7 +150,7 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 	private ConfigurationRepositoryImpl configurationRepository;
 
-	public static final String ARTIFACT_COORDS = "com.hypersocket/client-logonbox-vpn-service";
+	public static final String ARTIFACT_COORDS = "com.logonbox/client-logonbox-vpn-service";
 
 	public Main() throws Exception {
 		instance = this;
