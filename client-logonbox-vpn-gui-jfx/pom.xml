@@ -46,7 +46,7 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>com.hypersocket</groupId>
+			<groupId>com.logonbox</groupId>
 			<artifactId>client-logonbox-vpn-common</artifactId>
 			<version>${project.version}</version>
 			<exclusions>
