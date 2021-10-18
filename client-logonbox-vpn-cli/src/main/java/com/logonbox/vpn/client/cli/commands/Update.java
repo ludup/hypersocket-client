@@ -28,15 +28,15 @@ public class Update implements Callable<Integer> {
 		CLIContext cli = (CLIContext) spec.parent().userObject();
 		ConsoleProvider console = cli.getConsole();
 		PrintWriter writer = console.out();
-		cli.getVPN().checkForUpdate();
-		if(cli.getVPN().isNeedsUpdating()) {
+		cli.getUpdateService().checkForUpdate();
+		if(cli.getUpdateService().isNeedsUpdating()) {
 			if(checkOnly) {
-				writer.println(String.format("Version %s available.", cli.getVPN().getAvailableVersion()));
+				writer.println(String.format("Version %s available.", cli.getUpdateService().getAvailableVersion()));
 				console.flush();
 				return 0;
 			}
 			else if(!yes) {
-				String answer = console.readLine("Version %s available. Update? (Y)/N: ", cli.getVPN().getAvailableVersion()).toLowerCase();
+				String answer = console.readLine("Version %s available. Update? (Y)/N: ", cli.getUpdateService().getAvailableVersion()).toLowerCase();
 				if(!answer.equals("") && !answer.equals("y") && !answer.equals("yes")) {
 					writer.println("Cancelled");
 					console.flush();
@@ -50,9 +50,7 @@ public class Update implements Callable<Integer> {
 			return 3;
 		}
 		
-		cli.getVPN().update();
-		Thread.sleep(1000000);
-		
+		cli.getUpdateService().update();
 		return 0;
 	}
 }

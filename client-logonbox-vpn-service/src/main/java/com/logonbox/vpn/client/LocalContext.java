@@ -7,7 +7,6 @@ import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.messages.Message;
 
 import com.logonbox.vpn.client.service.ClientService;
-import com.logonbox.vpn.client.service.updates.UpdateService;
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.common.client.dbus.VPNFrontEnd;
 
@@ -16,12 +15,10 @@ public interface LocalContext {
 	PlatformService<?> getPlatformService();
 	
 	ClientService getClientService();
-	
-	UpdateService getUpdateService();
 
 	void sendMessage(Message message);
 	
-	VPNFrontEnd registerFrontEnd(String source, String target);
+	VPNFrontEnd registerFrontEnd(String source);
 	
 	VPNFrontEnd getFrontEnd(String source);
 

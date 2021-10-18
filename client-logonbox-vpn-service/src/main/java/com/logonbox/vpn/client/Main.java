@@ -62,16 +62,12 @@ import org.freedesktop.dbus.utils.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.dbus.VPNConnectionImpl;
 import com.logonbox.vpn.client.dbus.VPNImpl;
 import com.logonbox.vpn.client.service.ClientService;
 import com.logonbox.vpn.client.service.ClientServiceImpl;
 import com.logonbox.vpn.client.service.ConfigurationRepositoryImpl;
-import com.logonbox.vpn.client.service.updates.HypersocketUpdateServiceImpl;
-import com.logonbox.vpn.client.service.updates.Install4JUpdateServiceImpl;
-import com.logonbox.vpn.client.service.updates.UpdateService;
 import com.logonbox.vpn.client.service.vpn.ConnectionRepositoryImpl;
 import com.logonbox.vpn.client.wireguard.PlatformService;
 import com.logonbox.vpn.client.wireguard.linux.LinuxPlatformServiceImpl;
@@ -118,7 +114,6 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	}
 
 	private ClientServiceImpl clientService;
-	private UpdateService updateService;
 	private PlatformService<?> platform;
 	private DBusConnection conn;
 	private Map<String, VPNFrontEnd> frontEnds = Collections.synchronizedMap(new HashMap<>());
@@ -193,11 +188,6 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	@Override
 	public PlatformService<?> getPlatformService() {
 		return platform;
-	}
-
-	@Override
-	public UpdateService getUpdateService() {
-		return updateService;
 	}
 
 	@Override
@@ -299,13 +289,13 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 	}
 
 	@Override
-	public VPNFrontEnd registerFrontEnd(String source, String target) {
+	public VPNFrontEnd registerFrontEnd(String source) {
 		synchronized (frontEnds) {
 			VPNFrontEnd fe = frontEnds.get(source);
 			if (fe != null) {
 				throw new IllegalArgumentException(String.format("Front end '%s' already registered.", source));
 			}
-			fe = new VPNFrontEnd(source, ExtensionTarget.valueOf(target));
+			fe = new VPNFrontEnd(source);
 			frontEnds.put(source, fe);
 			return fe;
 		}
@@ -578,15 +568,6 @@ public class Main implements Callable<Integer>, LocalContext, X509TrustManager {
 
 		configurationRepository = new ConfigurationRepositoryImpl(this);
 		clientService = new ClientServiceImpl(this, connectionRepository, configurationRepository);
-		if(new File(".install4j").exists()) {
-			log.info("Using Install4J update services.");
-			updateService = new Install4JUpdateServiceImpl(this);
-		}
-		else {
-			log.info("Using Hypersocket update services.");
-			updateService = new HypersocketUpdateServiceImpl(this);
-		}
-
 		return true;
 
 	}

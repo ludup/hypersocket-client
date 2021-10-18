@@ -15,7 +15,6 @@ import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.PromptingCertManager;
@@ -35,7 +34,7 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	/**
 	 * Used to get version from Maven meta-data
 	 */
-	public static final String ARTIFACT_COORDS = "com.hypersocket/client-logonbox-vpn-gui-jfx";
+	public static final String ARTIFACT_COORDS = "com.logonbox/client-logonbox-vpn-gui-jfx";
 
 	private static Main instance;
 
@@ -86,7 +85,7 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 	private Level defaultLogLevel;
 
 	public Main() {
-		super(ExtensionTarget.CLIENT_GUI);
+		super();
 		instance = this;
 		setSupportsAuthorization(true);
 
@@ -261,5 +260,10 @@ public class Main extends AbstractDBusClient implements Callable<Integer> {
 			}
 			
 		};
+	}
+
+	@Override
+	protected String getVersion() {
+		return HypersocketVersion.getVersion("com.logonbox/client-logonbox-vpn-gui-jfx");
 	}
 }

@@ -71,6 +71,7 @@ import com.logonbox.vpn.common.client.ConnectionStatus;
 import com.logonbox.vpn.common.client.ConnectionStatus.Type;
 import com.logonbox.vpn.common.client.DNSIntegrationMethod;
 import com.logonbox.vpn.common.client.ServiceClient;
+import com.logonbox.vpn.common.client.UpdateService;
 import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.api.Branding;
 import com.logonbox.vpn.common.client.dbus.VPN;
@@ -242,10 +243,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				throw new IllegalArgumentException(bundle.getString("error.invalidUri"));
 			UI.this.addConnection(stayConnected, connectAtStartup, server);
 		}
-		
+
 		public void confirmDelete(long id) {
 			VPNConnection connection = context.getDBus().getVPNConnection(id);
-			UI.this.confirmDelete(connection);	
+			UI.this.confirmDelete(connection);
 		}
 
 		public void authenticate() {
@@ -280,10 +281,10 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		public void connectTo(long id) {
 			UI.this.connect(context.getDBus().getVPNConnection(id));
 		}
-		
+
 		public void disconnect() {
 			VPNConnection selectedItem = UI.this.getSelectedConnection();
-			UI.this.disconnect(selectedItem == null ? UI.this.connections.getItems().get(0) : selectedItem);			
+			UI.this.disconnect(selectedItem == null ? UI.this.connections.getItems().get(0) : selectedItem);
 		}
 
 		public void disconnectFrom(long id) {
@@ -359,10 +360,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 		public void deferUpdate() {
 			UI.this.deferUpdate();
-		}
-
-		public void cancelUpdate() {
-			UI.this.cancelUpdate();
 		}
 
 		public void checkForUpdate() {
@@ -446,11 +443,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		return instance;
 	}
 
-	private int appsToUpdate;
-	private int appsUpdated;
 	private Timeline awaitingBridgeEstablish;
 	private Timeline awaitingBridgeLoss;
-	private boolean awaitingRestart;
 	private Branding branding;
 	private Map<String, Collection<String>> collections = new HashMap<>();
 	private Map<VPNConnection, BrandingCacheItem> brandingCache = new HashMap<>();
@@ -492,8 +486,12 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	@FXML
 	private Hyperlink toggleSidebar;
 
+	private UpdateService updateService;
+
 	public UI() {
+		/* TODO sort out all this static crap */
 		instance = this;
+		updateService = Main.getInstance().getUpdateService();
 	}
 
 	public void disconnect(VPNConnection sel) {
@@ -555,7 +553,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			beans.put("dnsIntegrationMethod", DNSIntegrationMethod.AUTO.name());
 		} else {
 			try {
-				beans.put("phases", vpn.getPhases());
+				beans.put("phases", updateService.getPhases());
 			} catch (Exception e) {
 				log.warn("Could not get phases.", e);
 			}
@@ -694,124 +692,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				}
 			});
 
-			/* On update available */
-			connection.addSigHandler(VPN.UpdateAvailable.class, new DBusSigHandler<VPN.UpdateAvailable>() {
-				@Override
-				public void handle(VPN.UpdateAvailable sig) {
-					maybeRunLater(() -> {
-						selectPageForState(false, false);
-					});
-				}
-			});
-
-			/* On update init */
-			connection.addSigHandler(VPN.UpdateInit.class, new DBusSigHandler<VPN.UpdateInit>() {
-				@Override
-				public void handle(VPN.UpdateInit sig) {
-					maybeRunLater(() -> {
-						if (awaitingRestart)
-							throw new IllegalStateException(
-									"Cannot initiate updates while waiting to restart the GUI.");
-						LOG.info(String.format("Initialising update. Expecting %d apps", sig.getApps()));
-						appsToUpdate = sig.getApps();
-						appsUpdated = 0;
-						selectPageForState(false, false);
-					});
-				}
-			});
-
-			/* On update start */
-			connection.addSigHandler(VPN.UpdateStart.class, new DBusSigHandler<VPN.UpdateStart>() {
-				@Override
-				public void handle(VPN.UpdateStart sig) {
-					maybeRunLater(() -> {
-						LOG.info(String.format("Starting up of %s, expect %d bytes", sig.getApp(),
-								sig.getTotalBytesExpected()));
-						String appName = getAppName(sig.getApp());
-						Tray tray = Client.get().getTray();
-						if (tray != null)
-							tray.setProgress(0);
-						setUpdateProgress(0, MessageFormat.format(resources.getString("updating"), appName));
-					});
-				}
-			});
-
-			/* On update progress */
-			connection.addSigHandler(VPN.UpdateProgress.class, new DBusSigHandler<VPN.UpdateProgress>() {
-				@Override
-				public void handle(VPN.UpdateProgress sig) {
-					maybeRunLater(() -> {
-						String appName = getAppName(sig.getApp());
-						int pc = (int) (((double) sig.getTotalSoFar() / sig.getTotalBytesExpected()) * 100d);
-						Tray tray = Client.get().getTray();
-						if (tray != null)
-							tray.setProgress(pc);
-						setUpdateProgress(pc, MessageFormat.format(resources.getString("updating"), appName));
-					});
-				}
-			});
-
-			/* On update failure */
-			connection.addSigHandler(VPN.UpdateComplete.class, new DBusSigHandler<VPN.UpdateComplete>() {
-				@Override
-				public void handle(VPN.UpdateComplete sig) {
-					maybeRunLater(() -> {
-						String appName = getAppName(sig.getApp());
-						setUpdateProgress(100, MessageFormat.format(resources.getString("updated"), appName));
-						appsUpdated++;
-						Tray tray = Client.get().getTray();
-						if (tray != null)
-							tray.setProgress(-1);
-						LOG.info(String.format("Update of %s complete, have now updated %d of %d apps", sig.getApp(),
-								appsUpdated, appsToUpdate));
-					});
-				}
-			});
-
-			/* On update failure */
-			connection.addSigHandler(VPN.UpdateFailure.class, new DBusSigHandler<VPN.UpdateFailure>() {
-				@Override
-				public void handle(VPN.UpdateFailure sig) {
-					maybeRunLater(() -> {
-						LOG.info(String.format("Failed to update app %s. %s", sig.getApp(), sig.getMessage()));
-						UI.this.notify(sig.getMessage(), ToastType.ERROR);
-						Tray tray = Client.get().getTray();
-						if (tray != null)
-							tray.setAttention(true, false);
-						showError(MessageFormat.format(resources.getString("updateFailure"), sig.getApp()),
-								sig.getMessage(), sig.getTrace());
-					});
-				}
-			});
-
-			/* On update done */
-			connection.addSigHandler(VPN.UpdateDone.class, new DBusSigHandler<VPN.UpdateDone>() {
-				@Override
-				public void handle(VPN.UpdateDone sig) {
-					maybeRunLater(() -> {
-						Tray tray = Client.get().getTray();
-						if (tray != null)
-							tray.setProgress(-1);
-						LOG.info(String.format("Update done. Message: %s, Restart: %s", sig.getFailureMessage(),
-								sig.isRestart() ? "Yes" : "No"));
-						if (StringUtils.isBlank(sig.getFailureMessage())) {
-							if (sig.isRestart()) {
-								LOG.info(String.format("All apps updated, starting restart process " + Math.random()));
-								awaitingBridgeLoss = new Timeline(
-										new KeyFrame(Duration.seconds(30), ae -> giveUpWaitingForBridgeStop()));
-								awaitingBridgeLoss.play();
-							} else {
-								LOG.info(String.format("No restart required, continuing"));
-								resetState();
-							}
-						} else {
-							setUpdateProgress(100, sig.getFailureMessage());
-							resetState();
-						}
-					});
-				}
-			});
-
 			/* Listen for events on all existing connections */
 			for (VPNConnection vpnConnection : context.getDBus().getVPNConnections()) {
 				listenConnectionEvents(connection, vpnConnection);
@@ -846,7 +726,6 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		 * the connection continuing
 		 */
 		if (awaitingBridgeEstablish != null) {
-			awaitingRestart = true;
 			maybeRunLater(runnable);
 		} else {
 			reloadState(() -> maybeRunLater(runnable));
@@ -947,8 +826,8 @@ public class UI extends AbstractController implements BusLifecycleListener {
 											ToastType.INFO);
 								else
 									UI.this.notify(MessageFormat.format(bundle.getString("disconnected"),
-											connection.getDisplayName(), connection.getHostname(), thisDisconnectionReason),
-											ToastType.INFO);
+											connection.getDisplayName(), connection.getHostname(),
+											thisDisconnectionReason), ToastType.INFO);
 							} catch (Exception e) {
 								log.error("Failed to get connection, delete not possible.");
 							}
@@ -1039,7 +918,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		WebEngine engine = webView.getEngine();
 		webView.setContextMenuEnabled(false);
 		engine.setUserAgent(
-				"LogonBox VPN Client " + HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-gui-jfx"));
+				"LogonBox VPN Client " + HypersocketVersion.getVersion("com.logonbox/client-logonbox-vpn-gui-jfx"));
 		engine.setOnAlert((e) -> {
 			Alert alert = new Alert(AlertType.ERROR);
 			alert.initModality(Modality.APPLICATION_MODAL);
@@ -1311,7 +1190,7 @@ public class UI extends AbstractController implements BusLifecycleListener {
 
 		/* Configure engine */
 		configureWebEngine();
-		
+
 		// TEMP
 //		webView.visibleProperty().set(false);
 //		webView.managedProperty().set(false);
@@ -1377,18 +1256,16 @@ public class UI extends AbstractController implements BusLifecycleListener {
 			VPN vpn = context.getDBus().getVPN();
 			boolean checkUpdates = false;
 			if (phase != null) {
-				if (!vpn.isTrackServerVersion()) {
-					String was = vpn.getValue(ConfigurationRepository.PHASE, "");
-					if(!Objects.equals(was, phase)) {
-						vpn.setValue(ConfigurationRepository.PHASE, phase);
-						checkUpdates = true;
-					}
+				String was = vpn.getValue(ConfigurationRepository.PHASE, "");
+				if (!Objects.equals(was, phase)) {
+					vpn.setValue(ConfigurationRepository.PHASE, phase);
+					checkUpdates = true;
 				}
 			}
 			if (automaticUpdates != null) {
 				String was = vpn.getValue(ConfigurationRepository.AUTOMATIC_UPDATES, "");
 				String now = String.valueOf(automaticUpdates);
-				if(!Objects.equals(was, now)) {
+				if (!Objects.equals(was, now)) {
 					vpn.setValue(ConfigurationRepository.AUTOMATIC_UPDATES, now);
 					checkUpdates = true;
 				}
@@ -1412,17 +1289,15 @@ public class UI extends AbstractController implements BusLifecycleListener {
 				}
 			}
 
-			if(checkUpdates) {
+			if (checkUpdates) {
 				new Thread() {
 					public void run() {
 						// TODO put this back, just for testing update available notification
 //						context.getDBus().getVPN().checkForUpdate();
-						maybeRunLater(() ->
-						selectPageForState(false, true));
+						maybeRunLater(() -> selectPageForState(false, true));
 					}
 				}.start();
-			}
-			else
+			} else
 				selectPageForState(false, false);
 
 			LOG.info("Saved options");
@@ -1602,9 +1477,9 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private void processDOM() {
 		boolean busAvailable = context.getDBus().isBusAvailable();
 		VPNConnection connection = busAvailable ? getSelectedConnection() : null;
-		DOMProcessor processor = new DOMProcessor(busAvailable ? context.getDBus().getVPN() : null,
-				connection, collections, lastErrorMessage, lastErrorCause,
-				lastException, branding, pageBundle, resources, webView.getEngine().getDocument().getDocumentElement(),
+		DOMProcessor processor = new DOMProcessor(busAvailable ? context.getDBus().getVPN() : null, connection,
+				collections, lastErrorMessage, lastErrorCause, lastException, branding, pageBundle, resources,
+				webView.getEngine().getDocument().getDocumentElement(),
 				connection == null ? disconnectionReason : connection.getLastError());
 		processor.process();
 		collections.clear();
@@ -1861,29 +1736,11 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 	}
 
-	private String getAppName(String app) {
-		if (resources.containsKey(app)) {
-			return resources.getString(app);
-		} else {
-			return app;
-		}
-	}
-
 	private void giveUpWaitingForBridgeEstablish() {
 		LOG.info("Given up waiting for bridge to start");
 		resetAwaingBridgeEstablish();
 		notify(resources.getString("givenUpWaitingForBridgeEstablish"), ToastType.ERROR);
 		selectPageForState(false, false);
-	}
-
-	/*
-	 * The following are all events from UI
-	 */
-
-	private void giveUpWaitingForBridgeStop() {
-		LOG.info("Given up waiting for bridge to stop");
-		resetAwaingBridgeLoss();
-		notify(resources.getString("givenUpWaitingForBridgeStop"), ToastType.ERROR);
 	}
 
 	private void initUi(VPNConnection connection) {
@@ -1941,27 +1798,15 @@ public class UI extends AbstractController implements BusLifecycleListener {
 		}
 	}
 
-	private void resetState() {
-		resetAwaingBridgeEstablish();
-		resetAwaingBridgeLoss();
-		appsToUpdate = 0;
-		appsUpdated = 0;
-	}
-
 	private void selectPageForState(boolean connectIfDisconnected, boolean force) {
 		try {
 			AbstractDBusClient bridge = context.getDBus();
 			boolean busAvailable = bridge.isBusAvailable();
-			if (busAvailable && bridge.getVPN().isUpdating()) {
-				setHtmlPage("updating.html");
-			} else if (busAvailable && bridge.getVPN().isUpdatesEnabled() && bridge.getVPN().isNeedsUpdating()) {
+			if (busAvailable && updateService.isUpdatesEnabled() && updateService.isNeedsUpdating()) {
 				// An update is available
 				log.warn(String.format("Update is available"));
-				if (bridge.getVPN().isUpdating()) {
-					setHtmlPage("updating.html");
-				} else if (Boolean
-						.valueOf(context.getDBus().getVPN().getValue(ConfigurationRepository.AUTOMATIC_UPDATES,
-								String.valueOf(ConfigurationRepository.AUTOMATIC_UPDATES_DEFAULT)))) {
+				if (Boolean.valueOf(context.getDBus().getVPN().getValue(ConfigurationRepository.AUTOMATIC_UPDATES,
+						String.valueOf(ConfigurationRepository.AUTOMATIC_UPDATES_DEFAULT)))) {
 					update();
 				} else
 					setHtmlPage("updateAvailable.html");
@@ -2135,25 +1980,28 @@ public class UI extends AbstractController implements BusLifecycleListener {
 	private void update() {
 		new Thread() {
 			public void run() {
-				context.getDBus().getVPN().update();
+				try {
+					updateService.update();
+				} catch (IOException ioe) {
+					showError("Failed to update.", ioe);
+				}
 			}
 		}.start();
 	}
 
 	private void checkForUpdate() {
-		context.getDBus().getVPN().checkForUpdate();
-		if (context.getDBus().getVPN().isNeedsUpdating()) {
-			selectPageForState(false, true);
+		try {
+			updateService.checkForUpdate();
+			if (updateService.isNeedsUpdating()) {
+				selectPageForState(false, true);
+			}
+		} catch (IOException ioe) {
+			showError("Failed to check for updates.", ioe);
 		}
 	}
 
 	private void deferUpdate() {
-		context.getDBus().getVPN().deferUpdate();
-		selectPageForState(false, true);
-	}
-
-	private void cancelUpdate() {
-		context.getDBus().getVPN().cancelUpdate();
+		updateService.deferUpdate();
 		selectPageForState(false, true);
 	}
 

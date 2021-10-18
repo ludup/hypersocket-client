@@ -6,7 +6,6 @@ import java.io.PrintWriter;
 import java.text.MessageFormat;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.concurrent.TimeUnit;
 import java.util.prefs.Preferences;
 
 import org.apache.commons.lang3.StringUtils;
@@ -18,7 +17,6 @@ import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.extensions.ExtensionTarget;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.cli.commands.About;
 import com.logonbox.vpn.client.cli.commands.Config;
@@ -35,6 +33,7 @@ import com.logonbox.vpn.client.cli.commands.Show;
 import com.logonbox.vpn.client.cli.commands.Update;
 import com.logonbox.vpn.common.client.AbstractDBusClient;
 import com.logonbox.vpn.common.client.PromptingCertManager;
+import com.logonbox.vpn.common.client.UpdateService;
 import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.dbus.DBusClient;
 import com.logonbox.vpn.common.client.dbus.VPN;
@@ -88,17 +87,14 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 	@Spec
 	private CommandSpec spec;
 
-	private int appsToUpdate = -1;
-	private int appsUpdated = 0;
 	private Thread awaitingServiceStop;
 	private ConsoleProvider console;
 	private boolean interactive = false;
-	private Updater updater;
 	private boolean exitWhenDone;
 	private Thread awaitingServiceStart;
 
 	public CLI() throws DBusException {
-		super(ExtensionTarget.CLIENT_CLI);
+		super();
 		setSupportsAuthorization(true);
 		try {
 			console = new NativeConsoleDevice();
@@ -112,7 +108,6 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 			public void busInitializer(DBusConnection connection) throws DBusException {
 				log.info("Configuring Bus");
 
-				boolean finishUpdate = awaitingServiceStart != null;
 				giveUpWaitingForServiceStart();
 
 				DBusConnection bus = getBus();
@@ -140,111 +135,6 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 						exitCLI();
 					}
 				});
-
-				bus.addSigHandler(VPN.UpdateStart.class, new DBusSigHandler<VPN.UpdateStart>() {
-					@Override
-					public void handle(VPN.UpdateStart sig) {
-						log.debug("Update Start");
-						createUpdater();
-						if (isUpdateCancelled()) {
-							getVPN().cancelUpdate();
-						} else {
-							updater.start(sig.getApp(), sig.getTotalBytesExpected());
-						}
-					}
-				});
-
-				bus.addSigHandler(VPN.UpdateComplete.class, new DBusSigHandler<VPN.UpdateComplete>() {
-					@Override
-					public void handle(VPN.UpdateComplete sig) {
-						log.debug("Update Complete");
-						createUpdater();
-						if (isUpdateCancelled()) {
-							getVPN().cancelUpdate();
-						} else {
-							updater.complete(sig.getApp());
-							appsUpdated++;
-							log.info(String.format("Update of %s complete, have now updated %d of %d apps",
-									sig.getApp(), appsUpdated, appsToUpdate));
-						}
-					}
-				});
-				bus.addSigHandler(VPN.UpdateProgress.class, new DBusSigHandler<VPN.UpdateProgress>() {
-					@Override
-					public void handle(VPN.UpdateProgress sig) {
-						createUpdater();
-						if (isUpdateCancelled()) {
-							getVPN().cancelUpdate();
-						} else
-							updater.progress(sig.getApp(), sig.getSinceLastProgress(), sig.getTotalSoFar());
-					}
-				});
-				bus.addSigHandler(VPN.UpdateFailure.class, new DBusSigHandler<VPN.UpdateFailure>() {
-					@Override
-					public void handle(VPN.UpdateFailure sig) {
-						log.debug("Update Failure");
-						createUpdater();
-						updater.failure(sig.getApp(), sig.getMessage());
-						appsUpdated++;
-					}
-				});
-				bus.addSigHandler(VPN.UpdateInit.class, new DBusSigHandler<VPN.UpdateInit>() {
-					@Override
-					public void handle(VPN.UpdateInit sig) {
-						log.debug("Update Init");
-						createUpdater();
-						appsToUpdate = sig.getApps();
-						appsUpdated = 0;
-					}
-				});
-
-				bus.addSigHandler(VPN.UpdateDone.class, new DBusSigHandler<VPN.UpdateDone>() {
-					@Override
-					public void handle(VPN.UpdateDone sig) {
-						log.debug("Update Done");
-						createUpdater();
-						if (isUpdateCancelled()) {
-							getVPN().cancelUpdate();
-						} else {
-							if (sig.getFailureMessage() == null || sig.getFailureMessage().equals("")) {
-								updater.done();
-								if (sig.isRestart()) {
-									/* Can stop local bus now to avoid errors if server stops 
-									 * unexpectedly
-									 */
-									
-									
-									log.debug(String.format("Apps updated, starting restart process"));
-									awaitingServiceStop = new Thread() {
-										@Override
-										public void run() {
-											try {
-												Thread.sleep(30000);
-											} catch (InterruptedException e) {
-											}
-											if (awaitingServiceStop != null)
-												updater.failure(null,
-														BUNDLE.getString("client.update.serviceDidNotStopInTime"));
-										}
-									};
-									awaitingServiceStop.start();
-								}
-							} else {
-								updater.failure(null, sig.getFailureMessage());
-							}
-						}
-					}
-				});
-
-				if (finishUpdate) {
-					log.debug("Finishing Update");
-					createUpdater();
-					updater.awaitingRestart();
-					getScheduler().schedule(() -> {
-						exit();
-						System.exit(99);
-					}, 5, TimeUnit.SECONDS);
-				}
 			}
 
 			@Override
@@ -297,7 +187,7 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 		ConsoleProvider console = getConsole();
 		PrintWriter writer = console.out();
 		writer.println(String.format("CLI Version: %s",
-				HypersocketVersion.getVersion("com.logonbox/client-logonbox-vpn-cli")));
+				getVersion()));
 		try {
 			VPN vpn = getVPN();
 			writer.println(String.format("Service Version: %s", vpn.getVersion()));
@@ -348,23 +238,6 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 				err.println(String.format("%s", e.getMessage()));
 			}
 		} while (!exitWhenDone);
-	}
-	
-
-	protected void createUpdater() {
-		if (updater == null) {
-			log.debug("Creating updater");
-			updater = new Updater(CLI.this) {
-				@Override
-				public void close() {
-					super.close();
-					updater = null;
-					appsToUpdate = 0;
-					appsUpdated = 0;
-				}
-			};
-			updater.show();
-		}
 	}
 
 	@Override
@@ -450,10 +323,6 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 		}
 	}
 
-	private boolean isUpdateCancelled() {
-		return updater != null && updater.isCancelled();
-	}
-
 	@Command(name = "logonbox-vpn-cli-interactive", mixinStandardHelpOptions = true, description = "Interactive shell.", subcommands = {
 			Connections.class, Connect.class, Create.class, Delete.class, Disconnect.class, Exit.class, Show.class,
 			About.class, Edit.class, Update.class, Debug.class, Help.class, Config.class })
@@ -508,5 +377,15 @@ public class CLI extends AbstractDBusClient implements Runnable, CLIContext, DBu
 		public PromptingCertManager getCertManager() {
 			return CLI.this.getCertManager();
 		}
+
+		@Override
+		public UpdateService getUpdateService() {
+			return CLI.this.getUpdateService();
+		}
+	}
+
+	@Override
+	protected String getVersion() {
+		return HypersocketVersion.getVersion("com.logonbox/client-logonbox-vpn-cli");
 	}
 }

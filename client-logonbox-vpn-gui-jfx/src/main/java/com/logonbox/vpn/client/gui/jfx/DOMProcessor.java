@@ -24,6 +24,7 @@ import org.w3c.dom.NodeList;
 
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.common.client.ConnectionStatus;
+import com.logonbox.vpn.common.client.UpdateService;
 import com.logonbox.vpn.common.client.Util;
 import com.logonbox.vpn.common.client.api.Branding;
 import com.logonbox.vpn.common.client.dbus.VPN;
@@ -41,6 +42,8 @@ public class DOMProcessor {
 	private Map<String, Collection<String>> collections;
 
 	public DOMProcessor(VPN vpn, VPNConnection connection, Map<String, Collection<String>> collections, String lastErrorMessage, String lastErrorCause, String lastException, Branding branding, ResourceBundle pageBundle, ResourceBundle resources, Element documentElement, String disconnectionReason) {
+
+		UpdateService updateService = Main.getInstance().getUpdateService();
 		
 		String errorText = "";
 		String exceptionText = "";
@@ -54,15 +57,15 @@ public class DOMProcessor {
 		}
 
 		/* VPN service */
-		replacements.put("updatesEnabled", String.valueOf(vpn != null && vpn.isUpdatesEnabled()));
-		replacements.put("needsUpdating", String.valueOf(vpn != null && vpn.isNeedsUpdating()));
+		replacements.put("updatesEnabled", String.valueOf(updateService.isUpdatesEnabled()));
+		replacements.put("needsUpdating", String.valueOf(updateService.isNeedsUpdating()));
 		long vpnFreeMemory = vpn == null ? 0 : vpn.getFreeMemory();
 		long vpnMaxMemory = vpn == null ? 0 : vpn.getMaxMemory();
 		replacements.put("serviceFreeMemory",  Util.toHumanSize(vpnFreeMemory));
 		replacements.put("serviceMaxMemory",  Util.toHumanSize(vpnMaxMemory));
 		replacements.put("serviceUsedMemory",  Util.toHumanSize(vpnMaxMemory - vpnFreeMemory));
-		replacements.put("availableVersion",  vpn == null ? "" : MessageFormat.format(resources.getString("availableVersion"),  vpn.getAvailableVersion()));
-		replacements.put("installingVersion",  vpn == null ? "" : MessageFormat.format(resources.getString("installingVersion"),  vpn.getAvailableVersion()));
+		replacements.put("availableVersion",  vpn == null ? "" : MessageFormat.format(resources.getString("availableVersion"),  updateService.getAvailableVersion()));
+		replacements.put("installingVersion",  vpn == null ? "" : MessageFormat.format(resources.getString("installingVersion"),  updateService.getAvailableVersion()));
 		
 		/* General */
 		long freeMemory = Runtime.getRuntime().freeMemory();
@@ -73,14 +76,13 @@ public class DOMProcessor {
 		replacements.put("errorMessage", errorText);
 		replacements.put("errorCauseMessage", errorCauseText);
 		replacements.put("exception", exceptionText);
-		String version = HypersocketVersion.getVersion("com.hypersocket/client-logonbox-vpn-gui-jfx");
+		String version = HypersocketVersion.getVersion("com.logonbox/client-logonbox-vpn-gui-jfx");
 		replacements.put("clientVersion",  version);
 		replacements.put("snapshot",  String.valueOf(version.indexOf("-SNAPSHOT") != -1));
 		replacements.put("brand", MessageFormat.format(resources.getString("brand"),
 			(branding == null || branding.getResource() == null
 						|| StringUtils.isBlank(branding.getResource().getName()) ? "LogonBox"
 								: branding.getResource().getName())));
-		replacements.put("tracksServerVersion", vpn == null ? "true" : String.valueOf(vpn.isTrackServerVersion()));
 		replacements.put("trayConfigurable", String.valueOf(Client.get().isTrayConfigurable()));
 		
 		/* Connection */

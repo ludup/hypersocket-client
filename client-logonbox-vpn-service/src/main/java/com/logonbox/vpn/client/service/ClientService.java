@@ -45,10 +45,6 @@ public interface ClientService  {
 
 	void authorized(Connection connection) ;
 
-	void update() ;
-
-	void checkForUpdate() ;
-
 	void deauthorize(Connection connection) ;
 
 	boolean hasStatus(String owner, String uri) ;
@@ -68,12 +64,8 @@ public interface ClientService  {
 	void registered(VPNFrontEnd frontEnd);
 
 	String getActiveInterface(Connection c);
-
-	boolean isUpdatesEnabled();
 	
 	IOException getConnectionError(Connection connection);
-
-	boolean isUpdateChecksEnabled();
 
 	void stopService();
 
@@ -81,9 +73,5 @@ public interface ClientService  {
 
 	List<Connection> getConnections(String owner);
 
-	void deferUpdate();
-
 	void restart();
-
-	void cancelUpdate();
 }

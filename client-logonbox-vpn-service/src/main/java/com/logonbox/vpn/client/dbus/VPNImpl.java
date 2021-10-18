@@ -1,25 +1,14 @@
 package com.logonbox.vpn.client.dbus;
 
-import java.io.File;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.freedesktop.dbus.annotations.DBusInterfaceName;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.extensions.ExtensionPlace;
-import com.hypersocket.extensions.JsonExtensionPhase;
-import com.hypersocket.extensions.JsonExtensionPhaseList;
 import com.hypersocket.json.version.HypersocketVersion;
 import com.logonbox.vpn.client.LocalContext;
 import com.logonbox.vpn.client.Main;
@@ -57,34 +46,11 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
-	public boolean isNeedsUpdating() {
-		assertRegistered();
-		return ctx.getUpdateService().isNeedsUpdating();
-	}
-	
-	@Override
-	public boolean isUpdatesEnabled() {
-		assertRegistered();
-		return ctx.getClientService().isUpdatesEnabled();
-	}
-
-	@Override
 	public String[] getKeys() {
 		assertRegistered();
 		return ctx.getClientService().getKeys();
 	}
 
-	@Override
-	public String getAvailableVersion() {
-		assertRegistered();
-		return ctx.getUpdateService().getAvailableVersion();
-	}
-
-	@Override
-	public boolean isUpdating() {
-		assertRegistered();
-		return ctx.getUpdateService().isUpdating();
-	}
 
 	@Override
 	public String getUUID() {
@@ -107,30 +73,6 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
-	public boolean isTrackServerVersion() {
-		assertRegistered();
-		return ctx.getUpdateService().isTrackServerVersion();
-	}
-
-	@Override
-	public void update() {
-		assertRegistered();
-		ctx.getClientService().update();
-	}
-
-	@Override
-	public void checkForUpdate() {
-		assertRegistered();
-		ctx.getClientService().checkForUpdate();
-	}
-
-	@Override
-	public void deferUpdate() {
-		assertRegistered();
-		ctx.getClientService().deferUpdate();
-	}
-
-	@Override
 	public void deregister() {
 		String src = DBusConnection.getCallInfo().getSource();
 		log.info(String.format("De-register front-end %s", src));
@@ -138,54 +80,19 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
-	public void register(String username, boolean interactive, String id, String dirPath, String[] urls,
-			boolean supportsAuthorization, Map<String, String> archives, String target) {
-		log.info(String.format("Register client %s", id));
+	public void register(String username, boolean interactive, boolean supportsAuthorization) {
 		VPNFrontEnd frontEnd = null;
 		String source = DBusConnection.getCallInfo().getSource();
+		log.info(String.format("Register client %s", source));
 		if(ctx.hasFrontEnd(source)) {
 			ctx.deregisterFrontEnd(source);
 		}
-		frontEnd = ctx.registerFrontEnd(source, target);
+		frontEnd = ctx.registerFrontEnd(source);
 		frontEnd.setUsername(username);
 		frontEnd.setInteractive(interactive);
 		frontEnd.setSupportsAuthorization(supportsAuthorization);
 
-		// TODO deregister when DBus goes
-
-		Map<String, File> bootstrapArchives = new HashMap<>();
-		for(Map.Entry<String, String> en : archives.entrySet()) {
-			bootstrapArchives.put(en.getKey(), new File(en.getValue()));
-		}
-
-		// TODO authorize the user somehow. We need to prove the username being
-		// requested is actually
-		// the one that will be using the bus connection
-		//
-		// An idea
-		// 1. The service creates a file ONLY readable by the requesting user (it should
-		// be allowed to do this, its running as root)
-		// 2. The service places a random cookie in this file (in 'dirPath')
-		// 3. The server responds with just the filename (no path)
-		// 4. The client reads this file from dirPath
-		// 5. The client calls a new DBUS method 'authenticate' with the cookie value
-		// 6. The server marks the sources as authenticated and will allow other methods
-
-		frontEnd.setPlace(
-				new ExtensionPlace(id, new File(dirPath), bootstrapArchives, Arrays.asList(urls).stream().map(url -> {
-					try {
-						return new URL(url);
-					} catch (MalformedURLException murle) {
-						throw new IllegalArgumentException(murle);
-					}
-				}).collect(Collectors.toList())));
 		ctx.getClientService().registered(frontEnd);
-	}
-
-	@Override
-	public void cancelUpdate() {
-		assertRegistered();
-		ctx.getClientService().cancelUpdate();
 	}
 
 	@Override
@@ -263,20 +170,6 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	}
 
 	@Override
-	public String[] getPhases() {
-		assertRegistered();
-		Map<String, String> phases = new LinkedHashMap<>();
-		JsonExtensionPhaseList phaseList = ctx.getUpdateService().getPhases();
-		if (phaseList.getResult() != null) {
-			for (JsonExtensionPhase phase : phaseList.getResult()) {
-				if(phase.isPublicPhase() && (!isNightly(phase) || (Boolean.getBoolean("logonbox.vpn.updates.nightly") || Boolean.getBoolean("hypersocket.development"))))
-					phases.put(phase.getName(), phase.getVersion());
-			}
-		}
-		return phases.keySet().toArray(new String[0]);
-	}
-
-	@Override
 	public void disconnectAll() {
 		assertRegistered();
 		for (ConnectionStatus s : ctx.getClientService().getStatus(getOwner())) {
@@ -310,10 +203,6 @@ public class VPNImpl extends AbstractVPNComponent implements VPN {
 	@Override
 	public long getFreeMemory() {
 		return Runtime.getRuntime().freeMemory();
-	}
-
-	private boolean isNightly(JsonExtensionPhase phase) {
-		return phase.getName().startsWith("nightly");
 	}
 
 	@Override

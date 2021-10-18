@@ -6,6 +6,7 @@ import java.util.List;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 
 import com.logonbox.vpn.common.client.PromptingCertManager;
+import com.logonbox.vpn.common.client.UpdateService;
 import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
 
@@ -17,7 +18,7 @@ public interface CLIContext {
 	ConsoleProvider getConsole();
 
 	List<VPNConnection> getVPNConnections();
-	
+
 	PromptingCertManager getCertManager();
 
 	void about() throws IOException;
@@ -27,4 +28,6 @@ public interface CLIContext {
 	boolean isQuiet();
 
 	DBusConnection getBus();
+
+	UpdateService getUpdateService();
 }

@@ -2,14 +2,11 @@ package com.logonbox.vpn.common.client;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
@@ -24,8 +21,6 @@ import org.freedesktop.dbus.interfaces.Local;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hypersocket.extensions.ExtensionPlace;
-import com.hypersocket.extensions.ExtensionTarget;
 import com.logonbox.vpn.common.client.dbus.DBusClient;
 import com.logonbox.vpn.common.client.dbus.VPN;
 import com.logonbox.vpn.common.client.dbus.VPNConnection;
@@ -73,16 +68,15 @@ public abstract class AbstractDBusClient implements DBusClient {
 	private CommandSpec spec;
 	private ScheduledFuture<?> pingTask;
 	private boolean supportsAuthorization;
-	private ExtensionTarget target;
 	private PromptingCertManager certManager;
+	private UpdateService  updateService;
 	/**
 	 * Matches the identifier in logonbox VPN server
 	 * PeerConfigurationAuthenticationProvider.java
 	 */
 	public static final String DEVICE_IDENTIFIER = "LBVPNDID";
 
-	protected AbstractDBusClient(ExtensionTarget target) {
-		this.target = target;
+	protected AbstractDBusClient() {
 		certManager = createCertManager();
 		certManager.installCertificateVerifier();
 		scheduler = Executors.newScheduledThreadPool(1);
@@ -97,6 +91,12 @@ public abstract class AbstractDBusClient implements DBusClient {
 				}
 			}
 		});
+		
+		updateService = new Install4JUpdateServiceImpl(this);
+	}
+	
+	public UpdateService getUpdateService() {
+		return updateService;
 	}
 
 	public boolean isSupportsAuthorization() {
@@ -246,12 +246,8 @@ public abstract class AbstractDBusClient implements DBusClient {
 
 	private void loadRemote() throws DBusException {
 		VPN newVpn = conn.getRemoteObject(BUS_NAME, ROOT_OBJECT_PATH, VPN.class);
-		ExtensionPlace place = ExtensionPlace.getDefault();
 		getLog().info("Got remote object, registering with DBus.");
-		newVpn.register(getEffectiveUser(), isInteractive(), place.getApp(), place.getDir().getAbsolutePath(),
-				place.getUrls().stream().map(placeUrl -> placeUrl.toExternalForm()).collect(Collectors.toList())
-						.toArray(new String[0]),
-				supportsAuthorization, toStringMap(ExtensionPlace.getDefault().getBootstrapArchives()), target.name());
+		newVpn.register(getEffectiveUser(), isInteractive(), supportsAuthorization);
 		vpn = newVpn;
 		busAvailable = true;
 		getLog().info("Registered with DBus.");
@@ -286,14 +282,6 @@ public abstract class AbstractDBusClient implements DBusClient {
 			else
 				throw new IllegalStateException("Cannot impersonate a user if not an administrator.");
 		}
-	}
-
-	private Map<String, String> toStringMap(Map<String, File> bootstrapArchives) {
-		Map<String, String> map = new HashMap<String, String>();
-		for (Map.Entry<String, File> en : bootstrapArchives.entrySet()) {
-			map.put(en.getKey(), en.getValue().getAbsolutePath());
-		}
-		return map;
 	}
 
 	private void cancelPingTask() {
@@ -343,4 +331,6 @@ public abstract class AbstractDBusClient implements DBusClient {
 	}
 
 	protected abstract PromptingCertManager createCertManager();
+	
+	protected abstract String getVersion(); 
 }

@@ -1,30 +1,16 @@
 package com.logonbox.vpn.common.client.dbus;
 
-import com.hypersocket.extensions.ExtensionPlace;
-import com.hypersocket.extensions.ExtensionTarget;
-
 public class VPNFrontEnd {
 
 	private String source;
 	private boolean interactive;
 	private boolean supportsAuthorization;
-	private ExtensionPlace place;
 	private String username;
 	private long lastPing = System.currentTimeMillis();
 	private boolean updated = false;
-	private ExtensionTarget target;
 
-	public VPNFrontEnd(String source, ExtensionTarget target) {
+	public VPNFrontEnd(String source) {
 		this.source = source;
-		this.target = target;
-	}
-
-	public ExtensionTarget getTarget() {
-		return target;
-	}
-
-	public void setTarget(ExtensionTarget target) {
-		this.target = target;
 	}
 
 	public boolean isUpdated() {
@@ -59,24 +45,16 @@ public class VPNFrontEnd {
 		this.interactive = interactive;
 	}
 
-	public ExtensionPlace getPlace() {
-		return place;
-	}
-
-	public void setPlace(ExtensionPlace place) {
-		this.place = place;
-	}
-
 	public String getSource() {
 		return source;
 	}
 
 	@Override
 	public String toString() {
-		return "VPNFrontEnd [source=" + source + ", interactive=" + interactive + ", place=" + place + ", username="
+		return "VPNFrontEnd [source=" + source + ", interactive=" + interactive + ", username="
 				+ username + "]";
 	}
-	
+
 	public long getLastPing() {
 		return lastPing;
 	}
