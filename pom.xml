@@ -53,8 +53,8 @@
 	</properties>
 
 	<modules>
+        <module>client-logonbox-vpn-common</module>
 		<module>client-logonbox-vpn-service</module>
-		<module>client-logonbox-vpn-common</module>
 		<module>client-logonbox-vpn-gui-jfx</module>
 		<module>client-logonbox-vpn-cli</module>
 		<!-- <module>client-logonbox-vpn-winsrv</module> -->
