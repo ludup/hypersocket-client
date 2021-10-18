@@ -12,11 +12,11 @@
 	<distributionManagement>
 		<repository>
 			<id>libs-releases</id>
-			<url>https://artifactory.jadaptive.com/libs-releases</url>
+			<url>https://artifactory.jadaptive.com/libs-releases-local</url>
 		</repository>
 		<snapshotRepository>
 			<id>libs-snapshots</id>
-			<url>https://artifactory.jadaptive.com/libs-snapshots</url>
+			<url>https://artifactory.jadaptive.com/libs-snapshots-local</url>
 		</snapshotRepository>
 	</distributionManagement>
 	
