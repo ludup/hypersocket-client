@@ -22,10 +22,11 @@ public class Install4JUpdateServiceImpl implements UpdateService {
 	private AbstractDBusClient context;
 	private boolean updating;
 	private String availableVersion = "";
+	private boolean needsUpdate;
 
 	public Install4JUpdateServiceImpl(AbstractDBusClient context) {
 		this.context = context;
-		availableVersion = context.getVersion();
+		resetAvailableVersion();
 	}
 
 	@Override
@@ -57,7 +58,7 @@ public class Install4JUpdateServiceImpl implements UpdateService {
 
 	@Override
 	public boolean isNeedsUpdating() {
-		return UpdateChecker.isUpdateScheduled();
+		return needsUpdate;
 	}
 
 	@Override
@@ -81,15 +82,38 @@ public class Install4JUpdateServiceImpl implements UpdateService {
 		UpdateDescriptor update;
 		try {
 			update = UpdateChecker.getUpdateDescriptor(uurl, ApplicationDisplayMode.GUI);
+			best = update.getPossibleUpdateEntry();
+			if (best == null) {
+				log.info("No version available.");
+				resetAvailableVersion();
+			} else {
+				availableVersion = best.getNewVersion();
+				log.info(availableVersion + " is available.");
+				
+				/* TODO: This will allow downgrades. */
+				if(!availableVersion.equals(context.getVersion())) {
+					log.info("Update available.");
+					needsUpdate = true;
+				}
+				else {
+					log.info("No update needed.");
+					needsUpdate = false;	
+				}
+			}
 		} catch (UserCanceledException e) {
+			log.info("Cancelled.");
+			resetAvailableVersion();
 			throw new InterruptedIOException("Cancelled.");
+		} catch(Exception e) {
+			log.info("Failed.", e);
+			resetAvailableVersion();
+			
 		}
-		best = update.getPossibleUpdateEntry();
-		if (best == null) {
-			availableVersion = context.getVersion();
-		} else {
-			availableVersion = best.getNewVersion();
-		}
+	}
+
+	protected void resetAvailableVersion() {
+		availableVersion = context.getVersion();
+		needsUpdate = false;
 	}
 
 	@Override
