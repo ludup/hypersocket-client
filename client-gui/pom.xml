@@ -106,7 +106,7 @@
 	<repositories>
 		<repository>
 			<id>swt-repo</id>
-			<url>http://artifactory.javassh.com/swt-repo</url>
+			<url>https://artifactory.jadaptive.com/swt-repo</url>
 		</repository>
 	</repositories>
 
